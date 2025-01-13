@@ -631,7 +631,95 @@ const internController = {
         } finally {
             conn.release();
         }
+    },
+
+    getHistory: async (req, res) => {
+        try {
+            const {
+                page = 1,
+                limit = 10,
+                status = 'selesai',
+                bidang,
+                search
+            } = req.query;
+    
+            const offset = (page - 1) * limit;
+    
+            // Base query for data retrieval
+            let query = `
+                SELECT 
+                    pm.id_magang, 
+                    pm.nama, 
+                    pm.email, 
+                    b.nama_bidang, 
+                    pm.status, 
+                    pm.tanggal_masuk, 
+                    pm.tanggal_keluar
+                FROM peserta_magang pm
+                LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
+                WHERE pm.status = ?
+            `;
+    
+            // Base query for counting total records
+            let countQuery = `
+                SELECT COUNT(*) AS total 
+                FROM peserta_magang pm
+                LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
+                WHERE pm.status = ?
+            `;
+    
+            const params = [status];
+            const countParams = [status];
+    
+            // Add filter for bidang
+            if (bidang) {
+                query += ` AND pm.id_bidang = ?`;
+                countQuery += ` AND pm.id_bidang = ?`;
+                params.push(bidang);
+                countParams.push(bidang);
+            }
+    
+            // Add search filter
+            if (search) {
+                query += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;
+                countQuery += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;
+                params.push(`%${search}%`, `%${search}%`);
+                countParams.push(`%${search}%`, `%${search}%`);
+            }
+    
+            // Add sorting and pagination
+            query += ` ORDER BY pm.tanggal_keluar DESC LIMIT ? OFFSET ?`;
+            params.push(parseInt(limit), parseInt(offset));
+    
+            // Execute the main query
+            const [rows] = await pool.execute(query, params);
+    
+            // Execute the count query
+            const [countRows] = await pool.execute(countQuery, countParams);
+            const totalData = countRows[0]?.total || 0;
+            const totalPages = Math.ceil(totalData / limit);
+    
+            // Response
+            return res.status(200).json({
+                status: "success",
+                data: rows,
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages,
+                    totalData,
+                    limit: parseInt(limit),
+                },
+            });
+        } catch (error) {
+            console.error('Error fetching history:', error);
+            return res.status(500).json({
+                status: "error",
+                message: 'Terjadi kesalahan server',
+                error: error.message,
+            });
+        }
     }
+        
 };
 
 module.exports = internController;

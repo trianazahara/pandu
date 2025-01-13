@@ -13,6 +13,7 @@ import {
 } from './pages';
 
 import { Sidebar } from './components/layout/Sidebar';
+import Header from './components/layout/Header';
 import Reports from './pages/Reports';
 import Login from './pages/Login'; // Tambahkan import Login
 
@@ -43,11 +44,14 @@ const ProtectedRoute = ({ children }) => {
 // Layout untuk halaman dengan sidebar
 const DashboardLayout = ({ children }) => {
     return (
-        <div className="flex">
-            <Sidebar />
-            <main className="flex-1 ml-64">
-                {children}
-            </main>
+        <div>
+            <Header />
+            <div className="flex">
+                <Sidebar />
+                <main className="flex-1 ml-64 pt-16">
+                    {children}
+                </main>
+            </div>
         </div>
     );
 };
@@ -63,7 +67,7 @@ const App = () => {
                         <Route path="/login" element={<Login />} />
 
                         {/* Rute yang dilindungi */}
-                        <Route path="/" element={
+                        <Route path="/dashboard" element={
                             <ProtectedRoute>
                                 <DashboardLayout>
                                     <Dashboard />

@@ -14,11 +14,23 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch('/api/intern/stats');
+                // Ubah URL sesuai dengan backend
+                const response = await fetch('http://localhost:5000/api/intern/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
                 const data = await response.json();
                 setStats(data);
             } catch (error) {
                 console.error('Error fetching stats:', error);
+                // Set default values jika terjadi error
+                setStats({
+                    activeInterns: 0,
+                    completedInterns: 0,
+                    totalInterns: 0,
+                    completingSoon: 0
+                });
             }
         };
 
@@ -34,7 +46,7 @@ const Dashboard = () => {
             
             <div className="mt-8">
                 <Typography variant="h5" className="mb-4">
-                    Anak Magang yang Akan Selesai
+                    Anak Magang yang Akan Selesai dalam kurun waktu 7 hari
                 </Typography>
                 {/* Implementasi tabel atau list anak magang yang akan selesai */}
             </div>

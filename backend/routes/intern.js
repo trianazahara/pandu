@@ -24,4 +24,8 @@ router.put('/:id', requireRole(['superadmin', 'admin']), internController.update
 // Get intern detail
 router.get('/:id', internController.getDetail);
 
+router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);
+router.put('/intern/:id', authMiddleware, internController.update);
+router.post('/intern', authMiddleware, internController.add);
+
 module.exports = router;

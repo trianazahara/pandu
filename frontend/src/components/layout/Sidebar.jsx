@@ -1,23 +1,26 @@
-// frontend/src/components/layout/Sidebar.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-    Dashboard,
-    People,
-    History,
-    Assessment,
-    Settings,
-    Notifications,
-    AdminPanelSettings,
-    AdminPanelSettingsRounded,
     Home,
-    DatasetSharp,
-    LibraryBooks
+    History,
+    People,
+    Settings,
+    LibraryBooks,
+    KeyboardArrowDown,
+    KeyboardArrowRight,
 } from '@mui/icons-material';
 
 export const Sidebar = () => {
     const location = useLocation();
-    
+    const [expandedMenus, setExpandedMenus] = useState({});
+
+    const toggleMenu = (path) => {
+        setExpandedMenus(prev => ({
+            ...prev,
+            [path]: !prev[path]
+        }));
+    };
+
     const menuItems = [
         {
             path: '/',
@@ -30,7 +33,7 @@ export const Sidebar = () => {
             label: 'Data Anak Magang',
             subItems: [
                 {
-                    path: '/intern/management-data',
+                    path: '/intern/management',
                     label: 'Manajemen Data'
                 },
                 {
@@ -59,7 +62,6 @@ export const Sidebar = () => {
             icon: <People />,
             label: 'Manajemen Admin'
         },
-        
         {
             path: '/settings',
             icon: <Settings />,
@@ -70,23 +72,47 @@ export const Sidebar = () => {
     return (
         <div className="w-64 h-screen bg-slate-50 text-green-600 fixed left-0 top-0">
             <div className="p-4">
-                <h1 className="text-xl font-bold mb-8">PANDU</h1>
-                <nav>
-                    {menuItems.map((item) => (
-                        <div key={item.path} className="mb-4">
-                            <Link
-                                to={item.path}
-                                className={`flex items-center p-2 rounded-lg ${
-                                    location.pathname === item.path
-                                        ? 'bg-green-200'
-                                        : 'hover:bg-green-100'
-                                }`}
-                            >
-                                {item.icon}
-                                <span className="ml-3">{item.label}</span>
-                            </Link>
-                            {item.subItems && (
-                                <div className="ml-8 mt-2">
+                <div className="flex items-center gap-3">
+                    <img 
+                        src="/images/logo.jpg" 
+                        alt="Pandu Logo" 
+                        className="w-12 h-12"
+                    />
+                    <div>
+                        <span className="text-green-500 text-2xl">PANDU</span>
+                        <div className="text-gray-700 text-sm">
+                            Platform Anak Magang
+                            <br />
+                            Dinas Pendidikan Sumatera Barat
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <nav>
+                {menuItems.map((item) => (
+                    <div key={item.path} className="mb-4">
+                        {item.subItems ? (
+                            // Menu with dropdown
+                            <div>
+                                <button
+                                    onClick={() => toggleMenu(item.path)}
+                                    className={`w-full flex items-center justify-between p-2 rounded-lg hover:bg-green-100`}
+                                >
+                                    <div className="flex items-center">
+                                        {item.icon}
+                                        <span className="ml-3">{item.label}</span>
+                                    </div>
+                                    {expandedMenus[item.path] ? 
+                                        <KeyboardArrowDown /> : 
+                                        <KeyboardArrowRight />
+                                    }
+                                </button>
+                                <div 
+                                    className={`ml-8 mt-2 transition-all duration-300 ${
+                                        expandedMenus[item.path] ? 'block' : 'hidden'
+                                    }`}
+                                >
                                     {item.subItems.map((subItem) => (
                                         <Link
                                             key={subItem.path}
@@ -101,13 +127,26 @@ export const Sidebar = () => {
                                         </Link>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </nav>
-            </div>
+                            </div>
+                        ) : (
+                            // Regular menu item
+                            <Link
+                                to={item.path}
+                                className={`flex items-center p-2 rounded-lg ${
+                                    location.pathname === item.path
+                                        ? 'bg-green-200'
+                                        : 'hover:bg-green-100'
+                                }`}
+                            >
+                                {item.icon}
+                                <span className="ml-3">{item.label}</span>
+                            </Link>
+                        )}
+                    </div>
+                ))}
+            </nav>
         </div>
     );
 };
 
-// export default Sidebar
+export default Sidebar;

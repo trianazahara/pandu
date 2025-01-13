@@ -2,6 +2,7 @@
   "dependencies": {
     "@mui/x-date-pickers": "^7.23.6",
     "date-fns": "^2.29.3",
+    "lucide-react": "^0.471.0",
     "uuid": "^11.0.5"
   }
 }

@@ -24,7 +24,35 @@ app.use('/api/document', documentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server berjalan di port ${PORT}`);
+// Error handling middleware - TAMBAHKAN INI
+app.use((err, req, res, next) => {
+    console.error('Error:', err.stack);
+    res.status(500).json({ 
+        status: 'error',
+        message: 'Terjadi kesalahan server'
+    });
 });
+
+// Handle 404 - TAMBAHKAN INI
+app.use((req, res) => {
+    res.status(404).json({
+        status: 'error',
+        message: 'Route tidak ditemukan'
+    });
+});
+
+const PORT = process.env.PORT || 5000;
+
+// Improved error handling for server startup
+const startServer = async () => {
+    try {
+        app.listen(PORT, () => {
+            console.log(`Server berjalan di port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Error starting server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();

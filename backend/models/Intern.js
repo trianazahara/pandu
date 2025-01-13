@@ -6,14 +6,20 @@ class Intern {
         let query = `
             SELECT 
                 p.*,
-                i.nama_institusi,
                 b.nama_bidang,
                 CASE 
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
                     ELSE s.nisn
-                END as nomor_induk
+                END as nomor_induk,
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
+                    ELSE s.kelas
+                END as detail_pendidikan,
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
+                    ELSE s.jurusan
+                END as jurusan
             FROM peserta_magang p
-            LEFT JOIN institusi i ON p.id_institusi = i.id_institusi
             LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
             LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
@@ -33,8 +39,12 @@ class Intern {
         }
 
         if (search) {
-            query += ` AND (p.nama LIKE ? OR i.nama_institusi LIKE ?)`;
-            params.push(`%${search}%`, `%${search}%`);
+            query += ` AND (p.nama LIKE ? OR p.nama_institusi LIKE ? OR 
+                        CASE 
+                            WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
+                            ELSE s.nisn
+                        END LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
         }
 
         // Get total count
@@ -65,23 +75,34 @@ class Intern {
         const [interns] = await pool.execute(`
             SELECT 
                 p.*,
-                i.nama_institusi,
                 b.nama_bidang,
                 CASE 
-                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                    ELSE s.nisn
-                END as nomor_induk,
-                m.fakultas,
-                m.jurusan as jurusan_mahasiswa,
-                s.jurusan as jurusan_siswa,
-                s.kelas
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN (
+                        SELECT JSON_OBJECT(
+                            'nim', m.nim,
+                            'fakultas', m.fakultas,
+                            'jurusan', m.jurusan,
+                            'semester', m.semester
+                        )
+                    )
+                    ELSE (
+                        SELECT JSON_OBJECT(
+                            'nisn', s.nisn,
+                            'jurusan', s.jurusan,
+                            'kelas', s.kelas
+                        )
+                    )
+                END as detail_peserta
             FROM peserta_magang p
-            LEFT JOIN institusi i ON p.id_institusi = i.id_institusi
             LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
             LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
             WHERE p.id_magang = ?
         `, [id]);
+
+        if (interns[0]?.detail_peserta) {
+            interns[0].detail_peserta = JSON.parse(interns[0].detail_peserta);
+        }
 
         return interns[0];
     }

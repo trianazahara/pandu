@@ -23,7 +23,7 @@ export const Sidebar = () => {
 
     const menuItems = [
         {
-            path: '/',
+            path: '/dashboard',
             icon: <Home />,
             label: 'Dashboard'
         },

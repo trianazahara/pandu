@@ -67,5 +67,13 @@ const settingsController = {
             console.error('Error getting templates:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
         }
+    },
+
+    updateProfile: async (req, res) => {
+        try {
+
+        } catch {
+            
+        }
     }
 };

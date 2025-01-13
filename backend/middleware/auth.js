@@ -12,7 +12,7 @@ const authMiddleware = (req, res, next) => {
     if (!decoded) {
         return res.status(401).json({ message: 'Token tidak valid' });
     }
-
+    console.log('Decoded token:', decoded); // Add this for debugging
     req.user = decoded;
     next();
 };

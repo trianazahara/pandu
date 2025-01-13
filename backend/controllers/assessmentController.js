@@ -193,6 +193,33 @@ const assessmentController = {
             console.error('Error generating certificate:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
         }
+    },
+
+    getRekapNilai: async (req, res) => {
+        try {
+            const {
+                id_magang,
+                nama,
+                id_institusi, 
+                nama_institusi,
+                nilai_teamwork,
+                nilai_komunikasi,
+                nilai_pengambilan_keputusan,
+                nilai_kualitas_kerja,
+                nilai_teknologi,
+                nilai_disiplin,
+                nilai_tanggungjawab,
+                nilai_kerjasama,
+                nilai_inisiatif,
+                nilai_kejujuran,
+                nilai_kebersihan
+            } = req.query;
+
+            
+
+        } catch {
+
+        }
     }
 };
 

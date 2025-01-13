@@ -37,7 +37,7 @@ export const Sidebar = () => {
                     label: 'Manajemen Data'
                 },
                 {
-                    path: '/intern/availability',
+                    path: '/intern/availabilityCheck',
                     label: 'Check Ketersediaan'
                 }
             ]

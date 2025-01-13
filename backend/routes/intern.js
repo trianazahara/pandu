@@ -4,6 +4,7 @@ const router = express.Router();
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const internController = require('../controllers/internController');
 
+
 router.use(authMiddleware);
 
 // Get all interns with filters

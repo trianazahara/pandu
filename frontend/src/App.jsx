@@ -63,7 +63,7 @@ const App = () => {
                         <Route path="/login" element={<Login />} />
 
                         {/* Rute yang dilindungi */}
-                        <Route path="/" element={
+                        <Route path="/dashboard" element={
                             <ProtectedRoute>
                                 <DashboardLayout>
                                     <Dashboard />

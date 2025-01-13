@@ -16,7 +16,7 @@ const Login = () => {
         try {
             const success = await login(username, password);
             if (success) {
-                navigate('/');
+                navigate('/dashboard');
             } else {
                 setError('Login gagal. Silakan coba lagi.');
             }

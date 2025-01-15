@@ -6,7 +6,9 @@ import {
     CardContent,
     TextField,
     Button,
-    Dialog
+    Dialog,
+    Snackbar,
+    Alert
 } from '@mui/material';
 
 const Assessment = () => {
@@ -26,14 +28,29 @@ const Assessment = () => {
         nilai_kejujuran: '',
         nilai_kebersihan: ''
     });
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // 'success', 'error', 'warning', 'info'
+    });
 
+    // Fetch data peserta magang yang sudah selesai
     const fetchCompletedInterns = async () => {
         try {
-            const response = await fetch('/api/intern?status=selesai');
+            const response = await fetch('/api/intern?status=selesai', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
             const data = await response.json();
             setInterns(data.data);
         } catch (error) {
             console.error('Error fetching completed interns:', error);
+            setSnackbar({
+                open: true,
+                message: 'Gagal memuat data peserta magang',
+                severity: 'error'
+            });
         }
     };
 
@@ -41,12 +58,14 @@ const Assessment = () => {
         fetchCompletedInterns();
     }, []);
 
+    // Handle submit penilaian
     const handleSubmitAssessment = async () => {
         try {
             const response = await fetch(`/api/assessment/${selectedIntern.id_magang}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify(assessment)
             });
@@ -56,31 +75,63 @@ const Assessment = () => {
                 setSelectedIntern(null);
                 setAssessment({});
                 fetchCompletedInterns();
+
+                setSnackbar({
+                    open: true,
+                    message: 'Penilaian berhasil disimpan',
+                    severity: 'success'
+                });
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal menyimpan penilaian');
             }
         } catch (error) {
             console.error('Error submitting assessment:', error);
+            setSnackbar({
+                open: true,
+                message: error.message || 'Gagal menyimpan penilaian',
+                severity: 'error'
+            });
         }
     };
 
+    // Handle generate sertifikat
     const handleGenerateCertificate = async (internId) => {
         try {
             const response = await fetch(`/api/document/certificate/${internId}`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
             });
 
             if (response.ok) {
-                // Handle PDF download
+                // Download PDF
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'sertifikat.pdf';
+                a.download = `Sertifikat_${internId}.pdf`;
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(url);
+                a.remove();
+
+                setSnackbar({
+                    open: true,
+                    message: 'Sertifikat berhasil di-generate',
+                    severity: 'success'
+                });
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal generate sertifikat');
             }
         } catch (error) {
-            console.error('Error generating certificate:', error);
+            console.error('Certificate Generation Error:', error);
+            setSnackbar({
+                open: true,
+                message: error.message || 'Gagal generate sertifikat',
+                severity: 'error'
+            });
         }
     };
 
@@ -90,6 +141,7 @@ const Assessment = () => {
                 Penilaian Anak Magang
             </Typography>
 
+            {/* Daftar Peserta Magang */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {interns.map((intern) => (
                     <Card key={intern.id_magang}>
@@ -106,7 +158,7 @@ const Assessment = () => {
                                 {new Date(intern.tanggal_keluar).toLocaleDateString()}
                             </Typography>
 
-                            <div className="mt-4 space-x-2">
+                            <div className="mt-4 space-x-2 flex justify-between">
                                 <Button
                                     variant="contained"
                                     onClick={() => {
@@ -128,6 +180,7 @@ const Assessment = () => {
                 ))}
             </div>
 
+            {/* Form Penilaian */}
             <Dialog
                 open={showAssessmentForm}
                 onClose={() => {
@@ -171,9 +224,24 @@ const Assessment = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Snackbar Notifikasi */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </div>
     );
 };
 
-export default Assessment
-// export { Dashboard, InternManagement, AvailabilityCheck, Assessment };
+export default Assessment;

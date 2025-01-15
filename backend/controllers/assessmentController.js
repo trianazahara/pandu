@@ -400,4 +400,20 @@ const assessmentController = {
     },
 };
 
+const Notification = require('../models/Notification');
+
+// Di dalam fungsi create assessment
+await Notification.createAssessmentNotification({
+    id_magang,
+    created_by: req.user.userId
+});
+
+const cron = require('node-cron');
+const Notification = require('./models/Notification');
+
+// Hapus notifikasi lama setiap hari
+cron.schedule('0 0 * * *', async () => {
+    await Notification.deleteOldNotifications();
+});
+
 module.exports = assessmentController;

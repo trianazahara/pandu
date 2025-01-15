@@ -5,6 +5,14 @@ import { Button } from '../components/ui/button';
 import { useToast } from '../components/ui/use-toast';
 import { Toaster } from '../components/ui/toaster';
 import {
+    Typography,
+    Card,
+    CardContent,
+    Button,
+    TextField,
+    Grid,
+    Snackbar,
+    Alert,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -12,8 +20,28 @@ import {
   DialogTrigger,
 } from "../components/ui/dialog";
 import { Label } from '../components/ui/label';
+from '@mui/material';
+import { useAuth } from '../contexts/authContext.jsx';
 
 const Settings = () => {
+  const { user } = useAuth();
+    const [profile, setProfile] = useState({
+        nama: user?.nama || '',
+        email: user?.email || '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [templates, setTemplates] = useState({
+        surat_penerimaan: null,
+        sertifikat: null
+    });
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // 'success', 'error', 'warning', 'info'
+    });
+  
   const { toast } = useToast();
   const [profile, setProfile] = useState({
     username: '',
@@ -47,7 +75,6 @@ const Settings = () => {
         showToast('error', "Gagal mengambil data profile");
       }
     };
-
     fetchProfile();
   }, []);
 
@@ -70,6 +97,93 @@ const Settings = () => {
     });
   };
 
+  // Handle template upload
+    const handleTemplateUpload = async (type, file) => {
+        if (!file) {
+            setSnackbar({
+                open: true,
+                message: 'File template tidak ditemukan',
+                severity: 'error'
+            });
+            return;
+        }
+
+        if (file.type !== 'application/pdf') {
+            setSnackbar({
+                open: true,
+                message: 'File harus berupa PDF',
+                severity: 'error'
+            });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('template', file);
+        formData.append('jenis', type);
+
+        try {
+            const response = await fetch('/api/document/template', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setTemplates(prev => ({
+                    ...prev,
+                    [type]: data
+                }));
+
+                setSnackbar({
+                    open: true,
+                    message: 'Template berhasil diunggah',
+                    severity: 'success'
+                });
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal mengunggah template');
+            }
+        } catch (error) {
+            console.error('Error uploading template:', error);
+            setSnackbar({
+                open: true,
+                message: error.message || 'Gagal mengunggah template',
+                severity: 'error'
+            });
+        };
+      
+      // Fetch templates on component mount
+    useEffect(() => {
+        const fetchTemplates = async () => {
+            try {
+                const response = await fetch('/api/document/templates', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const data = await response.json();
+
+                const templateMap = data.reduce((acc, template) => {
+                    acc[template.jenis] = template;
+                    return acc;
+                }, {});
+
+                setTemplates(templateMap);
+            } catch (error) {
+                console.error('Error fetching templates:', error);
+                setSnackbar({
+                    open: true,
+                    message: 'Gagal memuat data template',
+                    severity: 'error'
+                });
+            }
+        };
+
+        fetchTemplates();
+    }, []);
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
@@ -145,7 +259,6 @@ const Settings = () => {
         },
         body: JSON.stringify(passwords)
       });
-
       if (response.ok) {
         showToast('success', "Password berhasil diubah!");
         setPasswords({ oldPassword: '', newPassword: '' });
@@ -322,9 +435,80 @@ const Settings = () => {
             </form>
           </CardContent>
         </Card>
+
+{/* Template Settings */}
+                <Card>
+                    <CardContent>
+                        <Typography variant="h6" className="mb-4">
+                            Template Dokumen
+                        </Typography>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <div className="space-y-2">
+                                    <Typography>
+                                        Template Surat Penerimaan
+                                    </Typography>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={(e) => handleTemplateUpload('surat_penerimaan', e.target.files[0])}
+                                            style={{ display: 'none' }}
+                                            id="surat-penerimaan-upload"
+                                        />
+                                        <label htmlFor="surat-penerimaan-upload">
+                                            <Button
+                                                variant="contained"
+                                                component="span"
+                                            >
+                                                Upload Template
+                                            </Button>
+                                        </label>
+                                        {templates.surat_penerimaan && (
+                                            <Typography variant="body2" color="textSecondary">
+                                                Template aktif: {templates.surat_penerimaan.file_name}
+                                            </Typography>
+                                        )}
+                                    </div>
+                                </div>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <div className="space-y-2">
+                                    <Typography>
+                                        Template Sertifikat
+                                    </Typography>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={(e) => handleTemplateUpload('sertifikat', e.target.files[0])}
+                                            style={{ display: 'none' }}
+                                            id="sertifikat-upload"
+                                        />
+                                        <label htmlFor="sertifikat-upload">
+                                            <Button
+                                                variant="contained"
+                                                component="span"
+                                            >
+                                                Upload Template
+                                            </Button>
+                                        </label>
+                                        {templates.sertifikat && (
+                                            <Typography variant="body2" color="textSecondary">
+                                                Template aktif: {templates.sertifikat.file_name}
+                                            </Typography>
+                                        )}
+                                    </div>
+                                </div>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+            </div>
       </div>
     </>
   );
+
 };
 
 export default Settings;

@@ -1,14 +1,54 @@
-// backend/controllers/profileController
 const pool = require('../config/database');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, '../uploads/profile_pictures');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer storage
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        const filename = `${uuidv4()}${ext}`;
+        cb(null, filename);
+    }
+});
+
+// Configure multer upload with file filtering
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only .png, .jpg and .jpeg format allowed!'), false);
+    }
+};
+
+// Create multer upload instance - MOVED BEFORE profileController
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: fileFilter
+}).single('profile_picture');
+
 
 const profileController = {
     // create
     getProfile: async (req, res) => {
         try {
-            const { userId } = req.user; // Ambil id_users dari token (middleware auth)
-
-            // Query data user berdasarkan id_users
+            const { userId } = req.user;
             const [rows] = await pool.execute(
                 `SELECT id_users, username, email, nama, profile_picture, last_login, role 
                  FROM users WHERE id_users = ?`,
@@ -26,27 +66,15 @@ const profileController = {
         }
     },
 
-    //update
     editProfile: async (req, res) => {
-
         try {
-            const { userId } = req.user; // Ambil `id_users` dari token (middleware auth)
-            const { username, email, nama, profile_picture } = req.body;
+            const { userId } = req.user;
+            const { username, email, nama } = req.body;
     
-            // Validasi input
-            if (!username && !email && !nama && !profile_picture) {
+            if (!username && !email && !nama) {
                 return res.status(400).json({ message: 'Setidaknya satu kolom harus diisi untuk diperbarui.' });
             }
     
-            // Validasi format email (jika diberikan)
-            if (email) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    return res.status(400).json({ message: 'Format email tidak valid.' });
-                }
-            }
-    
-            // Menyusun query dan parameter secara dinamis
             const updates = [];
             const params = [];
     
@@ -62,15 +90,9 @@ const profileController = {
                 updates.push('nama = ?');
                 params.push(nama);
             }
-            if (profile_picture) {
-                updates.push('profile_picture = ?');
-                params.push(profile_picture);
-            }
     
-            // Tambahkan id_users ke parameter
             params.push(userId);
     
-            // Eksekusi query update
             const [result] = await pool.execute(
                 `UPDATE users SET ${updates.join(', ')} WHERE id_users = ?`,
                 params
@@ -80,25 +102,72 @@ const profileController = {
                 return res.status(404).json({ message: 'Profil tidak ditemukan.' });
             }
     
-            res.status(200).json({ message: 'Profil berhasil diperbarui.' });
+            res.status(200).json({ 
+                message: 'Profil berhasil diperbarui.'
+            });
         } catch (error) {
             console.error('Edit profile error:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server.' });
         }
     },
-    
-    // ubah password
+
+    uploadProfilePicture: async (req, res) => {
+        upload(req, res, async (err) => {
+            if (err) {
+                if (err instanceof multer.MulterError) {
+                    return res.status(400).json({ 
+                        message: err.code === 'LIMIT_FILE_SIZE' 
+                            ? 'File too large, maximum size is 5MB' 
+                            : err.message 
+                    });
+                }
+                return res.status(400).json({ message: err.message });
+            }
+
+            try {
+                if (!req.file) {
+                    return res.status(400).json({ message: 'Please upload a file' });
+                }
+
+                const { userId } = req.user;
+                const relativePath = `/uploads/profile_pictures/${req.file.filename}`;
+
+                // Update database with new profile picture path
+                const [result] = await pool.execute(
+                    'UPDATE users SET profile_picture = ? WHERE id_users = ?',
+                    [relativePath, userId]
+                );
+
+                if (result.affectedRows === 0) {
+                    // If update fails, delete uploaded file
+                    fs.unlinkSync(req.file.path);
+                    return res.status(404).json({ message: 'User not found' });
+                }
+
+                res.status(200).json({
+                    message: 'Profile picture uploaded successfully',
+                    profile_picture: relativePath
+                });
+            } catch (error) {
+                // If an error occurs, delete uploaded file if it exists
+                if (req.file) {
+                    fs.unlinkSync(req.file.path);
+                }
+                console.error('Upload profile picture error:', error);
+                res.status(500).json({ message: 'Server error occurred' });
+            }
+        });
+    },
+
     changePassword: async (req, res) => {
         try {
-            const { userId } = req.user; // Ambil id_users dari token (middleware auth)
+            const { userId } = req.user;
             const { oldPassword, newPassword } = req.body;
 
-            // Validasi input
             if (!oldPassword || !newPassword) {
                 return res.status(400).json({ message: 'Password lama dan password baru wajib diisi.' });
             }
 
-            // Ambil password lama dari database
             const [rows] = await pool.execute(
                 `SELECT password FROM users WHERE id_users = ?`,
                 [userId]
@@ -113,10 +182,8 @@ const profileController = {
                 return res.status(400).json({ message: 'Password lama salah.' });
             }
 
-            // Hash password baru
             const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-            // Update password di database
             const [result] = await pool.execute(
                 `UPDATE users SET password = ? WHERE id_users = ?`,
                 [hashedPassword, userId]
@@ -133,27 +200,44 @@ const profileController = {
         }
     },
 
-    // hapus foto profile
     deletePhoto: async (req, res) => {
         try {
-            const { userId } = req.user; // Ambil id_users dari token (middleware auth)
+            const { userId } = req.user;
 
-            // Set profile_picture menjadi NULL
+            // Get current profile picture
+            const [user] = await pool.execute(
+                'SELECT profile_picture FROM users WHERE id_users = ?',
+                [userId]
+            );
+
+            if (user.length === 0) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            // If there's an existing profile picture, delete the file
+            if (user[0].profile_picture) {
+                const fullPath = path.join(__dirname, '..', user[0].profile_picture);
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                }
+            }
+
+            // Update database to remove profile picture reference
             const [result] = await pool.execute(
-                `UPDATE users SET profile_picture = NULL WHERE id_users = ?`,
+                'UPDATE users SET profile_picture = NULL WHERE id_users = ?',
                 [userId]
             );
 
             if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'User tidak ditemukan.' });
+                return res.status(404).json({ message: 'Failed to update user' });
             }
 
-            res.status(200).json({ message: 'Foto profil berhasil dihapus.' });
+            res.status(200).json({ message: 'Profile picture deleted successfully' });
         } catch (error) {
             console.error('Delete photo error:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server.' });
+            res.status(500).json({ message: 'Server error occurred' });
         }
     }
 };
 
-module.exports = profileController; 
+module.exports = profileController;

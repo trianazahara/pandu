@@ -1,14 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'  // Tambahkan import path
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
       'date-fns': 'date-fns/esm',
+      '@': path.resolve(__dirname, './src')
     }
   },
-  server: {  // server harus di luar resolve
+  server: {
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

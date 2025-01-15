@@ -118,49 +118,96 @@ const internController = {
         }
     },
 
-    checkAvailability: async (req, res) => {
+    checkAvailability : async (req, res) => {
         try {
-            const { date } = req.query;
+            res.setHeader('Content-Type', 'application/json');
+            // 1. Ambil tanggal dari query
+            const inputDate = req.query.date;
+            if (!inputDate) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: 'Parameter tanggal diperlukan' 
+                });
+            }
+    
+            // 2. Format tanggal langsung dari input YYYY-MM-DD (tidak perlu konversi karena dari frontend sudah benar)
+            const formattedDate = inputDate;
+    
             const SLOT_LIMIT = 50;
-
-            const [activeCount] = await pool.execute(`
+    
+            // 3. Query untuk peserta aktif
+            const [activeInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
                 FROM peserta_magang
-                WHERE status = 'aktif'
-                AND tanggal_masuk <= ?
-                AND tanggal_keluar >= ?
-                AND tanggal_keluar > DATE_ADD(?, INTERVAL 7 DAY)
-            `, [date, date, date]);
-
-            const [leavingInterns] = await pool.execute(`
-                SELECT p.*, b.nama_bidang
-                FROM peserta_magang p
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                WHERE status = 'aktif'
-                AND tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
-            `, [date, date]);
-
-            const [upcomingCount] = await pool.execute(`
+                WHERE status IN ('aktif', 'almost')
+                AND ? BETWEEN tanggal_masuk AND tanggal_keluar
+            `, [formattedDate]);
+    
+            // 4. Query untuk peserta yang akan datang
+            const [upcomingInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
                 FROM peserta_magang
                 WHERE status = 'not_yet'
                 AND tanggal_masuk <= ?
-            `, [date]);
-
-            const totalOccupied = activeCount[0].count + upcomingCount[0].count;
+            `, [formattedDate]);
+    
+            // 5. Query untuk peserta yang akan selesai dalam 7 hari
+const [leavingInterns] = await pool.execute(`
+    SELECT 
+        p.id_magang,
+        p.nama,
+        DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
+        b.nama_bidang
+    FROM peserta_magang p
+    LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+    WHERE p.status IN ('aktif', 'almost')
+    AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
+    ORDER BY p.tanggal_keluar ASC
+`, [formattedDate, formattedDate]);
+            // 6. Hitung total dan ketersediaan
+            const totalOccupied = parseInt(activeInterns[0].count) + parseInt(upcomingInterns[0].count);
             const availableSlots = SLOT_LIMIT - totalOccupied;
-
-            res.json({
-                available: availableSlots > 0,
-                availableSlots,
+            const isAvailable = availableSlots > 0 || leavingInterns.length > 0;
+    
+            // 7. Siapkan pesan
+            let message = '';
+            if (isAvailable) {
+                if (leavingInterns.length > 0 && availableSlots <= 0) {
+                    message = `Posisi dapat diterima karena ada ${leavingInterns.length} peserta yang akan selesai dalam 7 hari ke depan`;
+                } else {
+                    message = `Tersedia ${Math.max(availableSlots, 0)} slot dari total ${SLOT_LIMIT} slot`;
+                }
+            } else {
+                message = 'Saat ini semua slot telah terisi';
+            }
+    
+            // 8. Kirim response
+            return res.status(200).json({
+                success: true,
+                available: isAvailable,
+                availableSlots: Math.max(availableSlots, 0),
                 totalOccupied,
                 leavingInterns,
-                leavingCount: leavingInterns.length
+                leavingCount: leavingInterns.length,
+                message,
+                date: formattedDate
             });
+    
         } catch (error) {
-            console.error('Error checking availability:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+            console.error('Error pada pengecekan ketersediaan:', error);
+            
+            return res.status(500).json({ 
+                success: false,
+                message: 'Terjadi kesalahan saat mengecek ketersediaan',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+            });
         }
+    },
+    
+    // Fungsi untuk validasi format tanggal
+    isValidDate : (dateString) => {
+        const date = new Date(dateString);
+        return date instanceof Date && !isNaN(date);
     },
 
     add: async (req, res) => {
@@ -552,78 +599,145 @@ const internController = {
         } finally {
             conn.release();
         }},
+
+        delete: async (req, res) => {
+            const conn = await pool.getConnection();
+            try {
+                await conn.beginTransaction();
+                
+                const { id } = req.params;
+                
+                // Cek apakah data magang ada
+                const [existingIntern] = await conn.execute(
+                    'SELECT jenis_peserta FROM peserta_magang WHERE id_magang = ?',
+                    [id]
+                );
+        
+                if (existingIntern.length === 0) {
+                    await conn.rollback();
+                    return res.status(404).json({
+                        status: 'error',
+                        message: 'Data peserta magang tidak ditemukan'
+                    });
+                }
+        
+                // Hapus data terkait berdasarkan jenis_peserta
+                if (existingIntern[0].jenis_peserta === 'mahasiswa') {
+                    await conn.execute(
+                        'DELETE FROM data_mahasiswa WHERE id_magang = ?',
+                        [id]
+                    );
+                } else if (existingIntern[0].jenis_peserta === 'siswa') {
+                    await conn.execute(
+                        'DELETE FROM data_siswa WHERE id_magang = ?',
+                        [id]
+                    );
+                }
+        
+                // Hapus data utama dari tabel peserta_magang
+                const [deleteResult] = await conn.execute(
+                    'DELETE FROM peserta_magang WHERE id_magang = ?',
+                    [id]
+                );
+        
+                if (deleteResult.affectedRows === 0) {
+                    throw new Error('Gagal menghapus data peserta magang');
+                }
+        
+                await conn.commit();
+                res.json({
+                    status: 'success',
+                    message: 'Data peserta magang berhasil dihapus'
+                });
+        
+            } catch (error) {
+                await conn.rollback();
+                console.error('Error deleting intern:', error);
+                res.status(500).json({
+                    status: 'error',
+                    message: error.message || 'Terjadi kesalahan server'
+                });
+            } finally {
+                conn.release();
+            }
+        },
      // Modify getStats to use new status logic
      getStats: async (req, res) => {
         const conn = await pool.getConnection();
         try {
-            // Update statuses first
+            // Update statuses first to ensure we have current data
             await updateInternStatuses(conn);
-
+    
+            // Get active interns count 
             const [activeCount] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'aktif'
             `);
-            
+    
+            // Get completed interns count
             const [completedCount] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'selesai'
             `);
-            
-            const [notYetCount] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang 
-                WHERE status = 'not_yet'
-            `);
-            
-            const [almostCount] = await conn.execute(`
+    
+            // Get interns completing soon (status = 'almost')
+            const [completingSoon] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'almost'
             `);
-
-            res.json({
+    
+            // Get total interns count
+            const [totalCount] = await conn.execute(`
+                SELECT COUNT(*) as count 
+                FROM peserta_magang
+            `);
+    
+            // Prepare response object
+            const response = {
                 activeInterns: activeCount[0].count,
                 completedInterns: completedCount[0].count,
-                notYetInterns: notYetCount[0].count,
-                almostCompleteInterns: almostCount[0].count,
-                totalInterns: activeCount[0].count + completedCount[0].count + notYetCount[0].count + almostCount[0].count
-            });
+                totalInterns: totalCount[0].count,
+                completingSoon: completingSoon[0].count
+            };
+    
+            res.json(response);
+    
         } catch (error) {
             console.error('Error getting stats:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+            res.status(500).json({ 
+                status: 'error',
+                message: 'Terjadi kesalahan server saat mengambil statistik'
+            });
         } finally {
             conn.release();
         }
     },
+
      // Modify getCompletingSoon to use 'almost' status
      getCompletingSoon: async (req, res) => {
         const conn = await pool.getConnection();
         try {
             // Update statuses first
             await updateInternStatuses(conn);
-
+    
+            // Modifikasi query untuk mencakup data yang akan selesai dalam 7 hari
             const [interns] = await conn.execute(`
                 SELECT 
                     p.*,
-                    b.nama_bidang,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END as nomor_induk,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
-                        ELSE s.kelas
-                    END as detail_pendidikan
+                    b.nama_bidang
                 FROM peserta_magang p
                 LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-                LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-                WHERE p.status = 'almost'
+                WHERE p.tanggal_keluar BETWEEN CURRENT_DATE AND DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
                 ORDER BY p.tanggal_keluar ASC
             `);
-
+    
+            if (interns.length === 0) {
+                return res.json([]); // Kembalikan array kosong alih-alih error
+            }
+    
             res.json(interns);
         } catch (error) {
             console.error('Error getting completing soon interns:', error);
@@ -718,7 +832,8 @@ const internController = {
                 error: error.message,
             });
         }
-    }
+    },
+    
         
 };
 

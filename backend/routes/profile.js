@@ -21,5 +21,7 @@ router.patch('/change-password', profileController.changePassword);
 // Hapus photo profile 
 router.delete('/photo-profile', profileController.deletePhoto);
 
+// Upload photo profile 
+router.post('/photo-profile', profileController.uploadProfilePicture);
 
 module.exports = router;

@@ -11,6 +11,8 @@ const adminRoutes = require('./routes/admin');
 const profileRoutes = require('./routes/profile');
 const notificationRoutes = require('./routes/notification');
 const NotificationCron = require('./cron/notificationCron');
+const bidangRoutes = require('./routes/bidang');
+
 
 const app = express();
 const server = require('http').createServer(app); // Create HTTP server
@@ -35,6 +37,7 @@ app.use('/api/document', documentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/bidang', bidangRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -66,5 +69,9 @@ const startServer = async () => {
         process.exit(1);
     }
 };
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
+    next();
+});
 
 startServer();

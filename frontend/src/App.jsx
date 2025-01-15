@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import AddInternPage from './pages/intern/add';
 
+
 import {
     Dashboard,
     InternManagement,
@@ -16,7 +17,11 @@ import {
 import { Sidebar } from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Reports from './pages/Reports';
-import Login from './pages/Login'; // Tambahkan import Login
+import Login from './pages/Login'; 
+import AdminManagement from './pages/AdminManagement';
+import RiwayatData from './pages/RiwayatData';
+import RekapNilai from './pages/RekapNilai';
+import Settings from './pages/Settings';
 
 const theme = createTheme({
     palette: {
@@ -45,12 +50,20 @@ const ProtectedRoute = ({ children }) => {
 // Layout untuk halaman dengan sidebar
 const DashboardLayout = ({ children }) => {
     return (
-        <div>
-            <Header />
-            <div className="flex">
-                <Sidebar />
-                <main className="flex-1 ml-64 pt-16">
-                    {children}
+        <div className="flex h-screen overflow-hidden bg-gray-100">
+            {/* Sidebar */}
+            <Sidebar className="fixed left-0 h-full w-64" />
+            
+            {/* Main Content */}
+            <div className="flex-1 pl-64">
+                {/* Fixed Header */}
+                <Header className="fixed top-0 right-0 left-64 z-10" />
+                
+                {/* Scrollable Content Area */}
+                <main className="h-full pt-16 overflow-auto">
+                    <div className="px-8 py-6">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
@@ -108,10 +121,34 @@ const App = () => {
                             </ProtectedRoute>
                         } />
 
-                        <Route path="/reports" element={
+                        <Route path="/admin/management" element={
                             <ProtectedRoute>
                                 <DashboardLayout>
-                                    <Reports />
+                                <AdminManagement />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/history/data" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <RiwayatData />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/history/score" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <RekapNilai />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/settings" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <Settings />
                                 </DashboardLayout>
                             </ProtectedRoute>
                         } />

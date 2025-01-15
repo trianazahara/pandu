@@ -556,74 +556,79 @@ const internController = {
      getStats: async (req, res) => {
         const conn = await pool.getConnection();
         try {
-            // Update statuses first
+            // Update statuses first to ensure we have current data
             await updateInternStatuses(conn);
-
+    
+            // Get active interns count 
             const [activeCount] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'aktif'
             `);
-            
+    
+            // Get completed interns count
             const [completedCount] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'selesai'
             `);
-            
-            const [notYetCount] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang 
-                WHERE status = 'not_yet'
-            `);
-            
-            const [almostCount] = await conn.execute(`
+    
+            // Get interns completing soon (status = 'almost')
+            const [completingSoon] = await conn.execute(`
                 SELECT COUNT(*) as count 
                 FROM peserta_magang 
                 WHERE status = 'almost'
             `);
-
-            res.json({
+    
+            // Get total interns count
+            const [totalCount] = await conn.execute(`
+                SELECT COUNT(*) as count 
+                FROM peserta_magang
+            `);
+    
+            // Prepare response object
+            const response = {
                 activeInterns: activeCount[0].count,
                 completedInterns: completedCount[0].count,
-                notYetInterns: notYetCount[0].count,
-                almostCompleteInterns: almostCount[0].count,
-                totalInterns: activeCount[0].count + completedCount[0].count + notYetCount[0].count + almostCount[0].count
-            });
+                totalInterns: totalCount[0].count,
+                completingSoon: completingSoon[0].count
+            };
+    
+            res.json(response);
+    
         } catch (error) {
             console.error('Error getting stats:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+            res.status(500).json({ 
+                status: 'error',
+                message: 'Terjadi kesalahan server saat mengambil statistik'
+            });
         } finally {
             conn.release();
         }
     },
+
      // Modify getCompletingSoon to use 'almost' status
      getCompletingSoon: async (req, res) => {
         const conn = await pool.getConnection();
         try {
             // Update statuses first
             await updateInternStatuses(conn);
-
+    
+            // Modifikasi query untuk mencakup data yang akan selesai dalam 7 hari
             const [interns] = await conn.execute(`
                 SELECT 
                     p.*,
-                    b.nama_bidang,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END as nomor_induk,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
-                        ELSE s.kelas
-                    END as detail_pendidikan
+                    b.nama_bidang
                 FROM peserta_magang p
                 LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-                LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-                WHERE p.status = 'almost'
+                WHERE p.tanggal_keluar BETWEEN CURRENT_DATE AND DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
                 ORDER BY p.tanggal_keluar ASC
             `);
-
+    
+            if (interns.length === 0) {
+                return res.json([]); // Kembalikan array kosong alih-alih error
+            }
+    
             res.json(interns);
         } catch (error) {
             console.error('Error getting completing soon interns:', error);
@@ -718,7 +723,8 @@ const internController = {
                 error: error.message,
             });
         }
-    }
+    },
+    
         
 };
 

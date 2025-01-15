@@ -58,7 +58,7 @@ export const Sidebar = () => {
             ]
         },
         {
-            path: '/manage-admin',
+            path: '/admin/management',
             icon: <People />,
             label: 'Manajemen Admin'
         },

@@ -1,4 +1,3 @@
-// frontend/src/pages/Dashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { StatCards } from '../components/dashboard/statCards';
 import { Typography } from '@mui/material';
@@ -10,31 +9,39 @@ const Dashboard = () => {
         totalInterns: 0,
         completingSoon: 0
     });
+    const [completingInterns, setCompletingInterns] = useState([]);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const fetchData = async () => {
             try {
-                // Ubah URL sesuai dengan backend
-                const response = await fetch('http://localhost:5000/api/intern/stats', {
+                // Fetch stats
+                const statsResponse = await fetch('http://localhost:5000/api/intern/stats', {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
-                const data = await response.json();
-                setStats(data);
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-                // Set default values jika terjadi error
-                setStats({
-                    activeInterns: 0,
-                    completedInterns: 0,
-                    totalInterns: 0,
-                    completingSoon: 0
+                const statsData = await statsResponse.json();
+                setStats(statsData);
+
+                // Fetch completing soon interns
+                const completingResponse = await fetch('http://localhost:5000/api/intern/completing-soon', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
+                const completingData = await completingResponse.json();
+                setCompletingInterns(completingData);
+            } catch (error) {
+                console.error('Error fetching data:', error);
             }
         };
 
-        fetchStats();
+        fetchData();
+        
+        // Add an interval to refresh data periodically
+        const interval = setInterval(fetchData, 50000); // Refresh every minute
+        
+        return () => clearInterval(interval);
     }, []);
 
     return (
@@ -42,14 +49,7 @@ const Dashboard = () => {
             <Typography variant="h4" className="mb-6">
                 Dashboard
             </Typography>
-            <StatCards stats={stats} />
-            
-            <div className="mt-8">
-                <Typography variant="h5" className="mb-4">
-                    Anak Magang yang Akan Selesai dalam kurun waktu 7 hari
-                </Typography>
-                {/* Implementasi tabel atau list anak magang yang akan selesai */}
-            </div>
+            <StatCards stats={stats} completingInterns={completingInterns} />
         </div>
     );
 };

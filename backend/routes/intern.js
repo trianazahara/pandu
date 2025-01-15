@@ -3,37 +3,31 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const internController = require('../controllers/internController');
+const assessmentController = require('../controllers/assessmentController');
+const reportController = require('../controllers/reportController');
 
 router.use(authMiddleware);
 
-// Lihat semua anak magang (filtering)
-router.get('/', internController.getAll);
-
-// Check availability
+// Stats route should come before /:id route
+router.get('/stats', internController.getStats);
+router.get('/completing-soon', internController.getCompletingSoon);
 router.get('/availability', internController.checkAvailability);
+router.get('/riwayat-data', internController.getHistory);
+router.get('/rekap-nilai', assessmentController.getRekapNilai);
+router.post('/add-score/:id', assessmentController.addScore);
+router.put('/update-nilai/:id', assessmentController.updateScore);
 
-// Get intern statistics
-router.get('/stats', internController.getAll);
+// export excel
+router.get('/export', reportController.exportInternsScore);
 
-// Add new intern
+// General CRUD routes
+router.get('/', internController.getAll);
 router.post('/add', requireRole(['superadmin', 'admin']), internController.add);
-
-// Update intern
+router.get('/:id', internController.getDetail);
 router.put('/:id', requireRole(['superadmin', 'admin']), internController.update);
 
-// Get intern detail
-router.get('/:id', internController.getDetail);
-
-
-// Lihat history
-router.get('/riwayat-data', internController.getHistory);
-
-// Lihat rekap nilai
-router.get('/rekap-nilai', );
-
-router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);
-router.put('/intern/:id', authMiddleware, internController.update);
-router.post('/intern', authMiddleware, internController.add);
-
+// Remove duplicate routes
+// router.put('/:id', authMiddleware, internController.update);
+// router.post('/add-new', authMiddleware, internController.add);
 
 module.exports = router;

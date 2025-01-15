@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
+import AddInternPage from './pages/intern/add';
 
 
 import {
@@ -79,6 +80,14 @@ const App = () => {
                         {/* Rute publik */}
                         <Route path="/login" element={<Login />} />
 
+                         <Route path="/intern/add" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <AddInternPage />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
                         {/* Rute yang dilindungi */}
                         <Route path="/dashboard" element={
                             <ProtectedRoute>
@@ -96,7 +105,7 @@ const App = () => {
                             </ProtectedRoute>
                         } />
 
-                        <Route path="/intern/availability" element={
+                        <Route path="/intern/availabilityCheck" element={
                             <ProtectedRoute>
                                 <DashboardLayout>
                                     <AvailabilityCheck />

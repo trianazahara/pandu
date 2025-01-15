@@ -1,17 +1,19 @@
-// frontend/src/pages/AvailabilityCheck.jsx
 import React from 'react';
-import { Typography } from '@mui/material';
-import AvailabilityCheckComponent from '../components/intern/AvailabilityCheck';
+import AvailabilityCheck from '../components/intern/AvailabilityCheck';
 
-const AvailabilityCheck = () => {
-    return (
-        <div className="p-6">
-            <Typography variant="h4" className="mb-6">
-                Check Ketersediaan Anak Magang
-            </Typography>
-            <AvailabilityCheckComponent />
-        </div>
-    );
+const AvailabilityCheckPage = () => {
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Cek Ketersediaan Posisi</h1>
+        <p className="text-gray-600 mt-1">
+          Periksa ketersediaan posisi magang berdasarkan tanggal yang diinginkan
+        </p>
+      </div>
+      
+      <AvailabilityCheck />
+    </div>
+  );
 };
 
-export default AvailabilityCheck; 
+export default AvailabilityCheckPage;

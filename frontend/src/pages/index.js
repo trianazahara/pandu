@@ -6,3 +6,4 @@ export { default as Reports } from './Reports';
 export { default as AvailabilityCheck } from './AvailabilityCheck';
 export { default as Assessment } from './Assessment';
 export { default as InternManagement } from './InternManagement';
+export { default as add} from './intern/Add'

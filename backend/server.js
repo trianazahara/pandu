@@ -9,6 +9,7 @@ const internRoutes = require('./routes/intern');
 const documentRoutes = require('./routes/document');
 const adminRoutes = require('./routes/admin');
 const profileRoutes = require('./routes/profile');
+const bidangRoutes = require('./routes/bidang');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/api/intern', internRoutes);
 app.use('/api/document', documentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/bidang', bidangRoutes);
 
 // Error handling middleware - TAMBAHKAN INI
 app.use((err, req, res, next) => {
@@ -54,5 +56,9 @@ const startServer = async () => {
         process.exit(1);
     }
 };
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
+    next();
+});
 
 startServer();

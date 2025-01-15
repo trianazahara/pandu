@@ -6,7 +6,9 @@ import {
     CardContent,
     Button,
     TextField,
-    Grid
+    Grid,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { useAuth } from '../contexts/authContext.jsx';
 
@@ -23,13 +25,23 @@ const Settings = () => {
         surat_penerimaan: null,
         sertifikat: null
     });
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success' // 'success', 'error', 'warning', 'info'
+    });
 
+    // Fetch templates on component mount
     useEffect(() => {
         const fetchTemplates = async () => {
             try {
-                const response = await fetch('/api/settings/templates');
+                const response = await fetch('/api/document/templates', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
                 const data = await response.json();
-                
+
                 const templateMap = data.reduce((acc, template) => {
                     acc[template.jenis] = template;
                     return acc;
@@ -38,51 +50,106 @@ const Settings = () => {
                 setTemplates(templateMap);
             } catch (error) {
                 console.error('Error fetching templates:', error);
+                setSnackbar({
+                    open: true,
+                    message: 'Gagal memuat data template',
+                    severity: 'error'
+                });
             }
         };
 
         fetchTemplates();
     }, []);
 
+    // Handle profile update
     const handleProfileUpdate = async (e) => {
         e.preventDefault();
         try {
             const response = await fetch('/api/settings/profile', {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify(profile)
             });
 
             if (response.ok) {
-                // Handle success
+                setSnackbar({
+                    open: true,
+                    message: 'Profil berhasil diperbarui',
+                    severity: 'success'
+                });
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal memperbarui profil');
             }
         } catch (error) {
             console.error('Error updating profile:', error);
+            setSnackbar({
+                open: true,
+                message: error.message || 'Gagal memperbarui profil',
+                severity: 'error'
+            });
         }
     };
 
+    // Handle template upload
     const handleTemplateUpload = async (type, file) => {
+        if (!file) {
+            setSnackbar({
+                open: true,
+                message: 'File template tidak ditemukan',
+                severity: 'error'
+            });
+            return;
+        }
+
+        if (file.type !== 'application/pdf') {
+            setSnackbar({
+                open: true,
+                message: 'File harus berupa PDF',
+                severity: 'error'
+            });
+            return;
+        }
+
         const formData = new FormData();
         formData.append('template', file);
         formData.append('jenis', type);
 
         try {
-            const response = await fetch('/api/settings/template', {
+            const response = await fetch('/api/document/template', {
                 method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 body: formData
             });
-            // Melanjutkan Settings.jsx
+
             if (response.ok) {
                 const data = await response.json();
                 setTemplates(prev => ({
                     ...prev,
                     [type]: data
                 }));
+
+                setSnackbar({
+                    open: true,
+                    message: 'Template berhasil diunggah',
+                    severity: 'success'
+                });
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal mengunggah template');
             }
         } catch (error) {
             console.error('Error uploading template:', error);
+            setSnackbar({
+                open: true,
+                message: error.message || 'Gagal mengunggah template',
+                severity: 'error'
+            });
         }
     };
 
@@ -96,7 +163,7 @@ const Settings = () => {
                 {/* Profile Settings */}
                 <Card>
                     <CardContent>
-                        <Typography variant="h6" className="mb-4">
+                    <Typography variant="h6" className="mb-4">
                             Profil
                         </Typography>
                         <form onSubmit={handleProfileUpdate} className="space-y-4">
@@ -209,7 +276,7 @@ const Settings = () => {
                                         </label>
                                         {templates.surat_penerimaan && (
                                             <Typography variant="body2" color="textSecondary">
-                                                Template aktif
+                                                Template aktif: {templates.surat_penerimaan.file_name}
                                             </Typography>
                                         )}
                                     </div>
@@ -238,7 +305,7 @@ const Settings = () => {
                                         </label>
                                         {templates.sertifikat && (
                                             <Typography variant="body2" color="textSecondary">
-                                                Template aktif
+                                                Template aktif: {templates.sertifikat.file_name}
                                             </Typography>
                                         )}
                                     </div>
@@ -248,7 +315,24 @@ const Settings = () => {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Snackbar Notifikasi */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </div>
     );
-};export default Settings;
-            
+};
+
+export default Settings;

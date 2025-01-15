@@ -11,13 +11,13 @@ router.use(authMiddleware);
 router.get('/', internController.getAll);
 
 // Check availability
-router.get('/availability', internController.checkAvailability);
+router.get('/check-availability', internController.checkAvailability);
 
 // Get intern statistics
 router.get('/stats', internController.getAll);
 
 // Add new intern
-router.post('/add', requireRole(['superadmin', 'admin']), internController.add);
+router.post('/add', authMiddleware, requireRole(['superadmin', 'admin']), internController.add);
 
 // Update intern
 router.put('/:id', requireRole(['superadmin', 'admin']), internController.update);
@@ -34,7 +34,8 @@ router.get('/rekap-nilai', );
 
 router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);
 router.put('/intern/:id', authMiddleware, internController.update);
-router.post('/intern', authMiddleware, internController.add);
+// router.post('/intern', authMiddleware, internController.add);
+router.delete('/:id', internController.delete);
 
 
 module.exports = router;

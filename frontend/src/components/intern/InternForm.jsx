@@ -13,6 +13,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import id from 'date-fns/locale/id';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
 
 export const InternForm = ({ onSubmit, initialData = null }) => {
     const [formData, setFormData] = useState({

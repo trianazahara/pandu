@@ -23,6 +23,15 @@ const storage = multer.diskStorage({
     }
 });
 
+
+router.use(authMiddleware);
+
+// Generate acceptance letter
+router.get('/acceptance-letter', documentController.generateAcceptanceLetter);
+
+// Generate certificate
+router.get('/certificate/:id', documentController.generateCertificate);
+
 // Buat instance multer dengan konfigurasi
 const upload = multer({
     storage: storage,
@@ -34,6 +43,7 @@ const upload = multer({
         cb(null, true);
     }
 });
+
 
 // Routes
 router.post('/upload-template', upload.single('file'), documentController.uploadTemplate);

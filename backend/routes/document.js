@@ -1,35 +1,47 @@
-// backend/routes/document.js
+// routes/document.js
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, requireRole } = require('../middleware/auth');
-const documentController = require('../controllers/documentController');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const documentController = require('../controllers/documentController');
 
+// Buat direktori uploads jika belum ada
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)){
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Konfigurasi multer untuk upload
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '../uploads/templates'));
+    destination: function(req, file, cb) {
+        cb(null, uploadsDir);
     },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
+    filename: function(req, file, cb) {
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+        cb(null, Date.now() + '-' + safeName);
     }
 });
 
-const upload = multer({ storage });
+// Buat instance multer dengan konfigurasi
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5000000 }, // 5MB limit
+    fileFilter: function(req, file, cb) {
+        if (!file.originalname.match(/\.(pdf|doc|docx)$/)) {
+            return cb(new Error('Hanya file PDF atau DOC yang diperbolehkan'));
+        }
+        cb(null, true);
+    }
+});
 
-router.use(authMiddleware);
-
-// Generate acceptance letter
-router.post('/acceptance-letter', documentController.generateAcceptanceLetter);
-
-// Generate certificate
-router.post('/certificate/:id_magang', documentController.generateCertificate);
-
-// Upload template
-router.post('/template', 
-    requireRole(['superadmin']), 
-    upload.single('template'),
-    documentController.uploadTemplate
-);
+// Routes
+router.post('/upload-template', upload.single('file'), documentController.uploadTemplate);
+router.get('/templates', documentController.getTemplates);
+router.delete('/template/:id', documentController.deleteTemplate);
+router.get('/generate-sertifikat', documentController.generateSertifikatForm);
+router.post('/generate-sertifikat', documentController.generateSertifikat);
+router.get('/generate-receipt', documentController.generateReceiptForm);
+router.post('/generate-receipt', documentController.generateReceipt);
 
 module.exports = router;

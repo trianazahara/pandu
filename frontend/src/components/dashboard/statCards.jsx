@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, CheckCircle, Package, Clock } from 'lucide-react';
+import { Users, CheckCircle, Package, GraduationCap, Briefcase } from 'lucide-react';
 
 export const StatCards = ({ stats, completingInterns }) => {
     return (
@@ -11,7 +11,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-emerald-500 text-lg font-medium mb-2">Total Anak Magang Aktif</p>
-                            <h3 className="text-4xl font-bold text-emerald-500">{stats.activeInterns || 0}</h3>
+                            <h3 className="text-4xl font-bold text-emerald-500">{stats.activeInterns?.total || 0}</h3>
                         </div>
                         <div className="bg-emerald-100 p-3 rounded-lg">
                             <Users className="w-6 h-6 text-emerald-500" />
@@ -46,24 +46,59 @@ export const StatCards = ({ stats, completingInterns }) => {
                 </div>
             </div>
 
-            {/* Anak Magang Aktif Hari Ini Card */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mt-8">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-emerald-500 text-xl font-medium mb-3">Anak Magang Aktif Hari Ini</p>
-                        <h3 className="text-5xl font-bold text-emerald-500">{stats.completingSoon || 0}</h3>
+            {/* Detail Anak Magang Aktif Card */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                {/* Card Berdasarkan Jenis Peserta */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                        <p className="text-emerald-500 text-xl font-medium">Anak Magang Aktif Berdasarkan Jenis</p>
+                        <div className="bg-blue-100 p-3 rounded-lg">
+                            <GraduationCap className="w-6 h-6 text-blue-500" />
+                        </div>
                     </div>
-                    <div className="bg-blue-100 p-4 rounded-lg">
-                        <Users className="w-8 h-8 text-blue-500" />
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Mahasiswa</span>
+                            <span className="text-lg font-semibold">{stats.activeInterns?.students?.mahasiswa || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Siswa</span>
+                            <span className="text-lg font-semibold">{stats.activeInterns?.students?.siswa || 0}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card Berdasarkan Bidang */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                        <p className="text-emerald-500 text-xl font-medium">Anak Magang Aktif Per Bidang</p>
+                        <div className="bg-purple-100 p-3 rounded-lg">
+                            <Briefcase className="w-6 h-6 text-purple-500" />
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {Object.entries(stats.activeInterns?.byDepartment || {}).map(([bidang, jumlah]) => (
+                            <div key={bidang} className="flex justify-between items-center">
+                                <span className="text-gray-600 capitalize">{bidang}</span>
+                                <span className="text-lg font-semibold">{jumlah}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
 
             {/* Tabel Anak Magang yang Akan Selesai */}
             <div className="mt-8">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                    Anak Magang yang Akan Selesai dalam kurun waktu 7 hari
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                        Anak Magang yang Akan Selesai dalam 7 Hari
+                    </h2>
+                    <div className="bg-yellow-100 px-3 py-1 rounded-lg">
+                        <span className="text-yellow-700 font-medium">
+                            {completingInterns?.length || 0} Orang
+                        </span>
+                    </div>
+                </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     {completingInterns && completingInterns.length > 0 ? (
                         <div className="overflow-x-auto">

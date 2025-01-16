@@ -72,6 +72,12 @@ const assessmentController = {
             res.status(201).json({
                 message: 'Penilaian berhasil disimpan',
                 id_penilaian
+                
+            });
+
+            await Notification.createAssessmentNotification({
+                id_magang,
+                created_by: req.user.userId
             });
         } catch (error) {
             await conn.rollback();
@@ -400,16 +406,9 @@ const assessmentController = {
     },
 };
 
-const Notification = require('../models/Notification');
-
-// Di dalam fungsi create assessment
-await Notification.createAssessmentNotification({
-    id_magang,
-    created_by: req.user.userId
-});
 
 const cron = require('node-cron');
-const Notification = require('./models/Notification');
+const Notification = require('../models/Notification');
 
 // Hapus notifikasi lama setiap hari
 cron.schedule('0 0 * * *', async () => {

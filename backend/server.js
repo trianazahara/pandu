@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
-const { WebSocketServer } = require('ws'); // Import WebSocketServer
+const { WebSocketServer } = require('ws');
 
 const authRoutes = require('./routes/auth');
 const internRoutes = require('./routes/intern');

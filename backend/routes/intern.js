@@ -10,7 +10,7 @@ const reportController = require('../controllers/reportController');
 router.use(authMiddleware);
 
 
-router.get('/stats', internController.getStats);
+router.get('/detailed-stats', authMiddleware, internController.getDetailedStats);
 router.get('/riwayat-data', internController.getHistory);
 router.get('/rekap-nilai', assessmentController.getRekapNilai);
 router.post('/add-score/:id', assessmentController.addScore);

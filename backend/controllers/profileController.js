@@ -36,16 +36,20 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-// Create multer upload instance - MOVED BEFORE profileController
+// Create multer upload instance
 const upload = multer({
     storage: storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: fileFilter
 }).single('profile_picture');
 
+// Helper function to get full URL
+const getFullUrl = (req, relativePath) => {
+    if (!relativePath) return null;
+    return `${req.protocol}://${req.get('host')}${relativePath}`;
+};
 
 const profileController = {
-    // create
     getProfile: async (req, res) => {
         try {
             const { userId } = req.user;
@@ -59,7 +63,13 @@ const profileController = {
                 return res.status(404).json({ message: 'Profil tidak ditemukan.' });
             }
 
-            res.json(rows[0]);
+            // Convert relative path to full URL for profile picture
+            const userData = rows[0];
+            if (userData.profile_picture) {
+                userData.profile_picture = getFullUrl(req, userData.profile_picture);
+            }
+
+            res.json(userData);
         } catch (error) {
             console.error('Get profile error:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server.' });
@@ -73,6 +83,28 @@ const profileController = {
     
             if (!username && !email && !nama) {
                 return res.status(400).json({ message: 'Setidaknya satu kolom harus diisi untuk diperbarui.' });
+            }
+    
+            // Check if email exists (if email is being updated)
+            if (email) {
+                const [existingEmail] = await pool.execute(
+                    'SELECT id_users FROM users WHERE email = ? AND id_users != ?',
+                    [email, userId]
+                );
+                if (existingEmail.length > 0) {
+                    return res.status(400).json({ message: 'Email sudah digunakan.' });
+                }
+            }
+
+            // Check if username exists (if username is being updated)
+            if (username) {
+                const [existingUsername] = await pool.execute(
+                    'SELECT id_users FROM users WHERE username = ? AND id_users != ?',
+                    [username, userId]
+                );
+                if (existingUsername.length > 0) {
+                    return res.status(400).json({ message: 'Username sudah digunakan.' });
+                }
             }
     
             const updates = [];
@@ -101,9 +133,20 @@ const profileController = {
             if (result.affectedRows === 0) {
                 return res.status(404).json({ message: 'Profil tidak ditemukan.' });
             }
+
+            // Fetch updated profile
+            const [updatedProfile] = await pool.execute(
+                `SELECT id_users, username, email, nama, profile_picture FROM users WHERE id_users = ?`,
+                [userId]
+            );
     
             res.status(200).json({ 
-                message: 'Profil berhasil diperbarui.'
+                message: 'Profil berhasil diperbarui.',
+                profile: {
+                    ...updatedProfile[0],
+                    profile_picture: updatedProfile[0].profile_picture ? 
+                        getFullUrl(req, updatedProfile[0].profile_picture) : null
+                }
             });
         } catch (error) {
             console.error('Edit profile error:', error);
@@ -130,6 +173,21 @@ const profileController = {
                 }
 
                 const { userId } = req.user;
+
+                // Get current profile picture
+                const [currentUser] = await pool.execute(
+                    'SELECT profile_picture FROM users WHERE id_users = ?',
+                    [userId]
+                );
+
+                // Delete old profile picture if exists
+                if (currentUser[0]?.profile_picture) {
+                    const oldPath = path.join(__dirname, '..', currentUser[0].profile_picture);
+                    if (fs.existsSync(oldPath)) {
+                        fs.unlinkSync(oldPath);
+                    }
+                }
+
                 const relativePath = `/uploads/profile_pictures/${req.file.filename}`;
 
                 // Update database with new profile picture path
@@ -144,9 +202,12 @@ const profileController = {
                     return res.status(404).json({ message: 'User not found' });
                 }
 
+                // Get the full URL for the profile picture
+                const fullUrl = getFullUrl(req, relativePath);
+
                 res.status(200).json({
                     message: 'Profile picture uploaded successfully',
-                    profile_picture: relativePath
+                    profile_picture: fullUrl
                 });
             } catch (error) {
                 // If an error occurs, delete uploaded file if it exists
@@ -232,7 +293,10 @@ const profileController = {
                 return res.status(404).json({ message: 'Failed to update user' });
             }
 
-            res.status(200).json({ message: 'Profile picture deleted successfully' });
+            res.status(200).json({ 
+                message: 'Profile picture deleted successfully',
+                profile_picture: null
+            });
         } catch (error) {
             console.error('Delete photo error:', error);
             res.status(500).json({ message: 'Server error occurred' });

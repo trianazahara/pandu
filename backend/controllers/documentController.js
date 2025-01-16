@@ -1,337 +1,244 @@
-// backend/controllers/documentController.js
+// controllers/documentController.js
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const pool = require('../config/database');
-const { PDFDocument } = require('pdf-lib');
-const XLSX = require('xlsx');
-const fs = require('fs').promises;
 const path = require('path');
+const fs = require('fs').promises;
 
-const documentController = {
-    // Generate acceptance letter
-    generateAcceptanceLetter: async (req, res) => {
-        try {
-            const { intern_ids, fields } = req.body;
-            
-            // Get template
-            const [template] = await pool.execute(`
-                SELECT file_path
-                FROM dokumen_template
-                WHERE jenis = 'surat_penerimaan'
-                AND active = true
-                LIMIT 1
-            `);
-
-            if (!template.length) {
-                return res.status(404).json({
-                    message: 'Template surat penerimaan tidak ditemukan'
-                });
-            }
-
-            // Get intern data
-            const [interns] = await pool.execute(`
-                SELECT 
-                    p.*,
-                    i.nama_institusi,
-                    b.nama_bidang,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END as nomor_induk,
-                    m.fakultas,
-                    m.jurusan as jurusan_mahasiswa,
-                    s.jurusan as jurusan_siswa,
-                    m.semester,
-                    s.kelas
-                FROM peserta_magang p
-                LEFT JOIN institusi i ON p.id_institusi = i.id_institusi
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-                LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-                WHERE p.id_magang IN (?)
-            `, [intern_ids]);
-
-            // Load template
-            const templatePath = path.join(__dirname, '..', template[0].file_path);
-            const templateBytes = await fs.readFile(templatePath);
-            const pdfDoc = await PDFDocument.load(templateBytes);
-
-            // Fill template with data
-            // Note: Implementation depends on template structure
-            
-            // Save generated PDF
-            const pdfBytes = await pdfDoc.save();
-            
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename=surat_penerimaan.pdf');
-            res.send(Buffer.from(pdfBytes));
-        } catch (error) {
-            console.error('Error generating acceptance letter:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+// controllers/documentController.js
+async function uploadTemplate(req, res) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'File tidak ditemukan' });
         }
-    },
-    generateCertificate: async (req, res) => {
-        try {
-            const { intern_ids, fields } = req.body;
-            
-            // Get template
-            const [template] = await pool.execute(`
-                SELECT file_path  
-                FROM dokumen_template
-                WHERE jenis = 'sertifikat'
-                AND active = true
-                LIMIT 1
-            `);
- 
-            if (!template.length) {
-                return res.status(404).json({
-                    message: 'Template sertifikat tidak ditemukan'
-                });
-            }
- 
-            // Get intern data
-            const [interns] = await pool.execute(`
-                SELECT 
-                    p.*,
-                    i.nama_institusi,
-                    b.nama_bidang,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END as nomor_induk,
-                    m.fakultas,
-                    m.jurusan as jurusan_mahasiswa,
-                    s.jurusan as jurusan_siswa,
-                    m.semester,
-                    s.kelas,
-                    DATEDIFF(p.tanggal_keluar, p.tanggal_masuk) as durasi_magang
-                FROM peserta_magang p
-                LEFT JOIN institusi i ON p.id_institusi = i.id_institusi
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-                LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-                WHERE p.id_magang IN (?)
-                AND p.status = 'selesai' -- Hanya generate untuk yang sudah selesai
-            `, [intern_ids]);
- 
-            if (!interns.length) {
-                return res.status(404).json({
-                    message: 'Data peserta magang tidak ditemukan atau belum selesai'
-                });
-            }
- 
-            // Load template
-            const templatePath = path.join(__dirname, '..', template[0].file_path);
-            const templateBytes = await fs.readFile(templatePath);
-            const pdfDoc = await PDFDocument.load(templateBytes);
- 
-            // Get the first page of the template
-            const page = pdfDoc.getPages()[0];
-            
-            // For each intern, create a new page from template and fill data
-            for (const intern of interns) {
-                // Clone template page if not the first intern
-                if (intern !== interns[0]) {
-                    const [templatePage] = await pdfDoc.copyPages(pdfDoc, [0]);
-                    pdfDoc.addPage(templatePage);
-                }
- 
-                // Format dates
-                const tanggalMasuk = new Date(intern.tanggal_masuk).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                });
-                const tanggalKeluar = new Date(intern.tanggal_keluar).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                });
- 
-                // Get education info based on jenis_peserta
-                const pendidikan = intern.jenis_peserta === 'mahasiswa' 
-                    ? `${intern.fakultas} - ${intern.jurusan_mahasiswa} (Semester ${intern.semester})`
-                    : `${intern.jurusan_siswa} - Kelas ${intern.kelas}`;
- 
-                // Save generated certificate info to database
-                const [result] = await pool.execute(`
-                    INSERT INTO dokumen_sertifikat (
-                        id_magang,
-                        tanggal_terbit,
-                        created_by
-                    ) VALUES (?, CURRENT_TIMESTAMP, ?)
-                `, [
-                    intern.id_magang,
-                    req.user.userId
-                ]);
- 
-                // Note: Actual field placement would depend on the template structure
-                // This is a placeholder for PDF text placement
-                // You'll need to adjust coordinates based on your template
-                
-                /* Example field placement:
-                page.drawText(intern.nama, {
-                    x: 300,
-                    y: 500,
-                    size: 16
-                });
-                
-                page.drawText(intern.nama_institusi, {
-                    x: 300,
-                    y: 450,
-                    size: 12
-                });
-                
-                page.drawText(`${tanggalMasuk} - ${tanggalKeluar}`, {
-                    x: 300,
-                    y: 400,
-                    size: 12
-                });
-                
-                page.drawText(pendidikan, {
-                    x: 300,
-                    y: 350,
-                    size: 12
-                });
-                */
-            }
- 
-            // Save generated PDF
-            const pdfBytes = await pdfDoc.save();
-            
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename=sertifikat_magang.pdf');
-            res.send(Buffer.from(pdfBytes));
- 
-        } catch (error) {
-            console.error('Error generating certificate:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
-        }
-    },
 
-   // Upload document template
-   uploadTemplate: async (req, res) => {
-       const conn = await pool.getConnection();
-       try {
-           const { jenis, keterangan } = req.body;
+        const { jenis, nomor_format } = req.body;
+        const file = req.file;
+        
+        // Hapus referensi ke req.user.id
+        const filePath = path.join(__dirname, '..', 'public', 'templates', file.filename);
+        const previewPath = `/templates/${file.filename}`;
 
-           // Validasi file
-           if (!req.file) {
-               return res.status(400).json({
-                   status: 'error',
-                   message: 'File template tidak ditemukan'
-               });
-           }
+        // Pastikan direktori exists
+        await fs.mkdir(path.join(__dirname, '..', 'public', 'templates'), { recursive: true });
 
-           // Validasi tipe file (PDF)
-           if (req.file.mimetype !== 'application/pdf') {
-               // Hapus file jika bukan PDF
-               await fs.unlink(req.file.path);
-               return res.status(400).json({
-                   status: 'error',
-                   message: 'File harus berupa PDF'
-               });
-           }
+        // Pindahkan file
+        await fs.rename(file.path, filePath);
 
-           await conn.beginTransaction();
+        // Simpan ke database tanpa user id
+        const [result] = await pool.execute(
+            `INSERT INTO dokumen_template 
+            (jenis, nomor_format, file_path, preview_path, active, created_at) 
+            VALUES (?, ?, ?, ?, 1, NOW())`,
+            [jenis, nomor_format, filePath, previewPath]
+        );
 
-           // Non-aktifkan template lama untuk jenis yang sama
-           await conn.execute(`
-               UPDATE dokumen_template 
-               SET active = false,
-                   updated_at = CURRENT_TIMESTAMP,
-                   updated_by = ?
-               WHERE jenis = ? 
-               AND active = true
-           `, [req.user.userId, jenis]);
+        res.json({ 
+            message: 'Template berhasil diupload',
+            template_id: result.insertId 
+        });
+    } catch (error) {
+        console.error('Error uploading template:', error);
+        res.status(500).json({ 
+            message: 'Terjadi kesalahan server',
+            detail: error.message 
+        });
+    }
+}
 
-           // Simpan template baru
-           const [result] = await conn.execute(`
-               INSERT INTO dokumen_template (
-                   jenis,
-                   keterangan,
-                   file_path,
-                   file_name,
-                   file_size,
-                   mime_type,
-                   active,
-                   created_by
-               ) VALUES (?, ?, ?, ?, ?, ?, true, ?)
-           `, [
-               jenis,
-               keterangan,
-               req.file.path.replace(/\\/g, '/'), // Normalize path for Windows
-               req.file.originalname,
-               req.file.size,
-               req.file.mimetype,
-               req.user.userId
-           ]);
+async function getTemplates(req, res) {
+    try {
+        const [templates] = await pool.execute(
+            'SELECT * FROM dokumen_template WHERE active = 1'
+        );
+        res.json(templates);
+    } catch (error) {
+        console.error('Error fetching templates:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
 
-           await conn.commit();
+async function deleteTemplate(req, res) {
+    try {
+        const { id } = req.params;
+        await pool.execute(
+            'UPDATE dokumen_template SET active = 0 WHERE id_dokumen = ?',
+            [id]
+        );
+        res.json({ message: 'Template berhasil dihapus' });
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
 
-           res.status(201).json({
-               status: 'success',
-               message: 'Template berhasil diunggah',
-               data: {
-                   id: result.insertId,
-                   jenis,
-                   keterangan,
-                   file_name: req.file.originalname
-               }
-           });
+// Certificate Generation
+async function generateSertifikatForm(req, res) {
+    try {
+        res.render('generate-sertifikat-form');
+    } catch (error) {
+        console.error('Error generating sertifikat form:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
 
-       } catch (error) {
-           await conn.rollback();
-           
-           // Hapus file jika terjadi error
-           if (req.file) {
-               try {
-                   await fs.unlink(req.file.path);
-               } catch (unlinkError) {
-                   console.error('Error deleting file:', unlinkError);
-               }
-           }
+async function generateSertifikat(req, res) {
+    try {
+        const { 
+            nama, nim, jurusan, universitas, 
+            nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan,
+            nilai_kualitas_kerja, nilai_teknologi, nilai_disiplin,
+            nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif,
+            nilai_kejujuran, nilai_kebersihan
+        } = req.body;
 
-           console.error('Error uploading template:', error);
-           res.status(500).json({ 
-               status: 'error',
-               message: 'Terjadi kesalahan server' 
-           });
-       } finally {
-           conn.release();
-       }
-   },
+        // Calculate average score
+        const nilaiArray = [
+            parseFloat(nilai_teamwork), parseFloat(nilai_komunikasi),
+            parseFloat(nilai_pengambilan_keputusan), parseFloat(nilai_kualitas_kerja),
+            parseFloat(nilai_teknologi), parseFloat(nilai_disiplin),
+            parseFloat(nilai_tanggungjawab), parseFloat(nilai_kerjasama),
+            parseFloat(nilai_inisiatif), parseFloat(nilai_kejujuran),
+            parseFloat(nilai_kebersihan)
+        ];
 
-   // Get all templates
-   getTemplates: async (req, res) => {
-       try {
-           const [templates] = await pool.execute(`
-               SELECT 
-                   id_template,
-                   jenis,
-                   keterangan,
-                   file_name,
-                   file_size,
-                   active,
-                   created_at,
-                   updated_at
-               FROM dokumen_template
-               ORDER BY created_at DESC
-           `);
+        const rata2Nilai = nilaiArray.reduce((a, b) => a + b, 0) / nilaiArray.length;
+        const hurufNilai = getHurufNilai(rata2Nilai);
 
-           res.json({
-               status: 'success',
-               data: templates
-           });
+        // Create Certificate PDF
+        const pdfDoc = await PDFDocument.create();
+        const page1 = pdfDoc.addPage();
+        const page2 = pdfDoc.addPage();
 
-       } catch (error) {
-           console.error('Error getting templates:', error);
-           res.status(500).json({ 
-               status: 'error',
-               message: 'Terjadi kesalahan server' 
-           });
-       }
-   }
+        // Generate certificate content
+        generateCertificatePages(page1, page2, {
+            nama, nim, jurusan, universitas,
+            nilaiArray, rata2Nilai, hurufNilai
+        });
 
+        const pdfBytes = await pdfDoc.save();
+
+        res.set({
+            "Content-Disposition": `attachment;filename="sertifikat_${nama}.pdf"`,
+            "Content-Type": "application/pdf"
+        });
+        res.send(pdfBytes);
+
+    } catch (error) {
+        console.error('Error generating sertifikat:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
+
+// Receipt Letter Generation
+async function generateReceiptForm(req, res) {
+    try {
+        res.render('generate-receipt-form');
+    } catch (error) {
+        console.error('Error loading receipt form:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
+
+async function generateReceipt(req, res) {
+    try {
+        const { 
+            nomor_surat,
+            tanggal,
+            penerima,
+            jabatan,
+            departemen,
+            daftar_barang
+        } = req.body;
+
+        // Create Receipt PDF
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage();
+
+        // Add receipt content
+        page.drawText('SURAT TANDA TERIMA', { x: 200, y: 750, size: 20 });
+        page.drawText(`Nomor: ${nomor_surat}`, { x: 100, y: 700, size: 12 });
+        page.drawText(`Tanggal: ${tanggal}`, { x: 100, y: 680, size: 12 });
+        page.drawText('Yang bertanda tangan di bawah ini:', { x: 100, y: 650, size: 12 });
+        page.drawText(`Nama: ${penerima}`, { x: 120, y: 630, size: 12 });
+        page.drawText(`Jabatan: ${jabatan}`, { x: 120, y: 610, size: 12 });
+        page.drawText(`Departemen: ${departemen}`, { x: 120, y: 590, size: 12 });
+
+        // Add items list
+        let yPosition = 540;
+        page.drawText('Telah menerima:', { x: 100, y: yPosition, size: 12 });
+        
+        const items = JSON.parse(daftar_barang);
+        items.forEach((item, index) => {
+            yPosition -= 25;
+            page.drawText(`${index + 1}. ${item.nama} - ${item.jumlah} ${item.satuan}`, 
+                { x: 120, y: yPosition, size: 12 });
+        });
+
+        // Add signature section
+        yPosition -= 60;
+        page.drawText('Penerima,', { x: 350, y: yPosition, size: 12 });
+        page.drawText(penerima, { x: 350, y: yPosition - 60, size: 12 });
+
+        const pdfBytes = await pdfDoc.save();
+
+        res.set({
+            "Content-Disposition": `attachment;filename="tanda_terima_${nomor_surat}.pdf"`,
+            "Content-Type": "application/pdf"
+        });
+        res.send(pdfBytes);
+
+    } catch (error) {
+        console.error('Error generating receipt:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+}
+
+// Helper Functions
+function getHurufNilai(nilai) {
+    if (nilai >= 90) return 'A';
+    if (nilai >= 80) return 'B';
+    if (nilai >= 70) return 'C';
+    if (nilai >= 60) return 'D';
+    return 'E';
+}
+
+function generateCertificatePages(page1, page2, data) {
+    // Page 1: Cover
+    page1.drawText(`SERTIFIKAT`, { x: 250, y: 700, size: 24 });
+    page1.drawText(`PELAKSANAAN MAGANG`, { x: 200, y: 650, size: 18 });
+    page1.drawText(`NAMA: ${data.nama}`, { x: 100, y: 600, size: 16 });
+    page1.drawText(`NIM: ${data.nim}`, { x: 100, y: 570, size: 16 });
+    page1.drawText(`JURUSAN: ${data.jurusan}`, { x: 100, y: 540, size: 16 });
+    page1.drawText(`UNIVERSITAS: ${data.universitas}`, { x: 100, y: 510, size: 16 });
+
+    // Page 2: Grade Recap
+    page2.drawText('REKAP NILAI', { x: 250, y: 750, size: 20 });
+    const nilaiLabels = [
+        'Teamwork', 'Komunikasi', 'Pengambilan Keputusan',
+        'Kualitas Kerja', 'Teknologi', 'Disiplin',
+        'Tanggung Jawab', 'Kerjasama', 'Inisiatif',
+        'Kejujuran', 'Kebersihan'
+    ];
+
+    let yPosition = 700;
+    data.nilaiArray.forEach((nilai, index) => {
+        page2.drawText(`${index + 1}. ${nilaiLabels[index]}: ${nilai}`, 
+            { x: 100, y: yPosition, size: 14 });
+        yPosition -= 30;
+    });
+
+    page2.drawText(`Rata-rata Nilai: ${data.rata2Nilai.toFixed(2)}`, 
+        { x: 100, y: 350, size: 16 });
+    page2.drawText(`Predikat: ${data.hurufNilai}`, 
+        { x: 100, y: 320, size: 16 });
+}
+
+module.exports = {
+    uploadTemplate,
+    getTemplates,
+    deleteTemplate,
+    generateSertifikatForm,
+    generateSertifikat,
+    generateReceiptForm,
+    generateReceipt
 };
-
-
-module.exports = documentController;

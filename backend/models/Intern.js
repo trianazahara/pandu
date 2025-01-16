@@ -1,8 +1,7 @@
-// backend/models/Intern.js
 const pool = require('../config/database');
 
 class Intern {
-    static async findAll({ page = 1, limit = 10, status, bidang, search }) {
+    static async findAll({ page = 1, limit = 10, status, bidang, search, endDate }) {
         let query = `
             SELECT 
                 p.*,
@@ -45,6 +44,11 @@ class Intern {
                             ELSE s.nisn
                         END LIKE ?)`;
             params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        if (endDate) {
+            query += ` AND p.tanggal_selesai <= ?`;
+            params.push(endDate);
         }
 
         // Get total count

@@ -72,6 +72,12 @@ const assessmentController = {
             res.status(201).json({
                 message: 'Penilaian berhasil disimpan',
                 id_penilaian
+                
+            });
+
+            await Notification.createAssessmentNotification({
+                id_magang,
+                created_by: req.user.userId
             });
         } catch (error) {
             await conn.rollback();
@@ -399,5 +405,14 @@ const assessmentController = {
         }
     },
 };
+
+
+const cron = require('node-cron');
+const Notification = require('../models/Notification');
+
+// Hapus notifikasi lama setiap hari
+cron.schedule('0 0 * * *', async () => {
+    await Notification.deleteOldNotifications();
+});
 
 module.exports = assessmentController;

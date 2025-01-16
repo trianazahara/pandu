@@ -47,7 +47,7 @@ import { LoadingButton } from '@mui/lab';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
-// Custom Field Component untuk Formik + Material UI
+// Form field component for Formik + Material UI
 const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
   <TextField
     {...field}
@@ -58,7 +58,7 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
 );
 
 const InternManagement = () => {
-  // State yang sudah ada
+  // Existing states
   const [interns, setInterns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -87,7 +87,7 @@ const InternManagement = () => {
   const [bidangLoading, setBidangLoading] = useState(true);
   const [bidangError, setBidangError] = useState(null);
 
-  // State untuk dialog detail dan edit
+  // State for detail and edit dialogs
   const [detailDialog, setDetailDialog] = useState({
     open: false,
     loading: false,
@@ -102,7 +102,14 @@ const InternManagement = () => {
     error: null
   });
 
-  // Fungsi helper yang sudah ada
+  // New state for add dialog
+  const [addDialog, setAddDialog] = useState({
+    open: false,
+    loading: false,
+    error: null
+  });
+
+  // Helper functions
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -116,40 +123,94 @@ const InternManagement = () => {
   const getStatusLabel = (status) => {
     const labels = {
       'active': 'Aktif',
+      'aktif': 'Aktif',
       'not_yet': 'Belum Mulai',
       'completed': 'Selesai',
+      'selesai': 'Selesai',
       'almost': 'Hampir Selesai'
     };
-    return labels[status] || status;
+    return labels[status?.toLowerCase()] || status;
   };
 
-  const getStatusStyle = (status) => {
+  const STATUS_MAPPING = {
+    // Frontend to Backend
+    'active': 'aktif',
+    'completed': 'selesai',
+    'not_yet': 'belum_mulai',
+    'almost': 'hampir_selesai',
+    // Backend to Frontend
+    'aktif': 'active',
+    'selesai': 'completed',
+    'belum_mulai': 'not_yet', 
+    'hampir_selesai': 'almost'
+  };
+
+  const getStatusValue = (status) => {
+    if (!status) return status;
+    return STATUS_MAPPING[status.toLowerCase()] || status;
+  };
+
+  // const getStatusValue = (status) => {
+  //   const values = {
+  //   'active': 'aktif',
+  // 'completed': 'selesai',
+  // 'not_yet': 'belum_mulai',
+  // 'almost': 'hampir_selesai',
+  // // Backend to Frontend
+  // 'aktif': 'active',
+  // 'selesai': 'completed',
+  // 'belum_mulai': 'not_yet', 
+  // 'hampir_selesai': 'almost'
+  //   };
+  //   return values[status?.toLowerCase()] || status;
+  // };
+
+  const getStatusStyle = (status, mode = 'class') => {
+    const normalizedStatus = getStatusValue(status);
+    
+    // Define the styles
     const styles = {
       'active': {
-        bg: '#FB4141',
-        color: '#047857',
-        border: '#047857'
+        bg: '#dcfce7', // Lighter green background
+        color: '#15803d', // Darker green text
+        border: '#15803d'
       },
       'not_yet': {
-        bg: '#EEF2FF',
-        color: '#3730A3',
-        border: '#3730A3'
+        bg: '#f3f4f6', // Light gray background
+        color: '#4b5563', // Darker gray text
+        border: '#4b5563'
       },
       'completed': {
-        bg: '#E7F7EE',
-        color: '#047857',
-        border: '#047857'
+        bg: '#dbeafe', // Light blue background
+        color: '#1e40af', // Darker blue text
+        border: '#1e40af'
       },
       'almost': {
-        bg: '#FEF9E7',
-        color: '#B7791F',
-        border: '#B7791F'
+        bg: '#fef9c3', // Light yellow background
+        color: '#854d0e', // Darker yellow text
+        border: '#854d0e'
       }
     };
-    return styles[status] || { bg: 'default', color: 'default', border: 'default' };
+  
+    const defaultStyle = styles['not_yet'];
+  
+    // If mode is 'class', return Tailwind-style class strings
+    if (mode === 'class') {
+      return `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+        normalizedStatus === 'active' ? 'bg-green-100 text-green-800 border border-green-800' :
+        normalizedStatus === 'not_yet' ? 'bg-gray-100 text-gray-800 border border-gray-800' :
+        normalizedStatus === 'completed' ? 'bg-blue-100 text-blue-800 border border-blue-800' :
+        normalizedStatus === 'almost' ? 'bg-yellow-100 text-yellow-800 border border-yellow-800' :
+        'bg-gray-100 text-gray-800 border border-gray-800'
+      }`;
+    }
+  
+    // Otherwise, return raw styles
+    return styles[normalizedStatus] || defaultStyle;
   };
+  
 
-  // Fungsi fetch data
+  // Fetch functions
   const fetchBidangList = async () => {
     try {
       setBidangLoading(true);
@@ -183,31 +244,38 @@ const InternManagement = () => {
   const fetchInterns = async () => {
     setLoading(true);
     setError(null);
+  
     try {
-      const queryParams = new URLSearchParams({
-        page: pagination.page + 1,
-        limit: pagination.limit,
-        ...filters
-      });
-
-      const response = await fetch(`/api/intern?${queryParams}`, {
+      const queryParams = new URLSearchParams();
+  
+      // Append filter values if they exist
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.bidang) queryParams.append('bidang', filters.bidang);
+      if (filters.search) queryParams.append('search', filters.search);
+  
+      // Pagination parameters
+      queryParams.append('page', pagination.page + 1); // Server pages start from 1
+      queryParams.append('limit', pagination.limit);
+  
+      const response = await fetch(`/api/intern?${queryParams.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
       });
-
+  
       if (!response.ok) {
-        throw new Error('Gagal memuat data');
+        throw new Error('Failed to load data');
       }
-
+  
       const data = await response.json();
+  
       setInterns(data.data);
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: data.pagination.total
+        total: data.pagination.total,
       }));
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching interns:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -215,9 +283,53 @@ const InternManagement = () => {
   };
 
   // Event handlers
-  const handleFilter = () => {
-    setPagination(prev => ({ ...prev, page: 0 }));
-    fetchInterns();
+  const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
+    try {
+      setAddDialog(prev => ({ ...prev, loading: true }));
+      const token = localStorage.getItem('token');
+
+      const response = await fetch('/api/intern/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(values)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Data peserta magang berhasil ditambahkan',
+          severity: 'success'
+        });
+        setAddDialog({ open: false, loading: false, error: null });
+        resetForm();
+        fetchInterns();
+      } else {
+        throw new Error(data.message || 'Terjadi kesalahan');
+      }
+    } catch (error) {
+      setAddDialog(prev => ({
+        ...prev,
+        error: error.message
+      }));
+    } finally {
+      setSubmitting(false);
+      setAddDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleFilter = (key, value) => {
+    setFilters((prevFilters) => {
+      const updatedFilters = {
+        ...prevFilters,
+        [key]: key === 'status' ? getStatusValue(value) : value,
+      };
+      return updatedFilters;
+    });
   };
 
   const handleDeleteClick = (internId, nama) => {
@@ -354,7 +466,7 @@ const InternManagement = () => {
     }));
   };
 
-  // useEffect
+  // useEffect hooks
   useEffect(() => {
     fetchInterns();
   }, [pagination.page, pagination.limit, filters]);
@@ -363,7 +475,343 @@ const InternManagement = () => {
     fetchBidangList();
   }, []);
 
-  // Dialog Components
+  // Add Dialog Component
+  const AddDialog = () => (
+    <Dialog
+      open={addDialog.open}
+      onClose={() => setAddDialog({ open: false, loading: false, error: null })}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">Tambah Peserta Magang</Typography>
+          <IconButton
+            onClick={() => setAddDialog({ open: false, loading: false, error: null })}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent>
+        {addDialog.error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
+        )}
+
+        <Formik
+          initialValues={{
+            nama: '',
+            jenis_peserta: 'mahasiswa',
+            nama_institusi: '',
+            jenis_institusi: '',
+            email: '',
+            no_hp: '',
+            bidang_id: '',
+            tanggal_masuk: '',
+            tanggal_keluar: '',
+            detail_peserta: {
+              nim: '',
+              nisn: '',
+              fakultas: '',
+              jurusan: '',
+              semester: '',
+              kelas: ''
+            }
+          }}
+          validationSchema={Yup.object({
+            nama: Yup.string()
+              .required('Nama wajib diisi')
+              .min(3, 'Nama minimal 3 karakter'),
+            jenis_peserta: Yup.string()
+              .required('Jenis peserta wajib dipilih'),
+            nama_institusi: Yup.string()
+              .required('Nama institusi wajib diisi'),
+            jenis_institusi: Yup.string()
+              .required('Jenis institusi wajib dipilih'),
+            email: Yup.string()
+              .email('Format email tidak valid'),
+            no_hp: Yup.string()
+              .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
+              .min(10, 'Nomor HP minimal 10 digit')
+              .max(15, 'Nomor HP maksimal 15 digit'),
+            bidang_id: Yup.string()
+              .required('Bidang wajib dipilih'),
+            tanggal_masuk: Yup.date()
+              .required('Tanggal masuk wajib diisi'),
+            tanggal_keluar: Yup.date()
+              .required('Tanggal keluar wajib diisi')
+              .min(
+                Yup.ref('tanggal_masuk'),
+                'Tanggal keluar harus setelah tanggal masuk'
+              ),
+            detail_peserta: Yup.object().when('jenis_peserta', {
+              is: 'mahasiswa',
+              then: () => Yup.object({
+                nim: Yup.string().required('NIM wajib diisi'),
+                fakultas: Yup.string().required('Fakultas wajib diisi'),
+                jurusan: Yup.string().required('Jurusan wajib diisi'),
+                semester: Yup.number()
+                  .typeError('Semester harus berupa angka')
+                  .min(1, 'Minimal semester 1')
+                  .max(14, 'Maksimal semester 14')
+              }),
+              otherwise: () => Yup.object({
+                nisn: Yup.string().required('NISN wajib diisi'),
+                jurusan: Yup.string().required('Jurusan wajib diisi'),
+                kelas: Yup.string().required('Kelas wajib diisi')
+              })
+            })
+          })}
+          onSubmit={handleAddSubmit}
+        >
+          {({ values, isSubmitting }) => (
+            <Form>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                {/* Basic Information */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                    Informasi Pribadi
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Lengkap"
+                    size="small"
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="jenis_peserta"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Jenis Peserta</InputLabel>
+                        <Select {...field} label="Jenis Peserta">
+                          <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
+                          <MenuItem value="siswa">Siswa</MenuItem>
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="email"
+                    component={FormTextField}
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    size="small"
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="no_hp"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nomor HP"
+                    size="small"
+                  />
+                </Grid>
+
+                {/* Institution Information */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Institusi
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_institusi"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Institusi"
+                    size="small"
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="jenis_institusi"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Jenis Institusi</InputLabel>
+                        <Select {...field} label="Jenis Institusi">
+                          <MenuItem value="universitas">Universitas</MenuItem>
+                          <MenuItem value="sekolah">Sekolah</MenuItem>
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="bidang_id"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
+                        <InputLabel>Bidang</InputLabel>
+                        <Select {...field} label="Bidang">
+                          {bidangList.map(bidang => (
+                            <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                              {bidang.nama_bidang}
+                              {bidang.available_slots > 0 && ` (${bidang.available_slots} slot tersedia)`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {form.touched.bidang_id && form.errors.bidang_id && (
+                          <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+                {/* Internship Period */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Periode Magang
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_masuk"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Mulai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_keluar"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Selesai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+                {/* Detail Peserta */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Detail Peserta
+                  </Typography>
+                </Grid>
+
+                {values.jenis_peserta === 'mahasiswa' ? (
+                  // Fields for university students
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.nim"
+                        component={FormTextField}
+                        fullWidth
+                        label="NIM"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.fakultas"
+                        component={FormTextField}
+                        fullWidth
+                        label="Fakultas"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.jurusan"
+                        component={FormTextField}
+                        fullWidth
+                        label="Jurusan"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.semester"
+                        component={FormTextField}
+                        fullWidth
+                        label="Semester"
+                        type="number"
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                ) : (
+                  // Fields for high school students
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.nisn"
+                        component={FormTextField}
+                        fullWidth
+                        label="NISN"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.jurusan"
+                        component={FormTextField}
+                        fullWidth
+                        label="Jurusan"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.kelas"
+                        component={FormTextField}
+                        fullWidth
+                        label="Kelas"
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+
+              <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  onClick={() => setAddDialog({ open: false, loading: false, error: null })}
+                  disabled={isSubmitting}
+                >
+                  Batal
+                </Button>
+                <LoadingButton
+                  type="submit"
+                  variant="contained"
+                  loading={isSubmitting}
+                >
+                  Simpan
+                </LoadingButton>
+              </Box>
+            </Form>
+          )}
+        </Formik>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Detail Dialog Component
   const DetailDialog = () => (
     <Dialog
       open={detailDialog.open}
@@ -460,7 +908,7 @@ const InternManagement = () => {
                     <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                  <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
+                    <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
                     <Typography variant="body1">{formatDate(detailDialog.data.tanggal_masuk)}</Typography>
                   </Grid>
                   <Grid item xs={12} sm={4}>
@@ -487,6 +935,7 @@ const InternManagement = () => {
     </Dialog>
   );
 
+  // Edit Dialog Component
   const EditDialog = () => (
     <Dialog
       open={editDialog.open}
@@ -796,164 +1245,136 @@ const InternManagement = () => {
     </Dialog>
   );
 
-  // Render utama
+  // Main render
   return (
-    <Box sx={{
-      height: 'calc(100vh - 64px)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '12px',
-      backgroundColor: '#f5f5f5',
-      position: 'relative',
-      overflow: 'hidden',
-      minWidth: '1150px'
-    }}>
-      <Card elevation={2} sx={{
-        flex: 1,
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      {/* Header */}
+      <Box sx={{ 
+        width: '100%',
+        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
+        borderRadius: '12px',
+        mb: 4,
+        p: 3,
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <CardContent sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '16px !important',
-          '&:last-child': { paddingBottom: '16px' },
-          overflow: 'hidden'
-        }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Filter Data Magang
-          </Typography>
-          
-          <Box sx={{ mb: 2, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 2fr' }, gap: 2 }}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filters.status}
-                label="Status"
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-              >
-                <MenuItem value="">Semua Status</MenuItem>
-                <MenuItem value="active">Aktif</MenuItem>
-                <MenuItem value="not_yet">Belum Mulai</MenuItem>
-                <MenuItem value="completed">Selesai</MenuItem>
-                <MenuItem value="almost">Hampir Selesai</MenuItem>
-              </Select>
-            </FormControl>
+        <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
+          Manajemen Data Anak Magang
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setAddDialog({ open: true, loading: false, error: null })}
+          sx={{
+            bgcolor: 'white',
+            color: '#26BBAC',
+            '&:hover': { bgcolor: '#f5f5f5' },
+            px: 3,
+            py: 1.5,
+            borderRadius: '8px',
+          }}>
+          TAMBAH ANAK MAGANG
+        </Button>
+      </Box>
 
-            <FormControl size="small" fullWidth>
-              <InputLabel>Bidang</InputLabel>
-              <Select
-                value={filters.bidang}
-                label="Bidang"
-                onChange={(e) => setFilters({...filters, bidang: e.target.value})}
-                disabled={bidangLoading}
-              >
-                <MenuItem value="">Semua Bidang</MenuItem>
-                {bidangList.map(bidang => (
-                  <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
-                    {bidang.nama_bidang}
-                  </MenuItem>
-                ))}
-              </Select>
-              {bidangError && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {bidangError}
-                </Typography>
-              )}
-            </FormControl>
+      {/* Search and Filter Section */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search nama/email"
+            value={filters.search}
+            onChange={(e) => setFilters({...filters, search: e.target.value})}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        
+        <div className="relative">
+          <select
+            value={filters.bidang}
+            onChange={(e) => setFilters({...filters, bidang: e.target.value})}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+          >
+            <option value="">Bidang</option>
+            {bidangList.map(bidang => (
+              <option key={bidang.id_bidang} value={bidang.id_bidang}>
+                {bidang.nama_bidang}
+              </option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
 
-            <Box sx={{ display: 'flex', gap: 1, width: '100%', minWidth: 0 }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Cari nama/NIM/institusi..."
-                value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ flex: 1, minWidth: 0 }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleFilter}
-                startIcon={<FilterIcon />}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Filter
-              </Button>
-            </Box>
-          </Box>
+        <div className="relative">
+        <select
+  value={filters.status}
+  onChange={(e) => handleFilter('status', e.target.value)}
+  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+>
+  <option value="">Status</option>
+  <option value="not_yet">Belum Mulai</option>
+  <option value="active">Aktif</option>
+  <option value="almost">Hampir Selesai</option>
+  <option value="completed">Selesai</option>
+</select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
 
-          <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>NAMA</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>NIM/NISN</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>INSTITUSI</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="center">BIDANG</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="center">TANGGAL MASUK</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="center">TANGGAL KELUAR</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="center">STATUS</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="center">AKSI</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        <Box sx={{ py: 4 }}>
-                          <Typography>Memuat data...</Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : error ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ color: 'error.main', py: 4 }}>
-                        {error}
-                      </TableCell>
-                    </TableRow>
-                  ) : interns.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                        Tidak ada data yang ditemukan
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    interns.map((intern) => (
-                      <TableRow key={intern.id_magang} hover>
-                        <TableCell>{intern.nama}</TableCell>
-                        <TableCell>{intern.nomor_induk}</TableCell>
-                        <TableCell>{intern.nama_institusi}</TableCell>
-                        <TableCell align="center">{intern.nama_bidang}</TableCell>
-                        <TableCell align="center">{formatDate(intern.tanggal_masuk)}</TableCell>
-                        <TableCell align="center">{formatDate(intern.tanggal_keluar)}</TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={getStatusLabel(intern.status)}
-                            sx={{
-                              backgroundColor: getStatusStyle(intern.status).bg,
-                              color: getStatusStyle(intern.status).color,
-                              borderColor: getStatusStyle(intern.status).border,
-                              '&:hover': {
-                                backgroundColor: getStatusStyle(intern.status).bg
-                              }
-                            }}
-                            variant="outlined"
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                            <IconButton
+      {/* Table Section */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                  Loading...
+                </td>
+              </tr>
+            ) : interns.map((intern) => (
+              <tr key={intern.id_magang} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {intern.nama}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {intern.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {intern.nama_bidang}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatDate(intern.tanggal_masuk)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatDate(intern.tanggal_keluar)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <span className={getStatusStyle(intern.status)}>
+                    {getStatusLabel(intern.status)}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                <IconButton
                               size="small"
                               onClick={() => handleDetailClick(intern.id_magang)}
                               sx={{ color: 'info.main' }}
@@ -974,42 +1395,57 @@ const InternManagement = () => {
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-          
-          <TablePagination
-            component="div"
-            count={pagination.total}
-            page={pagination.page}
-            onPageChange={handlePageChange}
-            rowsPerPage={pagination.limit}
-            onRowsPerPageChange={handleLimitChange}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Data per halaman"
-          />
-        </CardContent>
-      </Card>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        onClick={() => window.location.href = '/intern/add'}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-        }}
-      >
-        <AddIcon />
-      </Fab>
+      {/* Pagination */}
+      <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
+        <div className="flex items-center gap-2">
+          <select
+            value={pagination.limit}
+            onChange={handleLimitChange}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            {[5, 10, 25, 50].map(size => (
+              <option key={size} value={size}>{size} items</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handlePageChange(null, Math.max(0, pagination.page - 1))}
+            disabled={pagination.page === 0}
+            className={`px-4 py-2 text-sm font-medium rounded-md 
+              ${pagination.page === 0 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Previous
+          </button>
+          <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
+            {pagination.page + 1}
+          </span>
+          <button
+            onClick={() => handlePageChange(null, pagination.page + 1)}
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1}
+            className={`px-4 py-2 text-sm font-medium rounded-md
+              ${pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Dialogs */}
+      <AddDialog />
+      <DetailDialog />
+      <EditDialog />
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -1041,23 +1477,13 @@ const InternManagement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Detail Dialog */}
-      <DetailDialog />
-
-      {/* Edit Dialog */}
-      <EditDialog />
-
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>

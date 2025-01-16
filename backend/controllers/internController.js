@@ -21,6 +21,7 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     }
 };
 
+
 // Fungsi untuk mengupdate status peserta magang
 const updateInternStatuses = async (conn) => {
     const query = `
@@ -36,6 +37,91 @@ const updateInternStatuses = async (conn) => {
     await conn.execute(query);
 };
 const internController = {
+
+    getDetailedStats: async (req, res) => {
+        const conn = await pool.getConnection();
+        try {
+            // Update status terlebih dahulu
+            await updateInternStatuses(conn);
+    
+            // 1. Dapatkan statistik dasar - Perbaikan untuk menghitung aktif + almost
+            const [basicStats] = await conn.execute(`
+                SELECT
+                    COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
+                    COUNT(CASE WHEN status = 'selesai' THEN 1 END) as completed_count,
+                    COUNT(CASE WHEN status = 'almost' THEN 1 END) as completing_soon_count,
+                    COUNT(*) as total_count
+                FROM peserta_magang
+            `);
+    
+            // 2. Dapatkan statistik berdasarkan jenis peserta untuk yang aktif + almost
+            const [educationStats] = await conn.execute(`
+                SELECT
+                    jenis_peserta,
+                    COUNT(*) as count
+                FROM peserta_magang
+                WHERE status IN ('aktif', 'almost')
+                GROUP BY jenis_peserta
+            `);
+    
+            // 3. Dapatkan statistik berdasarkan bidang untuk yang aktif + almost
+            const [departmentStats] = await conn.execute(`
+                SELECT
+                    b.nama_bidang,
+                    COUNT(*) as count
+                FROM peserta_magang p
+                JOIN bidang b ON p.id_bidang = b.id_bidang
+                WHERE p.status IN ('aktif', 'almost')
+                GROUP BY b.id_bidang, b.nama_bidang
+            `);
+    
+            // 4. Dapatkan data peserta yang akan selesai dalam 7 hari (status almost)
+            const [completingSoon] = await conn.execute(`
+                SELECT 
+                    p.nama,
+                    p.nama_institusi,
+                    b.nama_bidang,
+                    p.tanggal_keluar,
+                    p.id_magang
+                FROM peserta_magang p
+                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+                WHERE p.status = 'almost'
+                ORDER BY p.tanggal_keluar ASC
+            `);
+    
+            // Format response
+            const response = {
+                activeInterns: {
+                    total: basicStats[0].active_count, // Sekarang termasuk aktif + almost
+                    students: {
+                        siswa: educationStats.find(stat => stat.jenis_peserta === 'siswa')?.count || 0,
+                        mahasiswa: educationStats.find(stat => stat.jenis_peserta === 'mahasiswa')?.count || 0
+                    },
+                    byDepartment: departmentStats.reduce((acc, curr) => {
+                        acc[curr.nama_bidang.toLowerCase()] = curr.count;
+                        return acc;
+                    }, {})
+                },
+                completedInterns: basicStats[0].completed_count,
+                totalInterns: basicStats[0].total_count,
+                completingSoon: {
+                    count: basicStats[0].completing_soon_count,
+                    interns: completingSoon
+                }
+            };
+    
+            res.json(response);
+    
+        } catch (error) {
+            console.error('Error getting detailed stats:', error);
+            res.status(500).json({ 
+                status: 'error',
+                message: 'Terjadi kesalahan server saat mengambil statistik detail'
+            });
+        } finally {
+            conn.release();
+        }
+    },
     getAll: async (req, res) => {
         try {
             const {
@@ -662,59 +748,61 @@ const [leavingInterns] = await pool.execute(`
             }
         },
      // Modify getStats to use new status logic
-     getStats: async (req, res) => {
-        const conn = await pool.getConnection();
-        try {
-            // Update statuses first to ensure we have current data
-            await updateInternStatuses(conn);
+    //  getStats: async (req, res) => {
+    //     const conn = await pool.getConnection();
+    //     try {
+    //         // Update statuses first to ensure we have current data
+    //         await updateInternStatuses(conn);
     
-            // Get active interns count 
-            const [activeCount] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang 
-                WHERE status = 'aktif'
-            `);
+    //         // Get active interns count 
+    //         const [activeCount] = await conn.execute(`
+    //             SELECT COUNT(*) as count 
+    //             FROM peserta_magang 
+    //             WHERE status = 'aktif'
+    //         `);
     
-            // Get completed interns count
-            const [completedCount] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang 
-                WHERE status = 'selesai'
-            `);
+    //         // Get completed interns count
+    //         const [completedCount] = await conn.execute(`
+    //             SELECT COUNT(*) as count 
+    //             FROM peserta_magang 
+    //             WHERE status = 'selesai'
+    //         `);
     
-            // Get interns completing soon (status = 'almost')
-            const [completingSoon] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang 
-                WHERE status = 'almost'
-            `);
+    //         // Get interns completing soon (status = 'almost')
+    //         const [completingSoon] = await conn.execute(`
+    //             SELECT COUNT(*) as count 
+    //             FROM peserta_magang 
+    //             WHERE status = 'almost'
+    //         `);
     
-            // Get total interns count
-            const [totalCount] = await conn.execute(`
-                SELECT COUNT(*) as count 
-                FROM peserta_magang
-            `);
+    //         // Get total interns count
+    //         const [totalCount] = await conn.execute(`
+    //             SELECT COUNT(*) as count 
+    //             FROM peserta_magang
+    //         `);
     
-            // Prepare response object
-            const response = {
-                activeInterns: activeCount[0].count,
-                completedInterns: completedCount[0].count,
-                totalInterns: totalCount[0].count,
-                completingSoon: completingSoon[0].count
-            };
+    //         // Prepare response object
+    //         const response = {
+    //             activeInterns: activeCount[0].count,
+    //             completedInterns: completedCount[0].count,
+    //             totalInterns: totalCount[0].count,
+    //             completingSoon: completingSoon[0].count
+    //         };
     
-            res.json(response);
+    //         res.json(response);
     
-        } catch (error) {
-            console.error('Error getting stats:', error);
-            res.status(500).json({ 
-                status: 'error',
-                message: 'Terjadi kesalahan server saat mengambil statistik'
-            });
-        } finally {
-            conn.release();
-        }
-    },
+    //     } catch (error) {
+    //         console.error('Error getting stats:', error);
+    //         res.status(500).json({ 
+    //             status: 'error',
+    //             message: 'Terjadi kesalahan server saat mengambil statistik'
+    //         });
+    //     } finally {
+    //         conn.release();
+    //     }
+    // },
+
+    
 
      // Modify getCompletingSoon to use 'almost' status
      getCompletingSoon: async (req, res) => {

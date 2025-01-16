@@ -27,7 +27,8 @@ import {
   Grid
 } from '@mui/material';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
-import axios from 'axios';
+import axios from 'axios';import { Edit as EditIcon, FileDownload as FileDownloadIcon, CardMembership as CertificateIcon } from '@mui/icons-material';
+
 
 const RekapNilai = () => {
   // State
@@ -137,6 +138,36 @@ const RekapNilai = () => {
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  const [loadingCertificate, setLoadingCertificate] = useState(null);
+
+  const handleGenerateCertificate = async (id) => {
+    setLoadingCertificate(id);
+    try {
+      const response = await axios.get(`/api/intern/certificate/${id}`, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        },
+        responseType: 'blob'  // Penting untuk handling file
+      });
+  
+      // Create blob URL dan trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `sertifikat_magang_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      showSnackbar('Sertifikat berhasil di-generate');
+    } catch (error) {
+      showSnackbar('Gagal generate sertifikat', 'error');
+      console.error('Error generating certificate:', error);
+    } finally {
+      setLoadingCertificate(null);
+    }
   };
 
   return (

@@ -20,10 +20,10 @@ const upload = multer({ storage });
 router.use(authMiddleware);
 
 // Generate acceptance letter
-router.post('/acceptance-letter', documentController.generateAcceptanceLetter);
+router.get('/acceptance-letter', documentController.generateAcceptanceLetter);
 
 // Generate certificate
-router.post('/certificate/:id_magang', documentController.generateCertificate);
+router.get('/certificate/:id', documentController.generateCertificate);
 
 // Upload template
 router.post('/template', 

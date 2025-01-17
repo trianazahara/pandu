@@ -1,6 +1,7 @@
 // backend/controllers/internController.js
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const notificationController = require('./notificationController');
 
 // Fungsi helper untuk menentukan status berdasarkan tanggal
 const determineStatus = (tanggal_masuk, tanggal_keluar) => {
@@ -21,7 +22,48 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     }
 };
 
-
+const createInternNotification = async (conn, {userId, internName, action = 'menambah'}) => {
+    try {
+        // 1. Ambil data user yang melakukan aksi
+        const [userData] = await conn.execute(
+            'SELECT username FROM users WHERE id_users = ?',
+            [userId]
+        );
+        const username = userData[0]?.username || 'Unknown User';
+        
+        // 2. Ambil semua user yang terdaftar
+        const [allUsers] = await conn.execute('SELECT id_users FROM users');
+        
+        // 3. Siapkan query untuk insert
+        const query = `
+            INSERT INTO notifikasi (
+                id_notifikasi,
+                user_id,
+                judul,
+                pesan,
+                dibaca,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+        
+        // 4. Insert notifikasi untuk setiap user
+        for (const user of allUsers) {
+            const values = [
+                uuidv4(),
+                user.id_users,
+                'Aktivitas Peserta Magang',
+                `${username} telah ${action} data peserta magang: ${internName}`,
+                0
+            ];
+            
+            await conn.execute(query, values);
+        }
+        
+    } catch (error) {
+        console.error('Error creating notification:', error);
+        throw error;
+    }
+};
 // Fungsi untuk mengupdate status peserta magang
 const updateInternStatuses = async (conn) => {
     const query = `
@@ -134,27 +176,38 @@ const internController = {
 
             const offset = (page - 1) * limit;
             let query = `
-                SELECT 
-                    p.*,
-                    b.nama_bidang,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END as nomor_induk,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
-                        ELSE s.kelas
-                    END as detail_pendidikan,
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
-                        ELSE s.jurusan
-                    END as jurusan
-                FROM peserta_magang p
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-                LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-                WHERE 1=1
-            `;
+            SELECT 
+                p.id_magang,
+                p.nama,
+                p.jenis_peserta,
+                p.nama_institusi,
+                p.jenis_institusi,
+                p.email,
+                p.no_hp,
+                p.tanggal_masuk,
+                p.tanggal_keluar,
+                p.status,
+                p.nama_pembimbing,
+                p.telp_pembimbing,
+                b.nama_bidang,
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
+                    ELSE s.nisn
+                END as nomor_induk,
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
+                    ELSE s.kelas
+                END as detail_pendidikan,
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
+                    ELSE s.jurusan
+                END as jurusan
+            FROM peserta_magang p
+            LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+            LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
+            LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
+            WHERE 1=1
+        `;
 
             const params = [];
 
@@ -204,10 +257,9 @@ const internController = {
         }
     },
 
-    checkAvailability : async (req, res) => {
+    checkAvailability: async (req, res) => {
         try {
             res.setHeader('Content-Type', 'application/json');
-            // 1. Ambil tanggal dari query
             const inputDate = req.query.date;
             if (!inputDate) {
                 return res.status(400).json({ 
@@ -216,20 +268,18 @@ const internController = {
                 });
             }
     
-            // 2. Format tanggal langsung dari input YYYY-MM-DD (tidak perlu konversi karena dari frontend sudah benar)
             const formattedDate = inputDate;
-    
             const SLOT_LIMIT = 50;
     
-            // 3. Query untuk peserta aktif
+            // Query untuk peserta yang benar-benar aktif (tidak termasuk yang almost)
             const [activeInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
                 FROM peserta_magang
-                WHERE status IN ('aktif', 'almost')
+                WHERE status = 'aktif'
                 AND ? BETWEEN tanggal_masuk AND tanggal_keluar
             `, [formattedDate]);
     
-            // 4. Query untuk peserta yang akan datang
+            // Query untuk peserta yang akan datang
             const [upcomingInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
                 FROM peserta_magang
@@ -237,41 +287,54 @@ const internController = {
                 AND tanggal_masuk <= ?
             `, [formattedDate]);
     
-            // 5. Query untuk peserta yang akan selesai dalam 7 hari
-const [leavingInterns] = await pool.execute(`
-    SELECT 
-        p.id_magang,
-        p.nama,
-        DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
-        b.nama_bidang
-    FROM peserta_magang p
-    LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-    WHERE p.status IN ('aktif', 'almost')
-    AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
-    ORDER BY p.tanggal_keluar ASC
-`, [formattedDate, formattedDate]);
-            // 6. Hitung total dan ketersediaan
+            // Query untuk peserta yang akan selesai dalam 7 hari
+            const [leavingInterns] = await pool.execute(`
+                SELECT 
+                    p.id_magang,
+                    p.nama,
+                    DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
+                    b.nama_bidang
+                FROM peserta_magang p
+                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+                WHERE p.status = 'almost'
+                AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
+                ORDER BY p.tanggal_keluar ASC
+            `, [formattedDate, formattedDate]);
+    
+            // Hitung total yang aktif (tidak termasuk yang almost)
             const totalOccupied = parseInt(activeInterns[0].count) + parseInt(upcomingInterns[0].count);
             const availableSlots = SLOT_LIMIT - totalOccupied;
-            const isAvailable = availableSlots > 0 || leavingInterns.length > 0;
     
-            // 7. Siapkan pesan
+            // Tambahkan slot yang akan tersedia dari peserta yang hampir selesai
+            const soonAvailableSlots = leavingInterns.length;
+            const totalAvailableSlots = availableSlots - soonAvailableSlots;
+    
+            // Tentukan apakah ada slot tersedia
+            const isAvailable = totalAvailableSlots > 0;
+    
+            // Siapkan pesan yang lebih informatif
             let message = '';
             if (isAvailable) {
-                if (leavingInterns.length > 0 && availableSlots <= 0) {
-                    message = `Posisi dapat diterima karena ada ${leavingInterns.length} peserta yang akan selesai dalam 7 hari ke depan`;
+                if (availableSlots > 0) {
+                    if (soonAvailableSlots > 0) {
+                        message = `Tersedia ${availableSlots} slot langsung dengan ${soonAvailableSlots} slot tambahan dari peserta yang akan selesai dalam 7 hari ke depan (total ${totalAvailableSlots} dari ${SLOT_LIMIT} slot)`;
+                    } else {
+                        message = `Tersedia ${availableSlots} slot dari total ${SLOT_LIMIT} slot`;
+                    }
                 } else {
-                    message = `Tersedia ${Math.max(availableSlots, 0)} slot dari total ${SLOT_LIMIT} slot`;
+                    message = `Akan tersedia ${soonAvailableSlots} slot dari peserta yang akan selesai dalam 7 hari ke depan`;
                 }
             } else {
-                message = 'Saat ini semua slot telah terisi';
+                message = 'Saat ini semua slot telah terisi dan tidak ada peserta yang akan selesai dalam waktu dekat';
             }
     
-            // 8. Kirim response
+            // Kirim response
             return res.status(200).json({
                 success: true,
                 available: isAvailable,
                 availableSlots: Math.max(availableSlots, 0),
+                soonAvailableSlots,
+                totalAvailableSlots: Math.max(totalAvailableSlots, 0),
                 totalOccupied,
                 leavingInterns,
                 leavingCount: leavingInterns.length,
@@ -281,7 +344,6 @@ const [leavingInterns] = await pool.execute(`
     
         } catch (error) {
             console.error('Error pada pengecekan ketersediaan:', error);
-            
             return res.status(500).json({ 
                 success: false,
                 message: 'Terjadi kesalahan saat mengecek ketersediaan',
@@ -296,12 +358,21 @@ const [leavingInterns] = await pool.execute(`
         return date instanceof Date && !isNaN(date);
     },
 
-    add: async (req, res) => {
+    add : async (req, res) => {
         const conn = await pool.getConnection();
         try {
+            // 1. Validasi autentikasi user
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Unauthorized: User authentication required'
+                });
+            }
+    
             await conn.beginTransaction();
-        
-            const created_by = req.user?.id_users;
+            const created_by = req.user.userId;
+    
+            // 2. Destructure data dari request body
             const {
                 nama,
                 jenis_peserta,
@@ -312,128 +383,146 @@ const [leavingInterns] = await pool.execute(`
                 bidang_id,
                 tanggal_masuk,
                 tanggal_keluar,
-                detail_peserta
+                detail_peserta,
+                nama_pembimbing,    // tambahan
+                telp_pembimbing 
             } = req.body;
-
-            // Validasi data yang diperlukan
+    
+            // 3. Validasi field yang required
             if (!nama || !jenis_peserta || !nama_institusi || !jenis_institusi || 
-                !bidang_id || !tanggal_masuk || !tanggal_keluar || !detail_peserta) {
+                !bidang_id || !tanggal_masuk || !tanggal_keluar || !detail_peserta ||
+                !nama_pembimbing || !telp_pembimbing) {  // tambahan validasi
                 return res.status(400).json({
+                    status: 'error',
                     message: 'Semua field wajib diisi'
                 });
             }
-
-            // Validasi keberadaan bidang_id
+    
+            // 4. Validasi keberadaan bidang
             const [bidangExists] = await conn.execute(
                 'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
                 [bidang_id]
             );
-
+    
             if (bidangExists.length === 0) {
                 return res.status(400).json({
+                    status: 'error',
                     message: 'Bidang yang dipilih tidak valid'
                 });
             }
-
-            // Tentukan status awal berdasarkan tanggal
+    
+            // 5. Tentukan status berdasarkan tanggal
             const status = determineStatus(tanggal_masuk, tanggal_keluar);
-
-            // Insert peserta_magang
+    
+            // 6. Generate ID dan insert ke tabel peserta_magang
             const id_magang = uuidv4();
             const pesertaMagangQuery = `
                 INSERT INTO peserta_magang (
                     id_magang, nama, jenis_peserta, nama_institusi,
                     jenis_institusi, email, no_hp, id_bidang,
-                    tanggal_masuk, tanggal_keluar, status, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    tanggal_masuk, tanggal_keluar, status, 
+                    nama_pembimbing, telp_pembimbing,           
+                    created_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             `;
-
+    
             const pesertaMagangValues = [
                 id_magang, nama, jenis_peserta, nama_institusi,
                 jenis_institusi, email || null, no_hp || null, bidang_id,
-                tanggal_masuk, tanggal_keluar, status, req.user?.id_users || null
+                tanggal_masuk, tanggal_keluar, status,
+                nama_pembimbing, telp_pembimbing,              
+                created_by
             ];
-
+    
             await conn.execute(pesertaMagangQuery, pesertaMagangValues);
-
-            // Insert additional data based on jenis_peserta
+    
+            // 7. Insert data tambahan berdasarkan jenis peserta
             if (jenis_peserta === 'mahasiswa') {
                 const { nim, fakultas, jurusan, semester } = detail_peserta;
                 if (!nim || !jurusan) {
                     throw new Error('NIM dan jurusan wajib diisi untuk mahasiswa');
                 }
-
-                const mahasiswaQuery = `
+    
+                await conn.execute(`
                     INSERT INTO data_mahasiswa (
-                        id_mahasiswa, id_magang, nim,
-                        fakultas, jurusan, semester
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                `;
-
-                const mahasiswaValues = [
-                    uuidv4(),
-                    id_magang,
-                    nim,
-                    fakultas || null,
-                    jurusan,
-                    semester || null
-                ];
-
-                await conn.execute(mahasiswaQuery, mahasiswaValues);
+                        id_mahasiswa, id_magang, nim, fakultas, jurusan, semester, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `, [uuidv4(), id_magang, nim, fakultas || null, jurusan, semester || null]);
+    
             } else if (jenis_peserta === 'siswa') {
                 const { nisn, jurusan, kelas } = detail_peserta;
                 if (!nisn || !jurusan) {
                     throw new Error('NISN dan jurusan wajib diisi untuk siswa');
                 }
-
-                const siswaQuery = `
+    
+                await conn.execute(`
                     INSERT INTO data_siswa (
-                        id_siswa, id_magang, nisn,
-                        jurusan, kelas
-                    ) VALUES (?, ?, ?, ?, ?)
-                `;
-
-                const siswaValues = [
-                    uuidv4(),
-                    id_magang,
-                    nisn,
-                    jurusan,
-                    kelas || null
-                ];
-
-                await conn.execute(siswaQuery, siswaValues);
-            } else {
-                throw new Error('Jenis peserta tidak valid');
+                        id_siswa, id_magang, nisn, jurusan, kelas, created_at
+                    ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `, [uuidv4(), id_magang, nisn, jurusan, kelas || null]);
             }
-
-            await conn.commit();
-            res.status(201).json({
-                message: 'Data peserta magang berhasil ditambahkan',
-                id_magang
+    
+            // 8. Buat notifikasi
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                internName: nama,
+                action: 'menambah'
             });
+    
+            // 9. Commit transaction
+            await conn.commit();
+    
+            // 10. Kirim response sukses
+            res.status(201).json({
+                status: 'success',
+                message: 'Data peserta magang berhasil ditambahkan',
+                data: {
+                    id_magang,
+                    nama,
+                    jenis_peserta,
+                    nama_institusi,
+                    status,
+                    created_by,
+                    created_at: new Date().toISOString()
+                }
+            });
+    
         } catch (error) {
             await conn.rollback();
             console.error('Error adding intern:', error);
-            
-            // Send more specific error message
+    
             if (error.message.includes('wajib diisi')) {
-                res.status(400).json({ message: error.message });
+                res.status(400).json({
+                    status: 'error',
+                    message: error.message
+                });
+            } else if (error.code === 'ER_DUP_ENTRY') {
+                res.status(400).json({
+                    status: 'error',
+                    message: 'Data sudah ada dalam sistem'
+                });
             } else {
-                res.status(500).json({ message: 'Terjadi kesalahan server' });
+                res.status(500).json({
+                    status: 'error',
+                    message: 'Terjadi kesalahan server',
+                    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                });
             }
         } finally {
-            conn.release();
+            if (conn) conn.release();
         }
     },
 
-    getDetail: async (req, res) => {
+    getDetail : async (req, res) => {
         try {
             const { id } = req.params;
-
+    
             const [rows] = await pool.execute(`
                 SELECT 
                     p.*,
                     b.nama_bidang,
+                    p.nama_pembimbing,    /* menggunakan comment style SQL yang benar */
+                    p.telp_pembimbing,    /* menggunakan comment style SQL yang benar */
                     CASE 
                         WHEN p.jenis_peserta = 'mahasiswa' THEN (
                             SELECT JSON_OBJECT(
@@ -457,29 +546,28 @@ const [leavingInterns] = await pool.execute(`
                 LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
                 WHERE p.id_magang = ?
             `, [id]);
-
+                
             if (rows.length === 0) {
                 return res.status(404).json({
                     status: 'error',
                     message: 'Data peserta magang tidak ditemukan'
                 });
             }
-
+    
             if (rows[0].detail_peserta) {
                 rows[0].detail_peserta = JSON.parse(rows[0].detail_peserta);
             }
-
+    
             res.json({
                 status: 'success',
                 data: rows[0]
             });
-
+    
         } catch (error) {
             console.error('Error getting intern detail:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
         }
     },
-
     updateStatuses: async (req, res) => {
         const conn = await pool.getConnection();
         try {
@@ -499,12 +587,24 @@ const [leavingInterns] = await pool.execute(`
             conn.release();
         }
     },
-
-    update : async (req, res) => {
-        const conn = await pool.getConnection();
+    update: async (req, res) => {
+        let conn = null;
         try {
+            conn = await pool.getConnection();
+            
+            // Validasi user authentication
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Unauthorized: User authentication required'
+                });
+            }
+    
+            // Set timeout untuk menghindari deadlock
+            await conn.execute('SET SESSION innodb_lock_wait_timeout = 50');
             await conn.beginTransaction();
-            const updated_by = req.user?.id_users; 
+            
+            const updated_by = req.user.userId;
             const { id } = req.params;
             const {
                 nama,
@@ -517,12 +617,25 @@ const [leavingInterns] = await pool.execute(`
                 tanggal_masuk,
                 tanggal_keluar,
                 status,
-                detail_peserta
+                detail_peserta,
+                nama_pembimbing,
+                telp_pembimbing
             } = req.body;
     
-            // Check if intern exists
+            // Validasi ID
+            if (!id) {
+                throw new Error('ID peserta magang diperlukan');
+            }
+    
+            // Check data peserta dengan lock dan ambil data detail
             const [existingIntern] = await conn.execute(
-                'SELECT * FROM peserta_magang WHERE id_magang = ?',
+                `SELECT pm.*, 
+                        dm.nim, dm.fakultas, dm.jurusan as mhs_jurusan, dm.semester,
+                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas 
+                 FROM peserta_magang pm 
+                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang 
+                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang 
+                 WHERE pm.id_magang = ? FOR UPDATE`,
                 [id]
             );
     
@@ -534,7 +647,7 @@ const [leavingInterns] = await pool.execute(`
                 });
             }
     
-            // Check if bidang exists if bidang_id is provided
+            // Validasi bidang
             if (bidang_id) {
                 const [bidangExists] = await conn.execute(
                     'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
@@ -550,142 +663,169 @@ const [leavingInterns] = await pool.execute(`
                 }
             }
     
-            // Update peserta_magang
-            const updateFields = [];
-            const updateValues = [];
+            // Prepare update fields
+            const updates = [];
+            const values = [];
     
-            if (nama) {
-                updateFields.push('nama = ?');
-                updateValues.push(nama);
-            }
-            if (jenis_peserta) {
-                updateFields.push('jenis_peserta = ?');
-                updateValues.push(jenis_peserta);
-            }
-            if (nama_institusi) {
-                updateFields.push('nama_institusi = ?');
-                updateValues.push(nama_institusi);
-            }
-            if (jenis_institusi) {
-                updateFields.push('jenis_institusi = ?');
-                updateValues.push(jenis_institusi);
-            }
-            if (email !== undefined) {
-                updateFields.push('email = ?');
-                updateValues.push(email || null);
-            }
-            if (no_hp !== undefined) {
-                updateFields.push('no_hp = ?');
-                updateValues.push(no_hp || null);
-            }
-            if (bidang_id) {
-                updateFields.push('id_bidang = ?');
-                updateValues.push(bidang_id);
-            }
-            if (tanggal_masuk) {
-                updateFields.push('tanggal_masuk = ?');
-                updateValues.push(tanggal_masuk);
-            }
-            if (tanggal_keluar) {
-                updateFields.push('tanggal_keluar = ?');
-                updateValues.push(tanggal_keluar);
-            }
-            if (status) {
-                updateFields.push('status = ?');
-                updateValues.push(status);
-            }
+            const updateFields = {
+                nama,
+                jenis_peserta,
+                nama_institusi,
+                jenis_institusi,
+                email,
+                no_hp,
+                id_bidang: bidang_id,
+                tanggal_masuk,
+                tanggal_keluar,
+                status,
+                nama_pembimbing,
+                telp_pembimbing
+            };
     
-            // Add updated_by and updated_at
-            updateFields.push('updated_by = ?');
-            updateValues.push(req.user?.id_users || null);
-            updateFields.push('updated_at = CURRENT_TIMESTAMP');
+            // Build dynamic update query
+            Object.entries(updateFields).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    updates.push(`${key} = ?`);
+                    values.push(value === '' ? null : value);
+                }
+            });
     
-            // Add id_magang to values array
-            updateValues.push(id);
+            updates.push('updated_by = ?', 'updated_at = CURRENT_TIMESTAMP');
+            values.push(updated_by);
+            values.push(id); // For WHERE clause
     
-            if (updateFields.length > 0) {
+            // Update peserta_magang table
+            if (updates.length > 0) {
                 const updateQuery = `
                     UPDATE peserta_magang 
-                    SET ${updateFields.join(', ')}
+                    SET ${updates.join(', ')}
                     WHERE id_magang = ?
                 `;
     
-                const [updateResult] = await conn.execute(updateQuery, updateValues);
+                const [updateResult] = await conn.execute(updateQuery, values);
                 
                 if (updateResult.affectedRows === 0) {
                     throw new Error('Gagal mengupdate data peserta magang');
                 }
             }
     
-            // Handle detail_peserta update
-            if (detail_peserta && jenis_peserta) {
-                if (jenis_peserta === 'mahasiswa') {
-                    const { nim, fakultas, jurusan, semester } = detail_peserta;
+            // Handle detail peserta update
+            if (jenis_peserta || detail_peserta) {
+                const currentJenisPeserta = jenis_peserta || existingIntern[0].jenis_peserta;
+    
+                // Hapus data lama di kedua tabel untuk menghindari konflik
+                await conn.execute('DELETE FROM data_mahasiswa WHERE id_magang = ?', [id]);
+                await conn.execute('DELETE FROM data_siswa WHERE id_magang = ?', [id]);
+    
+                if (currentJenisPeserta === 'mahasiswa') {
+                    const { nim, fakultas, jurusan, semester } = detail_peserta || {};
                     
-                    // Check if mahasiswa data exists
-                    const [existingMahasiswa] = await conn.execute(
-                        'SELECT * FROM data_mahasiswa WHERE id_magang = ?',
-                        [id]
-                    );
+                    // Gunakan data lama jika data baru tidak ada
+                    const finalNim = nim || existingIntern[0].nim;
+                    const finalJurusan = jurusan || existingIntern[0].mhs_jurusan;
+                    const finalFakultas = fakultas || existingIntern[0].fakultas;
+                    const finalSemester = semester || existingIntern[0].semester;
     
-                    if (existingMahasiswa.length > 0) {
-                        const [updateMahasiswa] = await conn.execute(`
-                            UPDATE data_mahasiswa 
-                            SET 
-                                nim = COALESCE(?, nim),
-                                fakultas = COALESCE(?, fakultas),
-                                jurusan = COALESCE(?, jurusan),
-                                semester = COALESCE(?, semester)
-                            WHERE id_magang = ?
-                        `, [nim, fakultas, jurusan, semester, id]);
-    
-                        if (updateMahasiswa.affectedRows === 0) {
-                            throw new Error('Gagal mengupdate data mahasiswa');
-                        }
+                    // Validasi data mahasiswa
+                    if (!finalNim || !finalJurusan) {
+                        throw new Error('NIM dan jurusan wajib diisi untuk mahasiswa');
                     }
-                } else if (jenis_peserta === 'siswa') {
-                    const { nisn, jurusan, kelas } = detail_peserta;
+    
+                    // Insert data mahasiswa
+                    const [mahasiswaResult] = await conn.execute(`
+                        INSERT INTO data_mahasiswa 
+                        (id_magang, nim, fakultas, jurusan, semester, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    `, [id, finalNim, finalFakultas, finalJurusan, finalSemester]);
+    
+                    if (mahasiswaResult.affectedRows === 0) {
+                        throw new Error('Gagal mengupdate data mahasiswa');
+                    }
+    
+                } else if (currentJenisPeserta === 'siswa') {
+                    const { nisn, jurusan, kelas } = detail_peserta || {};
                     
-                    // Check if siswa data exists
-                    const [existingSiswa] = await conn.execute(
-                        'SELECT * FROM data_siswa WHERE id_magang = ?',
-                        [id]
-                    );
+                    // Gunakan data lama jika data baru tidak ada
+                    const finalNisn = nisn || existingIntern[0].nisn;
+                    const finalJurusan = jurusan || existingIntern[0].siswa_jurusan;
+                    const finalKelas = kelas || existingIntern[0].kelas;
     
-                    if (existingSiswa.length > 0) {
-                        const [updateSiswa] = await conn.execute(`
-                            UPDATE data_siswa 
-                            SET 
-                                nisn = COALESCE(?, nisn),
-                                jurusan = COALESCE(?, jurusan),
-                                kelas = COALESCE(?, kelas)
-                            WHERE id_magang = ?
-                        `, [nisn, jurusan, kelas, id]);
+                    // Validasi data siswa
+                    if (!finalNisn || !finalJurusan) {
+                        throw new Error('NISN dan jurusan wajib diisi untuk siswa');
+                    }
     
-                        if (updateSiswa.affectedRows === 0) {
-                            throw new Error('Gagal mengupdate data siswa');
-                        }
+                    // Insert data siswa
+                    const [siswaResult] = await conn.execute(`
+                        INSERT INTO data_siswa 
+                        (id_magang, nisn, jurusan, kelas, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    `, [id, finalNisn, finalJurusan, finalKelas]);
+    
+                    if (siswaResult.affectedRows === 0) {
+                        throw new Error('Gagal mengupdate data siswa');
                     }
                 }
             }
     
+            // Create notification
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                internName: nama || existingIntern[0].nama,
+                action: 'mengupdate'
+            });
+    
+            // Commit transaction
             await conn.commit();
+    
+            // Get updated data for response
+            const [updatedData] = await conn.execute(
+                `SELECT pm.*, 
+                        dm.nim, dm.fakultas, dm.jurusan as mhs_jurusan, dm.semester,
+                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas 
+                 FROM peserta_magang pm 
+                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang 
+                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang 
+                 WHERE pm.id_magang = ?`,
+                [id]
+            );
+    
             res.json({
                 status: 'success',
-                message: 'Data peserta magang berhasil diperbarui'
+                message: 'Data peserta magang berhasil diperbarui',
+                data: updatedData[0]
             });
     
         } catch (error) {
-            await conn.rollback();
             console.error('Error updating intern:', error);
-            res.status(500).json({ 
-                status: 'error',
-                message: error.message || 'Terjadi kesalahan server'
-            });
+            
+            if (conn) {
+                await conn.rollback();
+            }
+    
+            if (error.message.includes('wajib diisi')) {
+                res.status(400).json({
+                    status: 'error',
+                    message: error.message
+                });
+            } else if (error.code === 'ER_DUP_ENTRY') {
+                res.status(400).json({
+                    status: 'error',
+                    message: 'Data sudah ada dalam sistem'
+                });
+            } else {
+                res.status(500).json({
+                    status: 'error',
+                    message: 'Terjadi kesalahan server',
+                    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                });
+            }
         } finally {
-            conn.release();
-        }},
-
+            if (conn) {
+                conn.release();
+            }
+        }
+    },
         delete: async (req, res) => {
             const conn = await pool.getConnection();
             try {

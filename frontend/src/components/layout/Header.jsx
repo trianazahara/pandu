@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, LogOut, Settings, User } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
@@ -14,7 +14,6 @@ const Header = () => {
   const notificationRef = useRef(null);
   const profileRef = useRef(null);
 
-  // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -36,7 +35,6 @@ const Header = () => {
     navigate('/login');
   };
 
-  // Fungsi untuk mengambil profil pengguna
   const fetchUserProfile = async () => {
     try {
       const response = await fetch('/api/profile', {
@@ -95,12 +93,14 @@ const Header = () => {
         },
       });
       if (!response.ok) throw new Error('Failed to mark notification as read');
+      
+      // Update local state
       setNotifications((prevNotifications) =>
         prevNotifications.map((notif) =>
-          notif.id === id ? { ...notif, is_read: true } : notif
+          notif.id_notifikasi === id ? { ...notif, dibaca: 1 } : notif
         )
       );
-      fetchUnreadCount();
+      fetchUnreadCount(); // Update unread count
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -109,7 +109,7 @@ const Header = () => {
   useEffect(() => {
     fetchUserProfile();
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 60000);
+    const interval = setInterval(fetchUnreadCount, 60000); // Check every minute
     return () => clearInterval(interval);
   }, []);
 
@@ -118,7 +118,6 @@ const Header = () => {
       <div className="flex justify-end items-center p-1 mr-4">
         <div className="flex items-center gap-3">
           <div className="relative" ref={notificationRef}>
-            {/* Bell Icon with Badge */}
             <button
               onClick={() => {
                 setIsOpen(!isOpen);
@@ -134,7 +133,6 @@ const Header = () => {
               )}
             </button>
 
-            {/* Notification Dropdown */}
             {isOpen && (
               <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                 <div className="px-4 py-2 border-b border-gray-200">
@@ -150,13 +148,15 @@ const Header = () => {
                   ) : (
                     notifications.map((notification) => (
                       <div
-                        key={notification.id}
-                        onClick={() => markAsRead(notification.id)}
-                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                        key={notification.id_notifikasi}
+                        onClick={() => markAsRead(notification.id_notifikasi)}
+                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                          !notification.dibaca ? 'bg-blue-50' : ''
+                        }`}
                       >
-                        <div className="font-semibold">{notification.title}</div>
+                        <div className="font-semibold">{notification.judul}</div>
                         <div className="text-sm text-gray-600">
-                          {notification.message}
+                          {notification.pesan}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                           {new Date(notification.created_at).toLocaleString('id-ID')}
@@ -179,7 +179,6 @@ const Header = () => {
             )}
           </div>
 
-          {/* User Profile with Dropdown */}
           <div className="relative" ref={profileRef}>
             <div 
               className="flex items-center gap-3 cursor-pointer"
@@ -213,7 +212,6 @@ const Header = () => {
               </div>
             </div>
 
-            {/* Profile Dropdown */}
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                 <button

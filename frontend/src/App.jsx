@@ -7,6 +7,7 @@ import { useAuth } from './contexts/AuthContext';
 import AddInternPage from './pages/intern/add';
 
 
+
 import {
     Dashboard,
     InternManagement,
@@ -22,6 +23,7 @@ import AdminManagement from './pages/AdminManagement';
 import RiwayatData from './pages/RiwayatData';
 import RekapNilai from './pages/RekapNilai';
 import Settings from './pages/Settings';
+import NotificationPage from './pages/intern/NotificationPage';
 
 const theme = createTheme({
     palette: {
@@ -149,6 +151,14 @@ const App = () => {
                             <ProtectedRoute>
                                 <DashboardLayout>
                                     <Settings />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/notifications" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <NotificationPage />
                                 </DashboardLayout>
                             </ProtectedRoute>
                         } />

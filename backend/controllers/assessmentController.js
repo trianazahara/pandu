@@ -1,13 +1,46 @@
 // backend/controllers/assessmentController.js
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const notificationController = require('./notificationController');
+
+const createInternNotification = async (conn, {userId, judul, pesan}) => {
+    const query = `
+        INSERT INTO notifikasi (
+            id_notifikasi,
+            user_id,
+            judul,
+            pesan,
+            dibaca,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `;
+
+    const values = [
+        uuidv4(),
+        userId,
+        judul,
+        pesan,
+        0
+    ];
+
+    await conn.execute(query, values);
+};
 
 const assessmentController = {
     addScore: async (req, res) => {
         const conn = await pool.getConnection();
         try {
+            // 1. Validasi autentikasi user
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Unauthorized: User authentication required'
+                });
+            }
+
             await conn.beginTransaction();
 
+            // 2. Validasi data yang diperlukan
             const {
                 id_magang,
                 nilai_teamwork,
@@ -23,7 +56,40 @@ const assessmentController = {
                 nilai_kebersihan
             } = req.body;
 
-            // Insert penilaian
+            if (!id_magang) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'ID Magang harus diisi'
+                });
+            }
+
+            // 3. Cek apakah peserta magang ada
+            const [pesertaExists] = await conn.execute(
+                'SELECT nama FROM peserta_magang WHERE id_magang = ?',
+                [id_magang]
+            );
+
+            if (pesertaExists.length === 0) {
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'Data peserta magang tidak ditemukan'
+                });
+            }
+
+            // 4. Cek apakah sudah ada penilaian sebelumnya
+            const [existingScore] = await conn.execute(
+                'SELECT id_penilaian FROM penilaian WHERE id_magang = ?',
+                [id_magang]
+            );
+
+            if (existingScore.length > 0) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Penilaian untuk peserta ini sudah ada'
+                });
+            }
+
+            // 5. Insert penilaian
             const id_penilaian = uuidv4();
             await conn.execute(`
                 INSERT INTO penilaian (
@@ -41,48 +107,66 @@ const assessmentController = {
                     nilai_inisiatif,
                     nilai_kejujuran,
                     nilai_kebersihan,
-                    created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_by,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             `, [
                 id_penilaian,
                 id_magang,
                 req.user.userId,
-                nilai_teamwork,
-                nilai_komunikasi,
-                nilai_pengambilan_keputusan,
-                nilai_kualitas_kerja,
-                nilai_teknologi,
-                nilai_disiplin,
-                nilai_tanggungjawab,
-                nilai_kerjasama,
-                nilai_inisiatif,
-                nilai_kejujuran,
-                nilai_kebersihan,
+                nilai_teamwork || 0,
+                nilai_komunikasi || 0,
+                nilai_pengambilan_keputusan || 0,
+                nilai_kualitas_kerja || 0,
+                nilai_teknologi || 0,
+                nilai_disiplin || 0,
+                nilai_tanggungjawab || 0,
+                nilai_kerjasama || 0,
+                nilai_inisiatif || 0,
+                nilai_kejujuran || 0,
+                nilai_kebersihan || 0,
                 req.user.userId
             ]);
 
-            // Update status peserta magang
+            // 6. Update status peserta magang
             await conn.execute(`
                 UPDATE peserta_magang
-                SET status = 'selesai'
+                SET status = 'selesai',
+                    updated_by = ?,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id_magang = ?
-            `, [id_magang]);
+            `, [req.user.userId, id_magang]);
 
+            // 7. Buat notifikasi
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                judul: 'Penilaian Baru',
+                pesan: `${req.user.username} telah menambahkan penilaian untuk peserta magang: ${pesertaExists[0].nama}`
+            });
+
+            // 8. Commit transaction
             await conn.commit();
+
+            // 9. Kirim response sukses
             res.status(201).json({
+                status: 'success',
                 message: 'Penilaian berhasil disimpan',
-                id_penilaian
-                
+                data: {
+                    id_penilaian,
+                    id_magang,
+                    created_by: req.user.userId,
+                    created_at: new Date().toISOString()
+                }
             });
 
-            await Notification.createAssessmentNotification({
-                id_magang,
-                created_by: req.user.userId
-            });
         } catch (error) {
             await conn.rollback();
             console.error('Error creating assessment:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+            res.status(500).json({
+                status: 'error',
+                message: 'Terjadi kesalahan server',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         } finally {
             conn.release();
         }
@@ -211,27 +295,37 @@ const assessmentController = {
         }
     },
 
-    updateScore: async (req, res) => {
+     updateScore: async (req, res) => {
+        const conn = await pool.getConnection();
         try {
-            const { id } = req.params;
-            
-            // Cek data existing
-            const [existing] = await pool.execute(
-                "SELECT * FROM penilaian WHERE id_penilaian = ?", 
-                [id]
-            );
-    
-            if (!existing || existing.length === 0) {
-                return res.status(404).json({
-                    status: "error",
-                    message: "Data penilaian tidak ditemukan"
+            // 1. Validasi autentikasi user
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Unauthorized: User authentication required'
                 });
             }
-    
-            // Ambil data existing sebagai nilai default
+
+            await conn.beginTransaction();
+            const { id } = req.params;
+
+            // 2. Cek data existing dan ambil data peserta
+            const [existing] = await conn.execute(`
+                SELECT p.*, pm.nama 
+                FROM penilaian p
+                JOIN peserta_magang pm ON p.id_magang = pm.id_magang
+                WHERE p.id_penilaian = ?
+            `, [id]);
+
+            if (!existing || existing.length === 0) {
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'Data penilaian tidak ditemukan'
+                });
+            }
+
+            // 3. Validasi dan persiapan data update
             const currentData = existing[0];
-            
-            // Gabungkan nilai lama dengan nilai baru yang dikirim
             const updatedValues = {
                 nilai_teamwork: req.body.nilai_teamwork ?? currentData.nilai_teamwork,
                 nilai_komunikasi: req.body.nilai_komunikasi ?? currentData.nilai_komunikasi,
@@ -245,26 +339,40 @@ const assessmentController = {
                 nilai_kejujuran: req.body.nilai_kejujuran ?? currentData.nilai_kejujuran,
                 nilai_kebersihan: req.body.nilai_kebersihan ?? currentData.nilai_kebersihan
             };
-    
-            // Build query update secara dinamis
-            let updateQuery = 'UPDATE penilaian SET updated_at = CURRENT_TIMESTAMP';
-            const values = [];
-            
-            // Hanya update field yang dikirim dalam request
-            Object.keys(req.body).forEach(key => {
-                if (updatedValues.hasOwnProperty(key)) {
+
+            // 4. Build query update
+            let updateQuery = `
+                UPDATE penilaian 
+                SET updated_at = CURRENT_TIMESTAMP,
+                    updated_by = ?
+            `;
+            const values = [req.user.userId];
+
+            Object.entries(updatedValues).forEach(([key, value]) => {
+                if (value !== undefined) {
                     updateQuery += `, ${key} = ?`;
-                    values.push(req.body[key]);
+                    values.push(value);
                 }
             });
-            
+
             updateQuery += ' WHERE id_penilaian = ?';
             values.push(id);
-    
-            await pool.execute(updateQuery, values);
-    
-            // Ambil data yang sudah diupdate
-            const [updatedData] = await pool.execute(`
+
+            // 5. Eksekusi update
+            await conn.execute(updateQuery, values);
+
+            // 6. Buat notifikasi
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                judul: 'Update Penilaian',
+                pesan: `${req.user.username} telah mengupdate penilaian untuk peserta magang: ${existing[0].nama}`
+            });
+
+            // 7. Commit transaction
+            await conn.commit();
+
+            // 8. Ambil data yang sudah diupdate
+            const [updatedData] = await conn.execute(`
                 SELECT 
                     p.*,
                     pm.nama,
@@ -275,20 +383,24 @@ const assessmentController = {
                 INNER JOIN bidang b ON pm.id_bidang = b.id_bidang
                 WHERE p.id_penilaian = ?
             `, [id]);
-    
+
+            // 9. Kirim response sukses
             return res.status(200).json({
-                status: "success",
-                message: "Nilai berhasil diupdate",
+                status: 'success',
+                message: 'Nilai berhasil diupdate',
                 data: updatedData[0]
             });
-    
+
         } catch (error) {
+            await conn.rollback();
             console.error('Error updating nilai:', error);
             return res.status(500).json({
-                status: "error",
-                message: "Terjadi kesalahan saat mengupdate nilai",
-                error: error.message
+                status: 'error',
+                message: 'Terjadi kesalahan saat mengupdate nilai',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
+        } finally {
+            if (conn) conn.release();
         }
     },
 

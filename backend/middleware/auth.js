@@ -2,6 +2,7 @@
 const { verifyToken } = require('../config/auth');
 
 const authMiddleware = (req, res, next) => {
+    console.log('Headers:', req.headers);
     const token = req.headers.authorization?.split(' ')[1];
     
     if (!token) {
@@ -9,6 +10,7 @@ const authMiddleware = (req, res, next) => {
     }
 
     const decoded = verifyToken(token);
+    console.log('Decoded token:', decoded);
     if (!decoded) {
         return res.status(401).json({ message: 'Token tidak valid' });
     }

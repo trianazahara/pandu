@@ -127,15 +127,18 @@ const InternManagement = () => {
       'active': 'Aktif',
       'aktif': 'Aktif',
       'not_yet': 'Belum Mulai',
+      'belum_mulai': 'Belum Mulai',
       'completed': 'Selesai',
       'selesai': 'Selesai',
-      'almost': 'Hampir Selesai'
+      'almost': 'Hampir Selesai',
+      'hampir_selesai': 'Hampir Selesai'
     };
     return labels[status?.toLowerCase()] || status;
   };
-
+  
   const STATUS_MAPPING = {
     // Frontend to Backend
+
     'active': 'aktif',
     'completed': 'selesai',
     'not_yet': 'belum_mulai',
@@ -145,17 +148,29 @@ const InternManagement = () => {
     'selesai': 'completed',
     'belum_mulai': 'not_yet',
     'hampir_selesai': 'almost'
+
+   'active': 'aktif',
+  'not_yet': 'belum_mulai',
+  'completed': 'selesai',
+  'almost': 'hampir_selesai',
+  'aktif': 'aktif',           // Added for direct backend values
+  'belum_mulai': 'belum_mulai',
+  'selesai': 'selesai',
+  'hampir_selesai': 'hampir_selesai'
+
   };
 
   const getStatusValue = (status) => {
-    if (!status) return status;
-    return STATUS_MAPPING[status.toLowerCase()] || status;
+    if (!status) return '';
+    const normalizedStatus = status.toLowerCase();
+    return STATUS_MAPPING[normalizedStatus] || normalizedStatus;
   };
+
 
   const getStatusStyle = (status, mode = 'class') => {
     const normalizedStatus = getStatusValue(status);
    
-    // Define the styles
+
     const styles = {
       'active': {
         bg: '#dcfce7',
@@ -163,9 +178,11 @@ const InternManagement = () => {
         border: '#15803d'
       },
       'not_yet': {
+
         bg: '#f3f4f6',
         color: '#4b5563',
         border: '#4b5563'
+
       },
       'completed': {
         bg: '#dbeafe',
@@ -176,21 +193,33 @@ const InternManagement = () => {
         bg: '#fef9c3',
         color: '#854d0e',
         border: '#854d0e'
+      },
+      'belum_mulai': {
+        bg: '#f1f5f9', // Light slate background
+        color: '#475569', // Slate text
+        border: '#475569'
+      },
+      'hampir_selesai': {
+        bg: '#fef9c3', // Light yellow background
+        color: '#854d0e', // Darker yellow text
+        border: '#854d0e'
       }
     };
  
     const defaultStyle = styles['not_yet'];
- 
     if (mode === 'class') {
       return `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-        normalizedStatus === 'active' ? 'bg-green-100 text-green-800 border border-green-800' :
-        normalizedStatus === 'not_yet' ? 'bg-gray-100 text-gray-800 border border-gray-800' :
-        normalizedStatus === 'completed' ? 'bg-blue-100 text-blue-800 border border-blue-800' :
-        normalizedStatus === 'almost' ? 'bg-yellow-100 text-yellow-800 border border-yellow-800' :
-        'bg-gray-100 text-gray-800 border border-gray-800'
+        normalizedStatus === 'active' || normalizedStatus === 'aktif' 
+          ? 'bg-green-100 text-green-800 border border-green-800' :
+        normalizedStatus === 'not_yet' || normalizedStatus === 'belum_mulai'
+          ? 'bg-slate-100 text-slate-600 border border-slate-600' :
+        normalizedStatus === 'completed' || normalizedStatus === 'selesai'
+          ? 'bg-blue-100 text-blue-800 border border-blue-800' :
+        normalizedStatus === 'almost' || normalizedStatus === 'hampir_selesai'
+          ? 'bg-yellow-100 text-yellow-800 border border-yellow-800' :
+        'bg-slate-100 text-slate-600 border border-slate-600'
       }`;
     }
- 
     return styles[normalizedStatus] || defaultStyle;
   };
 
@@ -286,14 +315,14 @@ const InternManagement = () => {
  
     try {
       const queryParams = new URLSearchParams();
- 
+
       // Append filter values if they exist
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
       if (filters.search) queryParams.append('search', filters.search);
  
       // Pagination parameters
-      queryParams.append('page', pagination.page + 1); // Server pages start from 1
+      queryParams.append('page', pagination.page + 1);
       queryParams.append('limit', pagination.limit);
  
       const response = await fetch(`/api/intern?${queryParams.toString()}`, {
@@ -307,8 +336,12 @@ const InternManagement = () => {
       }
  
       const data = await response.json();
- 
-      setInterns(data.data);
+      // Map the status values in the received data if needed
+      const mappedData = data.data.map(intern => ({
+        ...intern,
+        status: getStatusValue(intern.status) // Ensure consistent status values
+      }));
+      setInterns(mappedData);
       setPagination((prev) => ({
         ...prev,
         total: data.pagination.total,
@@ -367,16 +400,21 @@ const InternManagement = () => {
 
 
   const handleFilter = (key, value) => {
-    setFilters((prevFilters) => {
-      const updatedFilters = {
+    setFilters(prevFilters => {
+      if (key === 'status') {
+        // For status filter, use the direct value without mapping
+        return {
+          ...prevFilters,
+          [key]: value
+        };
+      }
+      return {
         ...prevFilters,
-        [key]: key === 'status' ? getStatusValue(value) : value,
+        [key]: value
       };
-      return updatedFilters;
     });
   };
-
-
+  
   const handleDeleteClick = (internId, nama) => {
     setDeleteDialog({ open: true, internId, nama });
   };
@@ -743,7 +781,7 @@ const InternManagement = () => {
                     name="bidang_id"
                     component={({ field, form }) => (
                       <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
-                        <InputLabel>Bidang</InputLabel>
+                        <InputLabel>Ruang Penempatan</InputLabel>
                         <Select {...field} label="Bidang">
                           {bidangList.map(bidang => (
                             <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
@@ -873,6 +911,33 @@ const InternManagement = () => {
                         size="small"
                       />
                     </Grid>
+
+                    {/* Informasi Pembimbing - Tambahkan setelah Informasi Institusi */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Pembimbing
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Pembimbing"
+                    size="small"
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="telp_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="No. Telp Pembimbing"
+                    size="small"
+                  />
+                </Grid>
                   </>
                 ) : (
                   // Fields for high school students
@@ -1024,7 +1089,7 @@ const InternManagement = () => {
 
 
             <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="text.secondary">Informasi Pembimbing</Typography>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
             <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
               <Stack spacing={2}>
                 <Box>
@@ -1045,7 +1110,7 @@ const InternManagement = () => {
               <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="text.secondary">Bidang</Typography>
+                    <Typography variant="body2" color="text.secondary">Ruang Penempatan</Typography>
                     <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
                   </Grid>
                   <Grid item xs={12} sm={4}>
@@ -1061,8 +1126,6 @@ const InternManagement = () => {
             </Grid>
           </Grid>
 
-
-                 
         )}
       </DialogContent>
 
@@ -1150,7 +1213,7 @@ const InternManagement = () => {
               nama_institusi: Yup.string()
                 .required('Nama institusi wajib diisi'),
               bidang_id: Yup.string()
-                .required('Bidang wajib dipilih'),
+                .required('Ruang Penempatan wajib dipilih'),
               tanggal_masuk: Yup.date()
                 .required('Tanggal masuk wajib diisi'),
               tanggal_keluar: Yup.date()
@@ -1254,7 +1317,7 @@ const InternManagement = () => {
                       name="bidang_id"
                       component={({ field, form }) => (
                         <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
-                          <InputLabel>Bidang</InputLabel>
+                          <InputLabel>Ruang Penempatan</InputLabel>
                           <Select {...field} label="Bidang">
                             {bidangList.map(bidang => (
                               <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
@@ -1387,17 +1450,14 @@ const InternManagement = () => {
                     />
                   </Grid>
                 </Grid>
-
-
-                                  {/* Informasi Pembimbing */}
-                  <Grid item xs={12}>
+                <Grid container spacing={2}>
+                <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                       Informasi Pembimbing
                     </Typography>
-                  </Grid>
-
-
-                  <Grid item xs={12} md={6}>
+                  </Grid> 
+                <Grid container item xs={12} spacing={2}>
+                  <Grid item xs={6}>
                     <Field
                       name="nama_pembimbing"
                       component={FormTextField}
@@ -1407,8 +1467,7 @@ const InternManagement = () => {
                     />
                   </Grid>
 
-
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={6}>
                     <Field
                       name="telp_pembimbing"
                       component={FormTextField}
@@ -1417,6 +1476,8 @@ const InternManagement = () => {
                       size="small"
                     />
                   </Grid>
+                </Grid>
+              </Grid>
 
 
                 <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
@@ -1517,7 +1578,7 @@ const InternManagement = () => {
             onChange={(e) => setFilters({...filters, bidang: e.target.value})}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
           >
-            <option value="">Bidang</option>
+            <option value="">Ruang Penempatan</option>
             {bidangList.map(bidang => (
               <option key={bidang.id_bidang} value={bidang.id_bidang}>
                 {bidang.nama_bidang}
@@ -1533,6 +1594,7 @@ const InternManagement = () => {
 
 
         <div className="relative">
+
         <select
             value={filters.status}
             onChange={(e) => handleFilter('status', e.target.value)}
@@ -1544,6 +1606,7 @@ const InternManagement = () => {
             <option value="almost">Hampir Selesai</option>
             <option value="completed">Selesai</option>
           </select>
+
           <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -1567,9 +1630,9 @@ const InternManagement = () => {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruang Penempatan</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
             </tr>

@@ -25,6 +25,22 @@ const AddInternForm = () => {
     }
   });
 
+  const [error, setError] = useState(null);
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return false;
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchBidangList();
+  }, []);
+
   // Bidang state
   const [bidangList, setBidangList] = useState([]);
   const [bidangLoading, setBidangLoading] = useState(true);
@@ -89,11 +105,13 @@ const AddInternForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!checkAuth()) return;
+    
     setLoading(true);
+    setError(null);
 
     try {
       const token = localStorage.getItem('token');
-
       const response = await fetch('/api/intern/add', {
         method: 'POST',
         headers: {
@@ -103,35 +121,23 @@ const AddInternForm = () => {
         body: JSON.stringify(fields)
       });
 
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
+
       const data = await response.json();
 
-      if (response.ok) {
+      if (data.status === 'success') {
         alert('Data peserta magang berhasil ditambahkan');
-        // Reset form
-        setFields({
-          nama: '',
-          jenis_peserta: 'mahasiswa',
-          nama_institusi: '',
-          jenis_institusi: '',
-          email: '',
-          no_hp: '',
-          bidang_id: '',
-          tanggal_masuk: '',
-          tanggal_keluar: '',
-          detail_peserta: {
-            nim: '',
-            nisn: '',
-            fakultas: '',
-            jurusan: '',
-            semester: '',
-            kelas: ''
-          }
-        });
+        navigate('/intern/management');
       } else {
-        throw new Error(data.message || 'Terjadi kesalahan');
+        throw new Error(data.message || 'Gagal menambahkan data');
       }
     } catch (error) {
-      alert(error.message || "Gagal menambahkan data peserta");
+      console.error('Error submitting form:', error);
+      setError(error.message || "Gagal menambahkan data peserta");
     } finally {
       setLoading(false);
     }

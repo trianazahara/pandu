@@ -18,7 +18,7 @@ router.put('/update-nilai/:id', assessmentController.updateScore);
 router.get('/check-availability', internController.checkAvailability);
 router.get('/export', reportController.exportInternsScore);
 router.get('/', internController.getAll);
-router.post('/add', authMiddleware, requireRole(['superadmin', 'admin']), internController.add);
+router.post('/add', requireRole(['superadmin', 'admin']), internController.add);
 router.put('/:id', requireRole(['superadmin', 'admin']), internController.update);
 router.get('/:id', internController.getDetail);
 router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);

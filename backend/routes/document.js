@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const documentController = require('../controllers/documentController');
+const { authMiddleware } = require('../middleware/auth');
 
 // Buat direktori uploads jika belum ada
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -24,13 +25,8 @@ const storage = multer.diskStorage({
 });
 
 
-router.use(authMiddleware);
+// router.use(authMiddleware);
 
-// Generate acceptance letter
-router.get('/acceptance-letter', documentController.generateAcceptanceLetter);
-
-// Generate certificate
-router.get('/certificate/:id', documentController.generateCertificate);
 
 // Buat instance multer dengan konfigurasi
 const upload = multer({

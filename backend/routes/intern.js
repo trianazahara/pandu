@@ -23,5 +23,6 @@ router.put('/:id', requireRole(['superadmin', 'admin']), internController.update
 router.get('/:id', internController.getDetail);
 router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);
 router.delete('/:id', internController.delete);
+router.post('/generate-receipt', reportController.generateReceipt.bind(reportController));
 
 module.exports = router;

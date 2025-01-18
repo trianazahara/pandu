@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@mui/x-date-pickers": "^7.23.6",
+    "@react-pdf/renderer": "^4.1.6",
     "date-fns": "^2.29.3",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.471.0",
     "node-cron": "^3.0.3",
     "uuid": "^11.0.5",

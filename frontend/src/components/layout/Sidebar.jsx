@@ -13,6 +13,7 @@ import {
 export const Sidebar = () => {
     const location = useLocation();
     const [expandedMenus, setExpandedMenus] = useState({});
+    const [hoveredItem, setHoveredItem] = useState(null);
 
     const toggleMenu = (path) => {
         setExpandedMenus(prev => ({
@@ -30,7 +31,7 @@ export const Sidebar = () => {
         {
             path: '/intern',
             icon: <LibraryBooks />,
-            label: 'Data Anak Magang',
+            label: 'Data Magang',
             subItems: [
                 {
                     path: '/intern/management',
@@ -70,16 +71,24 @@ export const Sidebar = () => {
     ];
 
     return (
-        <div className="w-64 h-screen bg-slate-50 text-green-600 fixed left-0 top-0">
-            <div className="p-4">
-                <div className="flex items-center gap-3">
-                    <img 
-                        src="/images/logo.jpg" 
-                        alt="Pandu Logo" 
-                        className="w-12 h-12"
-                    />
-                    <div>
-                        <span className="text-green-500 text-2xl">PANDU</span>
+        <div className="w-64 h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-green-600 
+            fixed left-0 top-0 shadow-xl animate-slideRight border-r border-r-slate-200/50
+            backdrop-blur-sm">
+            {/* Header Section dengan efek 3D */}
+            <div className="p-4 perspective">
+                <div className="flex items-center gap-3 hover:scale-105 transition-all duration-500
+                    transform hover:translate-z-4 relative">
+                    <div className="relative transform transition-all duration-500 hover:rotate-y-180">
+                        <img 
+                            src="/images/logo.jpg" 
+                            alt="Pandu Logo" 
+                            className="w-12 h-12 shadow-lg animate-float"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent
+                            rounded-xl animate-pulse-glow" />
+                    </div>
+                    <div className="transform transition-all duration-500 hover:translate-x-2">
+                        <h1 className="text-green-600 text-xl font-bold mb-1">PANDU</h1>
                         <div className="text-gray-700 text-sm">
                             Platform Anak Magang
                             <br />
@@ -89,39 +98,61 @@ export const Sidebar = () => {
                 </div>
             </div>
 
-            <nav>
+            {/* Navigation dengan efek 3D */}
+            <nav className="mt-6 perspective">
                 {menuItems.map((item) => (
-                    <div key={item.path} className="mb-4">
+                    <div key={item.path} className="mb-4 px-2">
                         {item.subItems ? (
-                            // Menu with dropdown
-                            <div>
+                            // Dropdown Menu dengan efek 3D
+                            <div className="group">
                                 <button
                                     onClick={() => toggleMenu(item.path)}
-                                    className={`w-full flex items-center justify-between p-2 rounded-lg hover:bg-green-100`}
+                                    onMouseEnter={() => setHoveredItem(item.path)}
+                                    onMouseLeave={() => setHoveredItem(null)}
+                                    className={`w-full flex items-center justify-between p-3 rounded-xl
+                                        transform transition-all duration-500 focus:outline-none
+                                        hover:shadow-lg hover:shadow-green-500/10 relative
+                                        ${hoveredItem === item.path ? 'animate-tilt-3d' : ''}
+                                        bg-gradient-to-r hover:from-green-50 hover:to-emerald-50
+                                        active:scale-95`}
                                 >
                                     <div className="flex items-center">
-                                        {item.icon}
-                                        <span className="ml-3">{item.label}</span>
+                                        <div className={`transform transition-all duration-500 p-2
+                                            rounded-lg bg-gradient-to-br from-green-100 to-green-50
+                                            ${hoveredItem === item.path ? 'rotate-12 scale-110 shadow-md' : ''}`}>
+                                            {item.icon}
+                                        </div>
+                                        <span className="ml-3 font-medium">{item.label}</span>
                                     </div>
-                                    {expandedMenus[item.path] ? 
-                                        <KeyboardArrowDown /> : 
-                                        <KeyboardArrowRight />
-                                    }
+                                    <div className={`transform transition-all duration-500
+                                        ${expandedMenus[item.path] ? 'rotate-180' : ''}`}>
+                                        {expandedMenus[item.path] ? 
+                                            <KeyboardArrowDown /> : 
+                                            <KeyboardArrowRight />
+                                        }
+                                    </div>
                                 </button>
+
+                                {/* Submenu dengan animasi kaskade */}
                                 <div 
-                                    className={`ml-8 mt-2 transition-all duration-300 ${
-                                        expandedMenus[item.path] ? 'block' : 'hidden'
-                                    }`}
+                                    className={`ml-8 mt-2 space-y-2 transition-all duration-500 transform
+                                        ${expandedMenus[item.path] 
+                                            ? 'opacity-100 translate-y-0' 
+                                            : 'opacity-0 -translate-y-4 hidden'}`}
                                 >
-                                    {item.subItems.map((subItem) => (
+                                    {item.subItems.map((subItem, index) => (
                                         <Link
                                             key={subItem.path}
                                             to={subItem.path}
-                                            className={`block p-2 rounded-lg ${
-                                                location.pathname === subItem.path
-                                                    ? 'bg-green-200'
-                                                    : 'hover:bg-green-100'
-                                            }`}
+                                            style={{
+                                                animationDelay: `${index * 100}ms`,
+                                            }}
+                                            className={`block p-2 rounded-xl transform transition-all duration-500
+                                                hover:translate-x-2 relative animate-fadeIn
+                                                ${location.pathname === subItem.path
+                                                    ? 'bg-gradient-to-r from-green-200 to-emerald-100 shadow-md scale-105'
+                                                    : 'hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 hover:shadow-md'}
+                                                active:scale-95`}
                                         >
                                             {subItem.label}
                                         </Link>
@@ -129,17 +160,25 @@ export const Sidebar = () => {
                                 </div>
                             </div>
                         ) : (
-                            // Regular menu item
+                            // Regular menu item dengan efek 3D
                             <Link
                                 to={item.path}
-                                className={`flex items-center p-2 rounded-lg ${
-                                    location.pathname === item.path
-                                        ? 'bg-green-200'
-                                        : 'hover:bg-green-100'
-                                }`}
+                                onMouseEnter={() => setHoveredItem(item.path)}
+                                onMouseLeave={() => setHoveredItem(null)}
+                                className={`flex items-center p-3 rounded-xl transform transition-all duration-500
+                                    hover:shadow-lg hover:shadow-green-500/10 focus:outline-none relative
+                                    ${hoveredItem === item.path ? 'animate-tilt-3d' : ''}
+                                    ${location.pathname === item.path 
+                                        ? 'bg-gradient-to-r from-green-200 to-emerald-100 shadow-md scale-105' 
+                                        : 'hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50'}
+                                    active:scale-95`}
                             >
-                                {item.icon}
-                                <span className="ml-3">{item.label}</span>
+                                <div className={`transform transition-all duration-500 p-2
+                                    rounded-lg bg-gradient-to-br from-green-100 to-green-50
+                                    ${hoveredItem === item.path ? 'rotate-12 scale-110 shadow-md' : ''}`}>
+                                    {item.icon}
+                                </div>
+                                <span className="ml-3 font-medium">{item.label}</span>
                             </Link>
                         )}
                     </div>

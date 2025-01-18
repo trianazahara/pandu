@@ -47,7 +47,7 @@ import { LoadingButton } from '@mui/lab';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
-// Form field component for Formik + Material UI
+
 const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
   <TextField
     {...field}
@@ -57,9 +57,11 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
   />
 );
 
+
 const InternManagement = () => {
-  // Existing states
+  // States
   const [interns, setInterns] = useState([]);
+  const [selectedInterns, setSelectedInterns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
@@ -136,6 +138,17 @@ const InternManagement = () => {
   
   const STATUS_MAPPING = {
     // Frontend to Backend
+
+    'active': 'aktif',
+    'completed': 'selesai',
+    'not_yet': 'belum_mulai',
+    'almost': 'hampir_selesai',
+    // Backend to Frontend
+    'aktif': 'active',
+    'selesai': 'completed',
+    'belum_mulai': 'not_yet',
+    'hampir_selesai': 'almost'
+
    'active': 'aktif',
   'not_yet': 'belum_mulai',
   'completed': 'selesai',
@@ -144,6 +157,7 @@ const InternManagement = () => {
   'belum_mulai': 'belum_mulai',
   'selesai': 'selesai',
   'hampir_selesai': 'hampir_selesai'
+
   };
 
   const getStatusValue = (status) => {
@@ -155,26 +169,29 @@ const InternManagement = () => {
 
   const getStatusStyle = (status, mode = 'class') => {
     const normalizedStatus = getStatusValue(status);
-    
+   
+
     const styles = {
       'active': {
-        bg: '#dcfce7', // Lighter green background
-        color: '#15803d', // Darker green text
+        bg: '#dcfce7',
+        color: '#15803d',
         border: '#15803d'
       },
       'not_yet': {
-        bg: '#f1f5f9', // Light slate background
-        color: '#475569', // Slate text
-        border: '#475569'
+
+        bg: '#f3f4f6',
+        color: '#4b5563',
+        border: '#4b5563'
+
       },
       'completed': {
-        bg: '#dbeafe', // Light blue background
-        color: '#1e40af', // Darker blue text
+        bg: '#dbeafe',
+        color: '#1e40af',
         border: '#1e40af'
       },
       'almost': {
-        bg: '#fef9c3', // Light yellow background
-        color: '#854d0e', // Darker yellow text
+        bg: '#fef9c3',
+        color: '#854d0e',
         border: '#854d0e'
       },
       'belum_mulai': {
@@ -188,9 +205,8 @@ const InternManagement = () => {
         border: '#854d0e'
       }
     };
-  
+ 
     const defaultStyle = styles['not_yet'];
-  
     if (mode === 'class') {
       return `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
         normalizedStatus === 'active' || normalizedStatus === 'aktif' 
@@ -204,10 +220,61 @@ const InternManagement = () => {
         'bg-slate-100 text-slate-600 border border-slate-600'
       }`;
     }
-  
     return styles[normalizedStatus] || defaultStyle;
   };
-  
+
+  // Generate PDF function
+  const generateReceipt = async () => {
+    try {
+      const response = await fetch('/api/intern/generate-receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ internIds: selectedInterns })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate receipt');
+      }
+
+      // Get the PDF blob from the response
+      const blob = await response.blob();
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tanda-terima-magang.pdf';
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // Reset selection
+      setSelectedInterns([]);
+      
+      setSnackbar({
+        open: true,
+        message: 'Tanda terima berhasil di-generate',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      setSnackbar({
+        open: true,
+        message: 'Gagal men-generate tanda terima',
+        severity: 'error'
+      });
+    }
+  };
+ 
+
 
   // Fetch functions
   const fetchBidangList = async () => {
@@ -215,16 +282,17 @@ const InternManagement = () => {
       setBidangLoading(true);
       setBidangError(null);
       const token = localStorage.getItem('token');
-      
+     
       const response = await fetch('/api/bidang', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+     
       if (!response.ok) {
         throw new Error('Failed to fetch bidang data');
       }
+
 
       const result = await response.json();
       if (result.status === 'success') {
@@ -240,43 +308,39 @@ const InternManagement = () => {
     }
   };
 
+
   const fetchInterns = async () => {
     setLoading(true);
     setError(null);
-  
+ 
     try {
       const queryParams = new URLSearchParams();
-  
-      // Ensure status is properly mapped before sending to backend
-      if (filters.status) {
-        const backendStatus = getStatusValue(filters.status);
-        queryParams.append('status', backendStatus);
-      }
+
+      // Append filter values if they exist
+      if (filters.status) queryParams.append('status', filters.status);
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
       if (filters.search) queryParams.append('search', filters.search);
-  
+ 
       // Pagination parameters
       queryParams.append('page', pagination.page + 1);
       queryParams.append('limit', pagination.limit);
-  
+ 
       const response = await fetch(`/api/intern?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
       });
-  
+ 
       if (!response.ok) {
         throw new Error('Failed to load data');
       }
-  
+ 
       const data = await response.json();
-  
       // Map the status values in the received data if needed
       const mappedData = data.data.map(intern => ({
         ...intern,
         status: getStatusValue(intern.status) // Ensure consistent status values
       }));
-  
       setInterns(mappedData);
       setPagination((prev) => ({
         ...prev,
@@ -290,11 +354,13 @@ const InternManagement = () => {
     }
   };
 
+
   // Event handlers
   const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
       setAddDialog(prev => ({ ...prev, loading: true }));
       const token = localStorage.getItem('token');
+
 
       const response = await fetch('/api/intern/add', {
         method: 'POST',
@@ -305,7 +371,9 @@ const InternManagement = () => {
         body: JSON.stringify(values)
       });
 
+
       const data = await response.json();
+
 
       if (response.ok) {
         setSnackbar({
@@ -330,6 +398,7 @@ const InternManagement = () => {
     }
   };
 
+
   const handleFilter = (key, value) => {
     setFilters(prevFilters => {
       if (key === 'status') {
@@ -345,15 +414,19 @@ const InternManagement = () => {
       };
     });
   };
+  
   const handleDeleteClick = (internId, nama) => {
     setDeleteDialog({ open: true, internId, nama });
   };
 
+
   const handleDeleteConfirm = async () => {
     if (!deleteDialog.internId) return;
 
+
     try {
       setDeleteDialog(prev => ({ ...prev, loading: true }));
+
 
       const response = await fetch(`/api/intern/${deleteDialog.internId}`, {
         method: 'DELETE',
@@ -362,17 +435,19 @@ const InternManagement = () => {
         }
       });
 
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Gagal menghapus data');
       }
+
 
       setSnackbar({
         open: true,
         message: 'Data berhasil dihapus',
         severity: 'success'
       });
-      
+     
       fetchInterns();
     } catch (error) {
       console.error('Error deleting intern:', error);
@@ -386,6 +461,7 @@ const InternManagement = () => {
     }
   };
 
+
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
@@ -395,20 +471,23 @@ const InternManagement = () => {
         }
       });
 
+
       if (!response.ok) {
         throw new Error('Gagal memuat data');
       }
 
+
       const result = await response.json();
       setDetailDialog(prev => ({ ...prev, data: result.data, loading: false }));
     } catch (error) {
-      setDetailDialog(prev => ({ 
-        ...prev, 
-        error: error.message, 
-        loading: false 
+      setDetailDialog(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
       }));
     }
   };
+
 
   const handleEditClick = async (id) => {
     setEditDialog(prev => ({ ...prev, open: true, loading: true }));
@@ -419,20 +498,23 @@ const InternManagement = () => {
         }
       });
 
+
       if (!response.ok) {
         throw new Error('Gagal memuat data');
       }
 
+
       const result = await response.json();
       setEditDialog(prev => ({ ...prev, data: result.data, loading: false }));
     } catch (error) {
-      setEditDialog(prev => ({ 
-        ...prev, 
-        error: error.message, 
-        loading: false 
+      setEditDialog(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
       }));
     }
   };
+
 
   const handleEditSubmit = async (values) => {
     setEditDialog(prev => ({ ...prev, loading: true }));
@@ -446,16 +528,18 @@ const InternManagement = () => {
         body: JSON.stringify(values)
       });
 
+
       if (!response.ok) {
         throw new Error('Gagal memperbarui data');
       }
+
 
       setSnackbar({
         open: true,
         message: 'Data berhasil diperbarui',
         severity: 'success'
       });
-      
+     
       setEditDialog({ open: false, loading: false, data: null, error: null });
       fetchInterns();
     } catch (error) {
@@ -467,9 +551,11 @@ const InternManagement = () => {
     }
   };
 
+
   const handlePageChange = (event, newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
+
 
   const handleLimitChange = (event) => {
     setPagination(prev => ({
@@ -479,14 +565,17 @@ const InternManagement = () => {
     }));
   };
 
+
   // useEffect hooks
   useEffect(() => {
     fetchInterns();
   }, [pagination.page, pagination.limit, filters]);
 
+
   useEffect(() => {
     fetchBidangList();
   }, []);
+
 
   // Add Dialog Component
   const AddDialog = () => (
@@ -508,10 +597,12 @@ const InternManagement = () => {
         </Box>
       </DialogTitle>
 
+
       <DialogContent>
         {addDialog.error && (
           <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
         )}
+
 
         <Formik
           initialValues={{
@@ -599,6 +690,7 @@ const InternManagement = () => {
                   </Typography>
                 </Grid>
 
+
                 <Grid item xs={12} md={6}>
                   <Field
                     name="nama"
@@ -608,6 +700,7 @@ const InternManagement = () => {
                     size="small"
                   />
                 </Grid>
+
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -624,6 +717,7 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 <Grid item xs={12} md={6}>
                   <Field
                     name="email"
@@ -635,6 +729,7 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 <Grid item xs={12} md={6}>
                   <Field
                     name="no_hp"
@@ -645,12 +740,14 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 {/* Institution Information */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Informasi Institusi
                   </Typography>
                 </Grid>
+
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -661,6 +758,7 @@ const InternManagement = () => {
                     size="small"
                   />
                 </Grid>
+
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -676,6 +774,7 @@ const InternManagement = () => {
                     )}
                   />
                 </Grid>
+
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -699,12 +798,14 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 {/* Internship Period */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Periode Magang
                   </Typography>
                 </Grid>
+
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -718,6 +819,7 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 <Grid item xs={12} md={6}>
                   <Field
                     name="tanggal_keluar"
@@ -730,12 +832,44 @@ const InternManagement = () => {
                   />
                 </Grid>
 
+
                 {/* Detail Peserta */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Detail Peserta
                   </Typography>
                 </Grid>
+
+
+                {/* Informasi Pembimbing - Tambahkan setelah Informasi Institusi */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Pembimbing
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Pembimbing"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="telp_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="No. Telp Pembimbing"
+                    size="small"
+                  />
+                </Grid>
+
 
                 {values.jenis_peserta === 'mahasiswa' ? (
                   // Fields for university students
@@ -839,6 +973,7 @@ const InternManagement = () => {
                 )}
               </Grid>
 
+
               <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 <Button
                   onClick={() => setAddDialog({ open: false, loading: false, error: null })}
@@ -861,6 +996,7 @@ const InternManagement = () => {
     </Dialog>
   );
 
+
   // Detail Dialog Component
   const DetailDialog = () => (
     <Dialog
@@ -880,7 +1016,7 @@ const InternManagement = () => {
           </IconButton>
         </Box>
       </DialogTitle>
-      
+     
       <DialogContent sx={{ pb: 2 }}>
         {detailDialog.loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -903,6 +1039,7 @@ const InternManagement = () => {
               </Box>
             </Grid>
 
+
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" color="text.secondary">Informasi Pribadi</Typography>
               <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -922,6 +1059,7 @@ const InternManagement = () => {
                 </Stack>
               </Paper>
             </Grid>
+
 
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
@@ -949,23 +1087,23 @@ const InternManagement = () => {
               </Paper>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
-  <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-    <Stack spacing={2}>
-      <Box>
-        <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
-        <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
-      </Box>
-      <Box>
-        <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
-        <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
-      </Box>
-    </Stack>
-  </Paper>
-</Grid>
 
-             
+            <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
+                  <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
+                  <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+
 
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
@@ -988,9 +1126,9 @@ const InternManagement = () => {
             </Grid>
           </Grid>
 
-                  
         )}
       </DialogContent>
+
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button
@@ -1004,6 +1142,7 @@ const InternManagement = () => {
       </DialogActions>
     </Dialog>
   );
+
 
   // Edit Dialog Component
   const EditDialog = () => (
@@ -1024,7 +1163,7 @@ const InternManagement = () => {
           </IconButton>
         </Box>
       </DialogTitle>
-      
+     
       <DialogContent>
         {editDialog.loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -1045,7 +1184,7 @@ const InternManagement = () => {
               nama_pembimbing: editDialog.data.nama_pembimbing || '',  // tambahan
               telp_pembimbing: editDialog.data.telp_pembimbing || '',  // tambahan
               detail_peserta: {
-                ...(editDialog.data.jenis_peserta === 'mahasiswa' 
+                ...(editDialog.data.jenis_peserta === 'mahasiswa'
                   ? {
                       nim: editDialog.data.detail_peserta?.nim || '',
                       fakultas: editDialog.data.detail_peserta?.fakultas || '',
@@ -1119,7 +1258,7 @@ const InternManagement = () => {
                       Informasi Pribadi
                     </Typography>
                   </Grid>
-                  
+                 
                   <Grid item xs={12} md={6}>
                     <Field
                       name="nama"
@@ -1129,6 +1268,7 @@ const InternManagement = () => {
                       size="small"
                     />
                   </Grid>
+
 
                   <Grid item xs={12} md={6}>
                     <Field
@@ -1141,6 +1281,7 @@ const InternManagement = () => {
                     />
                   </Grid>
 
+
                   <Grid item xs={12} md={6}>
                     <Field
                       name="no_hp"
@@ -1151,12 +1292,14 @@ const InternManagement = () => {
                     />
                   </Grid>
 
+
                   {/* Informasi Institusi */}
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                       Informasi Institusi
                     </Typography>
                   </Grid>
+
 
                   <Grid item xs={12} md={6}>
                     <Field
@@ -1167,6 +1310,7 @@ const InternManagement = () => {
                       size="small"
                     />
                   </Grid>
+
 
                   <Grid item xs={12} md={6}>
                     <Field
@@ -1189,12 +1333,14 @@ const InternManagement = () => {
                     />
                   </Grid>
 
+
                   {/* Detail Peserta - Mahasiswa/Siswa */}
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                       Detail Peserta
                     </Typography>
                   </Grid>
+
 
                   {editDialog.data.jenis_peserta === 'mahasiswa' ? (
                     // Form fields untuk mahasiswa
@@ -1270,12 +1416,14 @@ const InternManagement = () => {
                     </>
                   )}
 
+
                   {/* Tanggal Magang */}
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                       Periode Magang
                     </Typography>
                   </Grid>
+
 
                   <Grid item xs={12} md={6}>
                     <Field
@@ -1289,6 +1437,7 @@ const InternManagement = () => {
                     />
                   </Grid>
 
+
                   <Grid item xs={12} md={6}>
                     <Field
                       name="tanggal_keluar"
@@ -1301,36 +1450,35 @@ const InternManagement = () => {
                     />
                   </Grid>
                 </Grid>
-
                 <Grid container spacing={2}>
                 <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                       Informasi Pembimbing
                     </Typography>
+                  </Grid> 
+                <Grid container item xs={12} spacing={2}>
+                  <Grid item xs={6}>
+                    <Field
+                      name="nama_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Pembimbing"
+                      size="small"
+                    />
                   </Grid>
-      
-      <Grid container item xs={12} spacing={2}>
-        <Grid item xs={6}>
-          <Field
-            name="nama_pembimbing"
-            component={FormTextField}
-            fullWidth
-            label="Nama Pembimbing"
-            size="small"
-          />
-        </Grid>
 
-        <Grid item xs={6}>
-          <Field
-            name="telp_pembimbing"
-            component={FormTextField}
-            fullWidth
-            label="No. Telp Pembimbing"
-            size="small"
-          />
-        </Grid>
-      </Grid>
-    </Grid>
+                  <Grid item xs={6}>
+                    <Field
+                      name="telp_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="No. Telp Pembimbing"
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+
 
                 <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                   <Button
@@ -1355,11 +1503,34 @@ const InternManagement = () => {
     </Dialog>
   );
 
+ 
+
+  // Handle checkbox selection
+  const handleSelectIntern = (internId) => {
+    setSelectedInterns(prev => {
+      if (prev.includes(internId)) {
+        return prev.filter(id => id !== internId);
+      } else {
+        return [...prev, internId];
+      }
+    });
+  };
+
+  // Handle select all checkboxes
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedInterns(interns.map(intern => intern.id_magang));
+    } else {
+      setSelectedInterns([]);
+    }
+  };
+
+  
   // Main render
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
-      <Box sx={{ 
+      <Box sx={{
         width: '100%',
         background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
         borderRadius: '12px',
@@ -1388,6 +1559,7 @@ const InternManagement = () => {
         </Button>
       </Box>
 
+
       {/* Search and Filter Section */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
@@ -1399,7 +1571,7 @@ const InternManagement = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        
+       
         <div className="relative">
           <select
             value={filters.bidang}
@@ -1420,18 +1592,21 @@ const InternManagement = () => {
           </div>
         </div>
 
+
         <div className="relative">
-       <select
-  value={filters.status}
-  onChange={(e) => handleFilter('status', e.target.value)}
-  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
->
-  <option value="">Status</option>
-  <option value="belum_mulai">Belum Mulai</option>
-  <option value="aktif">Aktif</option>
-  <option value="hampir_selesai">Hampir Selesai</option>
-  <option value="selesai">Selesai</option>
-</select>
+
+        <select
+            value={filters.status}
+            onChange={(e) => handleFilter('status', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+          >
+            <option value="">Status</option>
+            <option value="not_yet">Belum Mulai</option>
+            <option value="active">Aktif</option>
+            <option value="almost">Hampir Selesai</option>
+            <option value="completed">Selesai</option>
+          </select>
+
           <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -1440,18 +1615,26 @@ const InternManagement = () => {
         </div>
       </div>
 
+
       {/* Table Section */}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <input
+                  type="checkbox"
+                  onChange={handleSelectAll}
+                  checked={selectedInterns.length === interns.length && interns.length > 0}
+                />
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruang Penempatan</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -1463,6 +1646,13 @@ const InternManagement = () => {
               </tr>
             ) : interns.map((intern) => (
               <tr key={intern.id_magang} className="hover:bg-gray-50">
+                <td className="px-3 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={selectedInterns.includes(intern.id_magang)}
+                    onChange={() => handleSelectIntern(intern.id_magang)}
+                  />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {intern.nama}
                 </td>
@@ -1472,10 +1662,10 @@ const InternManagement = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {intern.nama_bidang}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(intern.tanggal_masuk)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(intern.tanggal_keluar)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -1483,7 +1673,7 @@ const InternManagement = () => {
                     {getStatusLabel(intern.status)}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
+                <td className="px-4 py-4 whitespace-nowrap text-center">
                 <IconButton
                               size="small"
                               onClick={() => handleDetailClick(intern.id_magang)}
@@ -1512,6 +1702,7 @@ const InternManagement = () => {
         </table>
       </div>
 
+
       {/* Pagination */}
       <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
         <div className="flex items-center gap-2">
@@ -1529,9 +1720,9 @@ const InternManagement = () => {
           <button
             onClick={() => handlePageChange(null, Math.max(0, pagination.page - 1))}
             disabled={pagination.page === 0}
-            className={`px-4 py-2 text-sm font-medium rounded-md 
-              ${pagination.page === 0 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+            className={`px-4 py-2 text-sm font-medium rounded-md
+              ${pagination.page === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
           >
             Previous
@@ -1552,10 +1743,22 @@ const InternManagement = () => {
         </div>
       </div>
 
+      <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <LoadingButton
+          variant="contained"
+          color='#26BBAC'
+          disabled={selectedInterns.length === 0}
+          onClick={generateReceipt}
+        >
+          Generate Tanda Terima
+        </LoadingButton>
+      </Box>
+
       {/* Dialogs */}
       <AddDialog />
       <DetailDialog />
       <EditDialog />
+
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -1565,12 +1768,12 @@ const InternManagement = () => {
         <DialogTitle>Konfirmasi Hapus</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Apakah Anda yakin ingin menghapus data magang "{deleteDialog.nama}"? 
+            Apakah Anda yakin ingin menghapus data magang "{deleteDialog.nama}"?
             Tindakan ini tidak dapat dibatalkan.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteDialog({ open: false, internId: null, loading: false, nama: '' })}
             disabled={deleteDialog.loading}
           >
@@ -1587,6 +1790,7 @@ const InternManagement = () => {
         </DialogActions>
       </Dialog>
 
+
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
@@ -1601,4 +1805,8 @@ const InternManagement = () => {
   );
 };
 
+
 export default InternManagement;
+
+
+

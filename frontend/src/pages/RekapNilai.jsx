@@ -1,4 +1,3 @@
-// src/pages/RekapNilai.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -26,19 +25,21 @@ import {
   MenuItem,
   Grid
 } from '@mui/material';
+import axios from 'axios';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
-import axios from 'axios';import { Edit as EditIcon, FileDownload as FileDownloadIcon, CardMembership as CertificateIcon } from '@mui/icons-material';
-
 
 const RekapNilai = () => {
   // State
   const [data, setData] = useState([]);
+  const [bidangList, setBidangList] = useState([]); // Tambahkan state bidangList
+  const [filters, setFilters] = useState({
+    bidang: '',
+    search: ''
+  });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [bidang, setBidang] = useState('');
-  const [search, setSearch] = useState('');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -58,16 +59,36 @@ const RekapNilai = () => {
     nilai_kebersihan: ''
   });
 
-  // Fetch Data
+  // Fetch functions
+  const fetchBidangList = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/bidang', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBidangList(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching bidang:', error);
+      showSnackbar('Gagal mengambil data bidang', 'error');
+    }
+  };
+
   const fetchData = async () => {
     try {
+      const queryParams = new URLSearchParams();
+      
+      if (filters.bidang) queryParams.append('bidang', filters.bidang);
+      if (filters.search) queryParams.append('search', filters.search);
+      queryParams.append('page', page);
+      queryParams.append('limit', 10);
+
       const response = await axios.get('/api/intern/rekap-nilai', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: {
           page,
           limit: 10,
-          bidang,
-          search
+          bidang: filters.bidang,
+          search: filters.search
         }
       });
       setData(response.data.data);
@@ -78,10 +99,21 @@ const RekapNilai = () => {
   };
 
   useEffect(() => {
+    fetchBidangList();
+  }, []);
+
+  useEffect(() => {
     fetchData();
-  }, [page, bidang, search]);
+  }, [page, filters.bidang, filters.search]);
 
   // Handlers
+  const handleFilter = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
   const handleEditScore = (intern) => {
     setSelectedIntern(intern);
     setScoreForm({
@@ -102,7 +134,6 @@ const RekapNilai = () => {
 
   const handleSubmitScore = async (e) => {
     e.preventDefault();
-    console.log('Selected intern:', selectedIntern);
     try {
       await axios.put(`/api/intern/update-nilai/${selectedIntern.id_penilaian}`, scoreForm, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -120,7 +151,7 @@ const RekapNilai = () => {
       const response = await axios.get('/api/intern/export', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         responseType: 'blob',
-        params: { bidang }
+        params: { bidang: filters.bidang }  // Updated to use filters.bidang
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -140,36 +171,12 @@ const RekapNilai = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const [loadingCertificate, setLoadingCertificate] = useState(null);
-
-  const handleGenerateCertificate = async (id) => {
-    setLoadingCertificate(id);
-    try {
-      const response = await axios.get(`/api/intern/certificate/${id}`, {
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('token')}` 
-        },
-        responseType: 'blob'  // Penting untuk handling file
-      });
-  
-      // Create blob URL dan trigger download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `sertifikat_magang_${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      
-      showSnackbar('Sertifikat berhasil di-generate');
-    } catch (error) {
-      showSnackbar('Gagal generate sertifikat', 'error');
-      console.error('Error generating certificate:', error);
-    } finally {
-      setLoadingCertificate(null);
-    }
-  };
-
+  const [pagination, setPagination] = useState({
+      page: 0,
+      limit: 10,
+      total: 0
+    });
+    
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
@@ -206,8 +213,8 @@ const RekapNilai = () => {
           <TextField
             fullWidth
             label="Search nama/institusi"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={filters.search}
+            onChange={(e) => handleFilter('search', e.target.value)}
             size="small"
           />
         </Grid>
@@ -215,138 +222,217 @@ const RekapNilai = () => {
           <FormControl fullWidth size="small">
             <InputLabel>Bidang</InputLabel>
             <Select
-              value={bidang}
+              value={filters.bidang}
               label="Bidang"
-              onChange={(e) => setBidang(e.target.value)}
+              onChange={(e) => handleFilter('bidang', e.target.value)}
             >
               <MenuItem value="">Semua Bidang</MenuItem>
-              <MenuItem value="1">Bidang A</MenuItem>
-              <MenuItem value="2">Bidang B</MenuItem>
+                              {bidangList.map((bidang) => (
+                                  <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                                      {bidang.nama_bidang}
+                                  </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
       </Grid>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ mt: 2, borderRadius: '12px' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-              <TableCell sx={{ fontWeight: '600' }}>Nama</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Institusi</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Bidang</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Team Work</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Komunikasi</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Rata-rata</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-                {data.map((score) => {
-                    const average = (
-                      Number(score.nilai_teamwork) +
-                      Number(score.nilai_komunikasi) +
-                      Number(score.nilai_pengambilan_keputusan) +
-                      Number(score.nilai_kualitas_kerja) +
-                      Number(score.nilai_teknologi) +
-                      Number(score.nilai_disiplin) +
-                      Number(score.nilai_tanggungjawab) +
-                      Number(score.nilai_kerjasama) +
-                      Number(score.nilai_inisiatif) +
-                      Number(score.nilai_kejujuran) +
-                      Number(score.nilai_kebersihan)
-                    ) / 11;
-      
-                    return (
-                      <TableRow key={score.id_penilaian}>
-                        <TableCell>{score.nama}</TableCell>
-                        <TableCell>{score.nama_institusi}</TableCell>
-                        <TableCell>{score.nama_bidang}</TableCell>
-                        <TableCell align="center">{score.nilai_teamwork}</TableCell>
-                        <TableCell align="center">{score.nilai_komunikasi}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                          {average.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <IconButton 
-                            onClick={() => handleEditScore(score)}
-                            sx={{ color: '#2196F3' }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-      
-            {/* Pagination */}
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
-                onChange={(e, value) => setPage(value)}
-                color="primary"
-              />
-            </Box>
-      
-            {/* Edit Score Dialog */}
-            <Dialog 
-              open={openDialog} 
-              onClose={() => setOpenDialog(false)}
-              maxWidth="md" 
-              fullWidth
-            >
-              <DialogTitle>
-                {`Edit Nilai - ${selectedIntern?.nama}`}
-              </DialogTitle>
-              <form onSubmit={handleSubmitScore}>
-                <DialogContent>
-                  <Grid container spacing={2}>
-                    {Object.entries(scoreForm).map(([key, value]) => (
-                      <Grid item xs={12} md={6} key={key}>
-                        <TextField
-                          fullWidth
-                          label={key.split('_').slice(1).join(' ').toUpperCase()}
-                          type="number"
-                          value={value}
-                          onChange={(e) => setScoreForm({
-                            ...scoreForm,
-                            [key]: e.target.value
-                          })}
-                          inputProps={{ min: 0, max: 100 }}
-                          required
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </DialogContent>
-                <DialogActions>
-                  <Button onClick={() => setOpenDialog(false)}>Batal</Button>
-                  <Button type="submit" variant="contained">Simpan</Button>
-                </DialogActions>
-              </form>
-            </Dialog>
-      
-            {/* Snackbar */}
-            <Snackbar
-              open={snackbar.open}
-              autoHideDuration={6000}
-              onClose={() => setSnackbar({ ...snackbar, open: false })}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-              <Alert 
-                onClose={() => setSnackbar({ ...snackbar, open: false })} 
-                severity={snackbar.severity}
-                sx={{ width: '100%' }}
-              >
-                {snackbar.message}
-              </Alert>
-            </Snackbar>
-          </Box>
-        );
-      };
-      
+      {/* Table Section */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institusi</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Team Work</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Komunikasi</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Rata-rata</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {data.map((score) => {
+              const average = (
+                Number(score.nilai_teamwork) +
+                Number(score.nilai_komunikasi) +
+                Number(score.nilai_pengambilan_keputusan) +
+                Number(score.nilai_kualitas_kerja) +
+                Number(score.nilai_teknologi) +
+                Number(score.nilai_disiplin) +
+                Number(score.nilai_tanggungjawab) +
+                Number(score.nilai_kerjasama) +
+                Number(score.nilai_inisiatif) +
+                Number(score.nilai_kejujuran) +
+                Number(score.nilai_kebersihan)
+              ) / 11;
+
+              return (
+                <tr key={score.id_penilaian} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {score.nama}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {score.nama_institusi}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {score.nama_bidang}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {score.nilai_teamwork}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {score.nilai_komunikasi}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                    {average.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <IconButton 
+                      onClick={() => handleEditScore(score)}
+                      sx={{ 
+                        color: 'info.main',
+                        '&:hover': {
+                          bgcolor: 'rgba(33, 150, 243, 0.08)'
+                        }
+                      }}
+                      size="small"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {/* Updated Pagination Section */}
+      <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
+        <div className="flex items-center gap-2">
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination(prev => ({
+                ...prev,
+                limit: Number(e.target.value),
+                page: 0
+              }));
+            }}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            {[5, 10, 25, 50].map(size => (
+              <option key={size} value={size}>{size} items</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: Math.max(0, prev.page - 1)
+            }))}
+            disabled={pagination.page === 0}
+            className={`px-4 py-2 text-sm font-medium rounded-md 
+              ${pagination.page === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Previous
+          </button>
+          <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
+            {pagination.page + 1}
+          </span>
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: prev.page + 1
+            }))}
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1}
+            className={`px-4 py-2 text-sm font-medium rounded-md
+              ${pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Edit Score Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          {`Edit Nilai - ${selectedIntern?.nama}`}
+        </DialogTitle>
+        <form onSubmit={handleSubmitScore}>
+          <DialogContent>
+            <Grid container spacing={2}>
+              {Object.entries(scoreForm).map(([key, value]) => (
+                <Grid item xs={12} md={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={key.split('_').slice(1).join(' ').toUpperCase()}
+                    type="number"
+                    value={value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Hanya menerima angka 0-100
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
+                        setScoreForm(prev => ({
+                          ...prev,
+                          [key]: val
+                        }));
+                      }
+                    }}
+                    inputProps={{ 
+                      min: 0, 
+                      max: 100,
+                      step: "1"  // Hanya menerima bilangan bulat
+                    }}
+                    required
+                    error={Number(value) < 0 || Number(value) > 100}
+                    helperText={
+                      Number(value) < 0 || Number(value) > 100 
+                        ? 'Nilai harus antara 0-100' 
+                        : ''
+                    }
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDialog(false)}>Batal</Button>
+            <Button type="submit" variant="contained">Simpan</Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+};
+
 export default RekapNilai;

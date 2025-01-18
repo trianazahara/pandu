@@ -55,6 +55,21 @@ const assessmentController = {
                 nilai_kejujuran,
                 nilai_kebersihan
             } = req.body;
+            
+            // Validasi input
+            const isEmpty = (val) => val === undefined || val === null || val === '';
+            if (
+                !id_magang ||
+                [nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan, nilai_kualitas_kerja, nilai_teknologi,
+                 nilai_disiplin, nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif, nilai_kejujuran, nilai_kebersihan]
+                    .some((val) => val === undefined)
+            ) {
+                return res.status(400).json({ message: 'Semua nilai harus diisi.' });
+            }
+
+            if (!req.user || !req.user.userId) {
+                return res.status(403).json({ message: 'User tidak valid.' });
+            }
 
             if (!id_magang) {
                 return res.status(400).json({
@@ -91,6 +106,17 @@ const assessmentController = {
 
             // 5. Insert penilaian
             const id_penilaian = uuidv4();
+
+            const [existingPenilaian] = await conn.execute(`
+                SELECT id_penilaian FROM penilaian WHERE id_magang = ?
+            `, [id_magang]);
+
+            if (existingPenilaian.length > 0) {
+                // Jika sudah ada, kembalikan error
+                return res.status(400).json({ 
+                    message: 'Penilaian sudah ada untuk peserta magang ini.' 
+                });
+            }
             await conn.execute(`
                 INSERT INTO penilaian (
                     id_penilaian,

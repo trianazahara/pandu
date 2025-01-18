@@ -30,26 +30,29 @@ import { Assessment as AssessmentIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const RiwayatData = () => {
-  // State
-  const [data, setData] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [bidang, setBidang] = useState('');
+  const [pagination, setPagination] = useState({
+    page: 0,
+    limit: 10,
+    total: 0
+  });
   const [search, setSearch] = useState('');
+  const [bidang, setBidang] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
+  const [data, setData] = useState([]);
+  const [bidangList, setBidangList] = useState([]); 
   const [scoreForm, setScoreForm] = useState({
-    nilai_teamwork: '',
-    nilai_komunikasi: '',
-    nilai_pengambilan_keputusan: '',
-    nilai_kualitas_kerja: '',
-    nilai_teknologi: '',
-    nilai_disiplin: '',
-    nilai_tanggungjawab: '',
-    nilai_kerjasama: '',
-    nilai_inisiatif: '',
-    nilai_kejujuran: '',
-    nilai_kebersihan: ''
+    nilai_teamwork: 0,
+    nilai_komunikasi: 0,
+    nilai_pengambilan_keputusan: 0,
+    nilai_kualitas_kerja: 0,
+    nilai_teknologi: 0,
+    nilai_disiplin: 0,
+    nilai_tanggungjawab: 0,
+    nilai_kerjasama: 0,
+    nilai_inisiatif: 0,
+    nilai_kejujuran: 0,
+    nilai_kebersihan: 0
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -57,101 +60,123 @@ const RiwayatData = () => {
     severity: 'success'
   });
 
-  // Fetch Data
+  // Fetch functions
+  const fetchBidangList = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/bidang', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBidangList(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching bidang:', error);
+      showSnackbar('Gagal mengambil data bidang', 'error');
+    }
+  };
+
   const fetchData = async () => {
     try {
       const response = await axios.get('/api/intern/riwayat-data', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: {
-          page,
-          limit: 10,
+          page: pagination.page + 1,
+          limit: pagination.limit,
           bidang,
           search,
           status: 'selesai'
         }
       });
       setData(response.data.data);
-      setTotalPages(response.data.pagination.totalPages);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.pagination.total
+      }));
     } catch (error) {
       showSnackbar('Error mengambil data', 'error');
     }
   };
 
   useEffect(() => {
+    fetchBidangList();
+  }, []);
+
+  useEffect(() => {
     fetchData();
-  }, [page, bidang, search]);
+  }, [pagination.page, pagination.limit, bidang, search]);
+
+  // Helper Functions
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      'selesai': 'Selesai',
+      'completed': 'Selesai',
+    };
+    return labels[status?.toLowerCase()] || status;
+  };
 
   // Handlers
   const handleOpenScoreDialog = (intern) => {
-    console.log('Opening dialog for intern:', intern);
-    
     setSelectedIntern(intern);
-    // Set nilai default 0 untuk semua field
     setScoreForm({
-        nilai_teamwork: '0',
-        nilai_komunikasi: '0',
-        nilai_pengambilan_keputusan: '0',
-        nilai_kualitas_kerja: '0',
-        nilai_teknologi: '0',
-        nilai_disiplin: '0',
-        nilai_tanggungjawab: '0',
-        nilai_kerjasama: '0',
-        nilai_inisiatif: '0',
-        nilai_kejujuran: '0',
-        nilai_kebersihan: '0'
+      nilai_teamwork: 0,
+      nilai_komunikasi: 0,
+      nilai_pengambilan_keputusan: 0,
+      nilai_kualitas_kerja: 0,
+      nilai_teknologi: 0,
+      nilai_disiplin: 0,
+      nilai_tanggungjawab: 0,
+      nilai_kerjasama: 0,
+      nilai_inisiatif: 0,
+      nilai_kejujuran: 0,
+      nilai_kebersihan: 0
     });
     setOpenDialog(true);
-};
+  };
 
   const handleSubmitScore = async (e) => {
     e.preventDefault();
     try {
       const scoreData = {
-        nilai_teamwork: Number(scoreForm.nilai_teamwork) || '',
-        nilai_komunikasi: Number(scoreForm.nilai_komunikasi) || '',
-        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan) || '',
-        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja) || '',
-        nilai_teknologi: Number(scoreForm.nilai_teknologi) || '',
-        nilai_disiplin: Number(scoreForm.nilai_disiplin) || '',
-        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab) || '',
-        nilai_kerjasama: Number(scoreForm.nilai_kerjasama) || '',
-        nilai_inisiatif: Number(scoreForm.nilai_inisiatif) || '',
-        nilai_kejujuran: Number(scoreForm.nilai_kejujuran) || '',
-        nilai_kebersihan: Number(scoreForm.nilai_kebersihan) || ''
-    };
+        id_magang: selectedIntern?.id_magang,
+        nilai_teamwork: Number(scoreForm.nilai_teamwork) || 0,
+        nilai_komunikasi: Number(scoreForm.nilai_komunikasi) || 0,
+        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan) || 0,
+        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja) || 0,
+        nilai_teknologi: Number(scoreForm.nilai_teknologi) || 0,
+        nilai_disiplin: Number(scoreForm.nilai_disiplin) || 0,
+        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab) || 0,
+        nilai_kerjasama: Number(scoreForm.nilai_kerjasama) || 0,
+        nilai_inisiatif: Number(scoreForm.nilai_inisiatif) || 0,
+        nilai_kejujuran: Number(scoreForm.nilai_kejujuran) || 0,
+        nilai_kebersihan: Number(scoreForm.nilai_kebersihan) || 0
+      };
 
-    // Log data sebelum dikirim untuk debugging
-    console.log('Selected Intern:', selectedIntern);
-    console.log('Score Data to be sent:', scoreData);
-
-    const response = await axios.post(
+      const response = await axios.post(
         `/api/intern/add-score/${selectedIntern.id_magang}`,
         scoreData,
         {
-            headers: { 
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            }
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
         }
-    );
+      );
 
-    if (response.status === 201) {
+      if (response.status === 201) {
         showSnackbar('Nilai berhasil disimpan');
         setOpenDialog(false);
         fetchData();
-    }
+      }
     } catch (error) {
       console.error('Submit error:', error);
-      console.error('Error response:', error.response?.data);
-        showSnackbar(
-            error.response?.data?.message || 'Error menyimpan nilai', 
-            'error'
-        );
+      showSnackbar(
+        error.response?.data?.message || 'Error menyimpan nilai', 
+        'error'
+      );
     }
-};
-
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
   };
 
   return (
@@ -178,6 +203,11 @@ const RiwayatData = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '0.375rem',
+              }
+            }}
           />
         </Grid>
         <Grid item xs={12} md={4}>
@@ -187,81 +217,129 @@ const RiwayatData = () => {
               value={bidang}
               label="Bidang"
               onChange={(e) => setBidang(e.target.value)}
+              sx={{
+                borderRadius: '0.375rem',
+              }}
             >
               <MenuItem value="">Semua Bidang</MenuItem>
-              <MenuItem value="1">Bidang A</MenuItem>
-              <MenuItem value="2">Bidang B</MenuItem>
+              {bidangList.map((bidang) => (
+                <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                  {bidang.nama_bidang}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
       </Grid>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ mt: 2, borderRadius: '12px' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-              <TableCell sx={{ fontWeight: '600' }}>Nama</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Bidang</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Tanggal Masuk</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Tanggal Keluar</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      {/* Table Section */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
             {data.map((intern) => (
-              <TableRow key={intern.id_magang}>
-                <TableCell>{intern.nama}</TableCell>
-                <TableCell>{intern.email}</TableCell>
-                <TableCell>{intern.nama_bidang}</TableCell>
-                <TableCell>{new Date(intern.tanggal_masuk).toLocaleDateString('id-ID')}</TableCell>
-                <TableCell>{new Date(intern.tanggal_keluar).toLocaleDateString('id-ID')}</TableCell>
-                <TableCell>
-                  <Box
-                    sx={{
-                      display: 'inline-block',
-                      bgcolor: '#4CAF50',
-                      color: 'white',
-                      px: 2,
-                      py: 0.5,
-                      borderRadius: 1,
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    {intern.status}
-                  </Box>
-                </TableCell>
-                <TableCell>
+              <tr key={intern.id_magang} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {intern.nama}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {intern.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {intern.nama_bidang}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(intern.tanggal_masuk).toLocaleDateString('id-ID')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(intern.tanggal_keluar).toLocaleDateString('id-ID')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-800">
+                    {getStatusLabel(intern.status)}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
                   <IconButton 
                     onClick={() => handleOpenScoreDialog(intern)}
                     sx={{ 
-                      color: '#2196F3',
+                      color: 'info.main',
                       '&:hover': {
                         bgcolor: 'rgba(33, 150, 243, 0.08)'
                       }
                     }}
-                    title="Input Nilai"
+                    size="small"
                   >
-                    <AssessmentIcon />
+                    <AssessmentIcon fontSize="small" />
                   </IconButton>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </tbody>
+        </table>
+      </div>
 
-      {/* Pagination */}
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        <Pagination 
-          count={totalPages} 
-          page={page} 
-          onChange={(e, value) => setPage(value)}
-          color="primary"
-        />
-      </Box>
+      {/* Updated Pagination Section */}
+      <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
+        <div className="flex items-center gap-2">
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination(prev => ({
+                ...prev,
+                limit: Number(e.target.value),
+                page: 0
+              }));
+            }}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            {[5, 10, 25, 50].map(size => (
+              <option key={size} value={size}>{size} items</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: Math.max(0, prev.page - 1)
+            }))}
+            disabled={pagination.page === 0}
+            className={`px-4 py-2 text-sm font-medium rounded-md 
+              ${pagination.page === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Previous
+          </button>
+          <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
+            {pagination.page + 1}
+          </span>
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: prev.page + 1
+            }))}
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1}
+            className={`px-4 py-2 text-sm font-medium rounded-md
+              ${pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
 
       {/* Score Input Dialog */}
       <Dialog 
@@ -277,36 +355,35 @@ const RiwayatData = () => {
           <DialogContent>
             <Grid container spacing={2}>
               {Object.entries(scoreForm).map(([key, value]) => (
-              <Grid item xs={12} md={6} key={key}>
-              <TextField
-                fullWidth
-                label={key.split('_').slice(1).join(' ').toUpperCase()}
-                type="number"
-                value={value}
-                onChange={(e) => {
-                    const val = e.target.value;
-                    // Hanya menerima angka 0-100
-                    if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
+                <Grid item xs={12} md={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={key.split('_').slice(1).join(' ').toUpperCase()}
+                    type="number"
+                    value={value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
                         setScoreForm(prev => ({
-                            ...prev,
-                            [key]: val === '' ? '0' : val
+                          ...prev,
+                          [key]: val === '' ? '0' : val
                         }));
-                    }
-                }}
-                inputProps={{ 
-                    min: 0, 
-                    max: 100,
-                    step: "1"  // Hanya menerima bilangan bulat
-                }}
-                required
-                error={Number(value) < 0 || Number(value) > 100}
-                helperText={
-                    Number(value) < 0 || Number(value) > 100 
+                      }
+                    }}
+                    inputProps={{ 
+                      min: 0, 
+                      max: 100,
+                      step: "1"  // Hanya menerima bilangan bulat
+                    }}
+                    required
+                    error={Number(value) < 0 || Number(value) > 100}
+                    helperText={
+                      Number(value) < 0 || Number(value) > 100 
                         ? 'Nilai harus antara 0-100' 
                         : ''
-                }
-            />
-        </Grid>
+                    }
+                  />
+                </Grid>
               ))}
             </Grid>
           </DialogContent>

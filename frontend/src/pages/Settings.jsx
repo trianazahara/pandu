@@ -12,6 +12,11 @@ import {
   DialogTrigger,
 } from "../components/ui/dialog";
 import { Label } from '../components/ui/label';
+import {
+  Box,
+  Paper,
+  Typography
+} from '@mui/material';
 
 const Settings = () => {
   const { toast } = useToast();
@@ -181,22 +186,19 @@ const Settings = () => {
   };
 
   return (
-    <>
-      <Toaster />
-      <div style={{ width: '100%', padding: '2rem' }}>
-        {/* Header */}
-        <div style={{
-          width: '100%',
-          background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-          borderRadius: '12px',
-          marginBottom: '1rem',
-          padding: '1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h2 style={{ color: 'white', fontWeight: 'bold' }}>Pengaturan</h2>
-        </div>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      {/* Header */}
+      <Box sx={{ 
+        width: '100%',
+        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
+        borderRadius: '12px',
+        mb: 4,
+        p: 3
+      }}>
+        <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
+          Pengaturan
+        </Typography>
+      </Box>
         
         {/* Profile Section */}
         <Card className="mb-6">
@@ -321,8 +323,8 @@ const Settings = () => {
             </form>
           </CardContent>
         </Card>
-      </div>
-    </>
+      </Box>
+    
   );
 };
 

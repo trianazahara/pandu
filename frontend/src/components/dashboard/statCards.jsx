@@ -1,3 +1,4 @@
+// src/components/dashboard/statCards
 import React from 'react';
 import { Users, CheckCircle, Package, GraduationCap, Briefcase } from 'lucide-react';
 

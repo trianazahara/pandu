@@ -24,5 +24,6 @@ router.get('/:id', internController.getDetail);
 router.get('/completing-soon', authMiddleware, internController.getCompletingSoon);
 router.delete('/:id', internController.delete);
 router.post('/generate-receipt', reportController.generateReceipt.bind(reportController));
+router.patch('/missing/:id', requireRole(['superadmin', 'admin']), internController.setMissingStatus);
 
 module.exports = router;

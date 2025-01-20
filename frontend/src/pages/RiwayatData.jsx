@@ -1,3 +1,5 @@
+// riwayat data
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -257,8 +259,7 @@ const RiwayatData = () => {
     try {
       const scoreData = {
         id_magang: selectedIntern?.id_magang,
-        // ...scoreForm,
-        jumlah_hadir: Number(scoreForm.jumlah_hadir),
+        ...scoreForm,
         nilai_teamwork: Number(scoreForm.nilai_teamwork),
         nilai_komunikasi: Number(scoreForm.nilai_komunikasi),
         nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan),
@@ -270,10 +271,11 @@ const RiwayatData = () => {
         nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
+        jumlah_hadir: Number(scoreForm.jumlah_hadir)
       };
 
-      console.log('Data yang akan dikirim:', scoreData);
-      console.log('Jumlah Hadir yang dikirim:', scoreData.jumlah_hadir);
+      console.log('Final score data being sent:', scoreData);
+      console.log('jumlah_hadir value:', scoreData.jumlah_hadir);
 
       const response = await axios.post(
         `/api/intern/add-score/${selectedIntern.id_magang}`,

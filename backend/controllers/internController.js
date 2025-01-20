@@ -69,6 +69,7 @@ const updateInternStatuses = async (conn) => {
     const query = `
         UPDATE peserta_magang 
         SET status = CASE
+            WHEN status = 'missing' THEN 'missing'
             WHEN CURRENT_DATE < tanggal_masuk THEN 'not_yet'
             WHEN CURRENT_DATE > tanggal_keluar THEN 'selesai'
             WHEN CURRENT_DATE BETWEEN DATE_SUB(tanggal_keluar, INTERVAL 7 DAY) AND tanggal_keluar THEN 'almost'
@@ -79,6 +80,54 @@ const updateInternStatuses = async (conn) => {
     await conn.execute(query);
 };
 const internController = {
+
+    // Tambahkan di internController.js
+setMissingStatus: async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        
+        const { id } = req.params;
+        
+        // Update status menjadi missing
+        const [updateResult] = await conn.execute(
+            `UPDATE peserta_magang 
+             SET status = 'missing',
+                 updated_by = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id_magang = ?`,
+            [req.user.userId, id]
+        );
+
+        if (updateResult.affectedRows === 0) {
+            throw new Error('Gagal mengupdate status peserta magang');
+        }
+
+        // Buat notifikasi
+        await createInternNotification(conn, {
+            userId: req.user.userId,
+            internName: (await conn.execute('SELECT nama FROM peserta_magang WHERE id_magang = ?', [id]))[0][0].nama,
+            action: 'menandai sebagai missing'
+        });
+
+        await conn.commit();
+        
+        res.json({
+            status: 'success',
+            message: 'Status peserta magang berhasil diubah menjadi missing'
+        });
+
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error setting missing status:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message || 'Terjadi kesalahan server'
+        });
+    } finally {
+        conn.release();
+    }
+},
 
     getDetailedStats: async (req, res) => {
         const conn = await pool.getConnection();
@@ -92,6 +141,7 @@ const internController = {
                     COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
                     COUNT(CASE WHEN status = 'selesai' THEN 1 END) as completed_count,
                     COUNT(CASE WHEN status = 'almost' THEN 1 END) as completing_soon_count,
+                    COUNT(CASE WHEN status = 'missing' THEN 1 END) as missing_count,
                     COUNT(*) as total_count
                 FROM peserta_magang
             `);

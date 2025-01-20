@@ -1810,6 +1810,3 @@ const InternManagement = () => {
 
 
 export default InternManagement;
-
-
-

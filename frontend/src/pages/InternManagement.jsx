@@ -124,40 +124,19 @@ const InternManagement = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      'active': 'Aktif',
-      'aktif': 'Aktif',
       'not_yet': 'Belum Mulai',
-      'belum_mulai': 'Belum Mulai',
-      'completed': 'Selesai',
-      'selesai': 'Selesai',
+      'aktif': 'Aktif',
       'almost': 'Hampir Selesai',
-      'hampir_selesai': 'Hampir Selesai'
+      'selesai': 'Selesai'
     };
     return labels[status?.toLowerCase()] || status;
   };
   
   const STATUS_MAPPING = {
-    // Frontend to Backend
-
-    'active': 'aktif',
-    'completed': 'selesai',
-    'not_yet': 'belum_mulai',
-    'almost': 'hampir_selesai',
-    // Backend to Frontend
-    'aktif': 'active',
-    'selesai': 'completed',
-    'belum_mulai': 'not_yet',
-    'hampir_selesai': 'almost'
-
-   'active': 'aktif',
-  'not_yet': 'belum_mulai',
-  'completed': 'selesai',
-  'almost': 'hampir_selesai',
-  'aktif': 'aktif',           // Added for direct backend values
-  'belum_mulai': 'belum_mulai',
-  'selesai': 'selesai',
-  'hampir_selesai': 'hampir_selesai'
-
+    'not_yet': 'not_yet',      // untuk 'Belum Mulai'
+    'aktif': 'aktif',          // untuk 'Aktif'
+    'almost': 'almost',        // untuk 'Hampir Selesai'
+    'selesai': 'selesai'       // untuk 'Selesai'
   };
 
   const getStatusValue = (status) => {
@@ -178,11 +157,9 @@ const InternManagement = () => {
         border: '#15803d'
       },
       'not_yet': {
-
         bg: '#f3f4f6',
         color: '#4b5563',
         border: '#4b5563'
-
       },
       'completed': {
         bg: '#dbeafe',
@@ -220,6 +197,7 @@ const InternManagement = () => {
         'bg-slate-100 text-slate-600 border border-slate-600'
       }`;
     }
+  
     return styles[normalizedStatus] || defaultStyle;
   };
 
@@ -282,13 +260,13 @@ const InternManagement = () => {
       setBidangLoading(true);
       setBidangError(null);
       const token = localStorage.getItem('token');
-     
+      
       const response = await fetch('/api/bidang', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-     
+      
       if (!response.ok) {
         throw new Error('Failed to fetch bidang data');
       }
@@ -308,7 +286,6 @@ const InternManagement = () => {
     }
   };
 
-
   const fetchInterns = async () => {
     setLoading(true);
     setError(null);
@@ -317,7 +294,9 @@ const InternManagement = () => {
       const queryParams = new URLSearchParams();
 
       // Append filter values if they exist
-      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.status) {
+        queryParams.append('status', filters.status);
+      }
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
       if (filters.search) queryParams.append('search', filters.search);
  
@@ -336,12 +315,7 @@ const InternManagement = () => {
       }
  
       const data = await response.json();
-      // Map the status values in the received data if needed
-      const mappedData = data.data.map(intern => ({
-        ...intern,
-        status: getStatusValue(intern.status) // Ensure consistent status values
-      }));
-      setInterns(mappedData);
+      setInterns(data.data);
       setPagination((prev) => ({
         ...prev,
         total: data.pagination.total,
@@ -353,7 +327,6 @@ const InternManagement = () => {
       setLoading(false);
     }
   };
-
 
   // Event handlers
   const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
@@ -1571,7 +1544,7 @@ const InternManagement = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-       
+        
         <div className="relative">
           <select
             value={filters.bidang}
@@ -1592,21 +1565,18 @@ const InternManagement = () => {
           </div>
         </div>
 
-
         <div className="relative">
-
         <select
-            value={filters.status}
-            onChange={(e) => handleFilter('status', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-          >
-            <option value="">Status</option>
-            <option value="not_yet">Belum Mulai</option>
-            <option value="active">Aktif</option>
-            <option value="almost">Hampir Selesai</option>
-            <option value="completed">Selesai</option>
-          </select>
-
+          value={filters.status}
+          onChange={(e) => handleFilter('status', e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+        >
+          <option value="">Status</option>
+          <option value="not_yet">Belum Mulai</option>
+          <option value="aktif">Aktif</option>
+          <option value="almost">Hampir Selesai</option>
+          <option value="selesai">Selesai</option>
+        </select>
           <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -1616,90 +1586,123 @@ const InternManagement = () => {
       </div>
 
 
-      {/* Table Section */}
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <input
-                  type="checkbox"
-                  onChange={handleSelectAll}
-                  checked={selectedInterns.length === interns.length && interns.length > 0}
-                />
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ruang Penempatan</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
+
+      {/* Table Section with Percentage Widths */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto" style={{ minWidth: '800px' }}>
+          <table className="w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                  Loading...
-                </td>
-              </tr>
-            ) : interns.map((intern) => (
-              <tr key={intern.id_magang} className="hover:bg-gray-50">
-                <td className="px-3 py-4 whitespace-nowrap">
+                <th scope="col" className="w-[5%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
-                    checked={selectedInterns.includes(intern.id_magang)}
-                    onChange={() => handleSelectIntern(intern.id_magang)}
+                    onChange={handleSelectAll}
+                    checked={selectedInterns.length === interns.length && interns.length > 0}
                   />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {intern.nama}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {intern.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {intern.nama_bidang}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(intern.tanggal_masuk)}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(intern.tanggal_keluar)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <span className={getStatusStyle(intern.status)}>
-                    {getStatusLabel(intern.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-center">
-                <IconButton
-                              size="small"
-                              onClick={() => handleDetailClick(intern.id_magang)}
-                              sx={{ color: 'info.main' }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditClick(intern.id_magang)}
-                              sx={{ color: 'warning.main' }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                </td>
+                </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nama
+                </th>
+                <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ruang Penempatan
+                </th>
+                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tanggal Masuk
+                </th>
+                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tanggal Keluar
+                </th>
+                <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                    Loading...
+                  </td>
+                </tr>
+              ) : interns.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                    Tidak ada data
+                  </td>
+                </tr>
+              ) : (
+                interns.map((intern) => (
+                  <tr key={intern.id_magang} className="hover:bg-gray-50">
+                    <td className="px-3 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedInterns.includes(intern.id_magang)}
+                        onChange={() => handleSelectIntern(intern.id_magang)}
+                      />
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 truncate">
+                        {intern.nama}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 truncate">
+                        {intern.email}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 truncate">
+                        {intern.nama_bidang}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(intern.tanggal_masuk)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(intern.tanggal_keluar)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={getStatusStyle(intern.status)}>
+                        {getStatusLabel(intern.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <div className="flex justify-center space-x-1">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDetailClick(intern.id_magang)}
+                          sx={{ color: 'info.main' }}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditClick(intern.id_magang)}
+                          sx={{ color: 'warning.main' }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
 

@@ -1,35 +1,145 @@
-// src/pages/RiwayatData.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Paper,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Pagination,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Grid,
-  Snackbar,
-  Alert,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button
+  Button,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { Assessment as AssessmentIcon } from '@mui/icons-material';
 import axios from 'axios';
 
+// Helper function untuk menghitung hari kerja
+const calculateWorkingDays = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0;
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let workingDays = 0;
+  let current = new Date(start);
+
+  while (current <= end) {
+    if (current.getDay() !== 0 && current.getDay() !== 6) {
+      workingDays++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return workingDays;
+};
+
+// Dialog Component
+const ScoreDialog = ({ open, onClose, selectedIntern, scoreForm, setScoreForm, onSubmit }) => {
+  const workingDays = selectedIntern ? 
+    calculateWorkingDays(selectedIntern.tanggal_masuk, selectedIntern.tanggal_keluar) : 0;
+
+    useEffect(() => {
+      // Log setiap kali nilai form berubah
+      console.log('Current scoreForm:', scoreForm);
+      console.log('Current jumlah_hadir:', scoreForm.jumlah_hadir);
+    }, [scoreForm]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        {`Edit Nilai - ${selectedIntern?.nama}`}
+      </DialogTitle>
+      <form onSubmit={onSubmit}>
+        <DialogContent>
+          <Grid container spacing={2}>
+            {/* Attendance field */}
+            <Grid item xs={12}>
+              <TextField
+              fullWidth
+              label="JUMLAH KEHADIRAN"
+              type="number"
+              value={scoreForm.jumlah_hadir}
+              onChange={(e) => {
+                const val = e.target.value;
+                console.log('Input jumlah_hadir:', val); // Log nilai input
+                if (val === '' || (Number(val) >= 0 && Number(val) <= workingDays)) {
+                  setScoreForm(prev => {
+                    const newForm = {
+                      ...prev,
+                      jumlah_hadir: val
+                    };
+                    console.log('Updated scoreForm:', newForm); // Log form setelah update
+                    return newForm;
+                  });
+                }
+              }}
+              helperText={`Total hari kerja: ${workingDays} hari`}
+              required
+              error={Number(scoreForm.jumlah_hadir) > workingDays}
+              inputProps={{ 
+                min: 0,
+                max: workingDays,
+                step: 1
+              }}
+            />
+            </Grid>
+
+            {/* Score fields */}
+            {Object.entries(scoreForm).map(([key, value]) => {
+              if (key === 'jumlah_hadir') return null;
+              return (
+                <Grid item xs={12} md={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={key.split('_').slice(1).join(' ').toUpperCase()}
+                    type="number"
+                    value={value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
+                        setScoreForm(prev => ({
+                          ...prev,
+                          [key]: val
+                        }));
+                      }
+                    }}
+                    inputProps={{ 
+                      min: 0, 
+                      max: 100,
+                      step: "1"
+                    }}
+                    required
+                    error={Number(value) < 0 || Number(value) > 100}
+                    helperText={
+                      Number(value) < 0 || Number(value) > 100 
+                        ? 'Nilai harus antara 0-100' 
+                        : ''
+                    }
+                  />
+                </Grid>
+              );
+            })}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Batal</Button>
+          <Button type="submit" variant="contained">Simpan</Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+};
+
+// Main Component
 const RiwayatData = () => {
+  // States
   const [pagination, setPagination] = useState({
     page: 0,
     limit: 10,
@@ -40,7 +150,7 @@ const RiwayatData = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [data, setData] = useState([]);
-  const [bidangList, setBidangList] = useState([]); 
+  const [bidangList, setBidangList] = useState([]);
   const [scoreForm, setScoreForm] = useState({
     nilai_teamwork: 0,
     nilai_komunikasi: 0,
@@ -52,7 +162,8 @@ const RiwayatData = () => {
     nilai_kerjasama: 0,
     nilai_inisiatif: 0,
     nilai_kejujuran: 0,
-    nilai_kebersihan: 0
+    nilai_kebersihan: 0,
+    jumlah_hadir: 0
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -86,16 +197,19 @@ const RiwayatData = () => {
           status: 'selesai'
         }
       });
+      console.log('Response data:', response.data);
       setData(response.data.data);
       setPagination(prev => ({
         ...prev,
         total: response.data.pagination.total
       }));
     } catch (error) {
+      console.error('Error fetching data:', error);
       showSnackbar('Error mengambil data', 'error');
     }
   };
 
+  // Effects
   useEffect(() => {
     fetchBidangList();
   }, []);
@@ -104,7 +218,7 @@ const RiwayatData = () => {
     fetchData();
   }, [pagination.page, pagination.limit, bidang, search]);
 
-  // Helper Functions
+  // Helper functions
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
@@ -119,6 +233,7 @@ const RiwayatData = () => {
 
   // Handlers
   const handleOpenScoreDialog = (intern) => {
+    console.log('Selected intern:', intern);
     setSelectedIntern(intern);
     setScoreForm({
       nilai_teamwork: 0,
@@ -131,7 +246,8 @@ const RiwayatData = () => {
       nilai_kerjasama: 0,
       nilai_inisiatif: 0,
       nilai_kejujuran: 0,
-      nilai_kebersihan: 0
+      nilai_kebersihan: 0,
+      jumlah_hadir: 0
     });
     setOpenDialog(true);
   };
@@ -141,18 +257,23 @@ const RiwayatData = () => {
     try {
       const scoreData = {
         id_magang: selectedIntern?.id_magang,
-        nilai_teamwork: Number(scoreForm.nilai_teamwork) || 0,
-        nilai_komunikasi: Number(scoreForm.nilai_komunikasi) || 0,
-        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan) || 0,
-        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja) || 0,
-        nilai_teknologi: Number(scoreForm.nilai_teknologi) || 0,
-        nilai_disiplin: Number(scoreForm.nilai_disiplin) || 0,
-        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab) || 0,
-        nilai_kerjasama: Number(scoreForm.nilai_kerjasama) || 0,
-        nilai_inisiatif: Number(scoreForm.nilai_inisiatif) || 0,
-        nilai_kejujuran: Number(scoreForm.nilai_kejujuran) || 0,
-        nilai_kebersihan: Number(scoreForm.nilai_kebersihan) || 0
+        // ...scoreForm,
+        jumlah_hadir: Number(scoreForm.jumlah_hadir),
+        nilai_teamwork: Number(scoreForm.nilai_teamwork),
+        nilai_komunikasi: Number(scoreForm.nilai_komunikasi),
+        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan),
+        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja),
+        nilai_teknologi: Number(scoreForm.nilai_teknologi),
+        nilai_disiplin: Number(scoreForm.nilai_disiplin),
+        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
+        nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
+        nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
+        nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
+        nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
       };
+
+      console.log('Data yang akan dikirim:', scoreData);
+      console.log('Jumlah Hadir yang dikirim:', scoreData.jumlah_hadir);
 
       const response = await axios.post(
         `/api/intern/add-score/${selectedIntern.id_magang}`,
@@ -165,6 +286,8 @@ const RiwayatData = () => {
         }
       );
 
+      console.log('Response dari server:', response.data);
+      
       if (response.status === 201) {
         showSnackbar('Nilai berhasil disimpan');
         setOpenDialog(false);
@@ -172,13 +295,11 @@ const RiwayatData = () => {
       }
     } catch (error) {
       console.error('Submit error:', error);
-      showSnackbar(
-        error.response?.data?.message || 'Error menyimpan nilai', 
-        'error'
-      );
+      showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
     }
   };
 
+  // Render
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
@@ -342,57 +463,14 @@ const RiwayatData = () => {
       </div>
 
       {/* Score Input Dialog */}
-      <Dialog 
-        open={openDialog} 
+      <ScoreDialog 
+        open={openDialog}
         onClose={() => setOpenDialog(false)}
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>
-          {`Input Nilai - ${selectedIntern?.nama}`}
-        </DialogTitle>
-        <form onSubmit={handleSubmitScore}>
-          <DialogContent>
-            <Grid container spacing={2}>
-              {Object.entries(scoreForm).map(([key, value]) => (
-                <Grid item xs={12} md={6} key={key}>
-                  <TextField
-                    fullWidth
-                    label={key.split('_').slice(1).join(' ').toUpperCase()}
-                    type="number"
-                    value={value}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
-                        setScoreForm(prev => ({
-                          ...prev,
-                          [key]: val === '' ? '0' : val
-                        }));
-                      }
-                    }}
-                    inputProps={{ 
-                      min: 0, 
-                      max: 100,
-                      step: "1"  // Hanya menerima bilangan bulat
-                    }}
-                    required
-                    error={Number(value) < 0 || Number(value) > 100}
-                    helperText={
-                      Number(value) < 0 || Number(value) > 100 
-                        ? 'Nilai harus antara 0-100' 
-                        : ''
-                    }
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>Batal</Button>
-            <Button type="submit" variant="contained">Simpan</Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+        selectedIntern={selectedIntern}
+        scoreForm={scoreForm}
+        setScoreForm={setScoreForm}
+        onSubmit={handleSubmitScore}
+      />
 
       {/* Snackbar */}
       <Snackbar

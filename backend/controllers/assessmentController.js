@@ -4,26 +4,44 @@ const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 
 const createInternNotification = async (conn, {userId, judul, pesan}) => {
-    const query = `
-        INSERT INTO notifikasi (
-            id_notifikasi,
-            user_id,
+    try {
+        const [userData] = await conn.execute(
+            'SELECT username FROM users WHERE id_users = ?',
+            [userId]
+        );
+        
+        if (!userData || userData.length === 0) {
+            console.error('User tidak ditemukan untuk ID:', userId);
+            return;
+        }
+
+        const username = userData[0].username;
+        
+        // Buat query dengan username yang sudah diambil
+        const query = `
+            INSERT INTO notifikasi (
+                id_notifikasi,
+                user_id,
+                judul,
+                pesan,
+                dibaca,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+
+        const values = [
+            uuidv4(),
+            userId,
             judul,
-            pesan,
-            dibaca,
-            created_at
-        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `;
+            pesan.replace('{username}', username), // Gunakan placeholder yang jelas
+            0
+        ];
 
-    const values = [
-        uuidv4(),
-        userId,
-        judul,
-        pesan,
-        0
-    ];
-
-    await conn.execute(query, values);
+        await conn.execute(query, values);
+    } catch (error) {
+        console.error('Error creating notification:', error);
+        throw error; // Re-throw error agar bisa ditangkap di controller
+    }
 };
 
 const assessmentController = {
@@ -55,6 +73,21 @@ const assessmentController = {
                 nilai_kejujuran,
                 nilai_kebersihan
             } = req.body;
+            
+            // Validasi input
+            const isEmpty = (val) => val === undefined || val === null || val === '';
+            if (
+                !id_magang ||
+                [nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan, nilai_kualitas_kerja, nilai_teknologi,
+                 nilai_disiplin, nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif, nilai_kejujuran, nilai_kebersihan]
+                    .some((val) => val === undefined)
+            ) {
+                return res.status(400).json({ message: 'Semua nilai harus diisi.' });
+            }
+
+            if (!req.user || !req.user.userId) {
+                return res.status(403).json({ message: 'User tidak valid.' });
+            }
 
             if (!id_magang) {
                 return res.status(400).json({
@@ -91,6 +124,17 @@ const assessmentController = {
 
             // 5. Insert penilaian
             const id_penilaian = uuidv4();
+
+            const [existingPenilaian] = await conn.execute(`
+                SELECT id_penilaian FROM penilaian WHERE id_magang = ?
+            `, [id_magang]);
+
+            if (existingPenilaian.length > 0) {
+                // Jika sudah ada, kembalikan error
+                return res.status(400).json({ 
+                    message: 'Penilaian sudah ada untuk peserta magang ini.' 
+                });
+            }
             await conn.execute(`
                 INSERT INTO penilaian (
                     id_penilaian,
@@ -138,11 +182,18 @@ const assessmentController = {
             `, [req.user.userId, id_magang]);
 
             // 7. Buat notifikasi
-            await createInternNotification(conn, {
-                userId: req.user.userId,
-                judul: 'Penilaian Baru',
-                pesan: `${req.user.username} telah menambahkan penilaian untuk peserta magang: ${pesertaExists[0].nama}`
-            });
+            const [userData] = await conn.execute(
+                'SELECT username FROM users WHERE id_users = ?',
+                [req.user.userId]
+            );
+        
+            if (userData && userData.length > 0) {
+                await createInternNotification(conn, {
+                    userId: req.user.userId,
+                    judul: 'Penilaian Baru',
+                    pesan: '{username} telah menambahkan penilaian untuk peserta magang: ' + pesertaExists[0].nama
+                });
+            }
 
             // 8. Commit transaction
             await conn.commit();
@@ -195,6 +246,8 @@ const assessmentController = {
                     pm.nama,
                     pm.nama_institusi,
                     b.nama_bidang,
+                    pm.tanggal_masuk,
+                    pm.tanggal_keluar,
                     p.*
                 FROM penilaian p
                 INNER JOIN peserta_magang pm ON p.id_magang = pm.id_magang
@@ -295,114 +348,113 @@ const assessmentController = {
         }
     },
 
-     updateScore: async (req, res) => {
+    updateScore: async (req, res) => {
         const conn = await pool.getConnection();
         try {
-            // 1. Validasi autentikasi user
             if (!req.user || !req.user.userId) {
                 return res.status(401).json({
                     status: 'error',
                     message: 'Unauthorized: User authentication required'
                 });
             }
-
+    
             await conn.beginTransaction();
             const { id } = req.params;
-
-            // 2. Cek data existing dan ambil data peserta
-            const [existing] = await conn.execute(`
-                SELECT p.*, pm.nama 
-                FROM penilaian p
-                JOIN peserta_magang pm ON p.id_magang = pm.id_magang
+    
+            // Get intern data first for notification
+            const [internData] = await conn.execute(`
+                SELECT pm.nama 
+                FROM penilaian p 
+                JOIN peserta_magang pm ON p.id_magang = pm.id_magang 
                 WHERE p.id_penilaian = ?
             `, [id]);
-
-            if (!existing || existing.length === 0) {
+    
+            if (!internData || internData.length === 0) {
                 return res.status(404).json({
                     status: 'error',
                     message: 'Data penilaian tidak ditemukan'
                 });
             }
-
-            // 3. Validasi dan persiapan data update
-            const currentData = existing[0];
-            const updatedValues = {
-                nilai_teamwork: req.body.nilai_teamwork ?? currentData.nilai_teamwork,
-                nilai_komunikasi: req.body.nilai_komunikasi ?? currentData.nilai_komunikasi,
-                nilai_pengambilan_keputusan: req.body.nilai_pengambilan_keputusan ?? currentData.nilai_pengambilan_keputusan,
-                nilai_kualitas_kerja: req.body.nilai_kualitas_kerja ?? currentData.nilai_kualitas_kerja,
-                nilai_teknologi: req.body.nilai_teknologi ?? currentData.nilai_teknologi,
-                nilai_disiplin: req.body.nilai_disiplin ?? currentData.nilai_disiplin,
-                nilai_tanggungjawab: req.body.nilai_tanggungjawab ?? currentData.nilai_tanggungjawab,
-                nilai_kerjasama: req.body.nilai_kerjasama ?? currentData.nilai_kerjasama,
-                nilai_inisiatif: req.body.nilai_inisiatif ?? currentData.nilai_inisiatif,
-                nilai_kejujuran: req.body.nilai_kejujuran ?? currentData.nilai_kejujuran,
-                nilai_kebersihan: req.body.nilai_kebersihan ?? currentData.nilai_kebersihan
-            };
-
-            // 4. Build query update
+    
+            const {
+                nilai_teamwork,
+                nilai_komunikasi,
+                nilai_pengambilan_keputusan,
+                nilai_kualitas_kerja,
+                nilai_teknologi,
+                nilai_disiplin,
+                nilai_tanggungjawab,
+                nilai_kerjasama,
+                nilai_inisiatif,
+                nilai_kejujuran,
+                nilai_kebersihan,
+                jumlah_hadir
+            } = req.body;
+    
             let updateQuery = `
                 UPDATE penilaian 
-                SET updated_at = CURRENT_TIMESTAMP,
-                    updated_by = ?
+                SET 
+                    updated_at = CURRENT_TIMESTAMP,
+                    updated_by = ?,
+                    nilai_teamwork = ?,
+                    nilai_komunikasi = ?,
+                    nilai_pengambilan_keputusan = ?,
+                    nilai_kualitas_kerja = ?,
+                    nilai_teknologi = ?,
+                    nilai_disiplin = ?,
+                    nilai_tanggungjawab = ?,
+                    nilai_kerjasama = ?,
+                    nilai_inisiatif = ?,
+                    nilai_kejujuran = ?,
+                    nilai_kebersihan = ?,
+                    jumlah_hadir = ?
+                WHERE id_penilaian = ?
             `;
-            const values = [req.user.userId];
-
-            Object.entries(updatedValues).forEach(([key, value]) => {
-                if (value !== undefined) {
-                    updateQuery += `, ${key} = ?`;
-                    values.push(value);
-                }
-            });
-
-            updateQuery += ' WHERE id_penilaian = ?';
-            values.push(id);
-
-            // 5. Eksekusi update
+    
+            const values = [
+                req.user.userId,
+                nilai_teamwork,
+                nilai_komunikasi,
+                nilai_pengambilan_keputusan,
+                nilai_kualitas_kerja,
+                nilai_teknologi,
+                nilai_disiplin,
+                nilai_tanggungjawab,
+                nilai_kerjasama,
+                nilai_inisiatif,
+                nilai_kejujuran,
+                nilai_kebersihan,
+                jumlah_hadir,
+                id
+            ];
+    
             await conn.execute(updateQuery, values);
-
-            // 6. Buat notifikasi
+    
+            // Create notification after successful update
             await createInternNotification(conn, {
                 userId: req.user.userId,
-                judul: 'Update Penilaian',
-                pesan: `${req.user.username} telah mengupdate penilaian untuk peserta magang: ${existing[0].nama}`
+                judul: 'Pembaruan Nilai',
+                pesan: '{username} telah memperbarui nilai untuk peserta magang: ' + internData[0].nama
             });
-
-            // 7. Commit transaction
+    
             await conn.commit();
-
-            // 8. Ambil data yang sudah diupdate
-            const [updatedData] = await conn.execute(`
-                SELECT 
-                    p.*,
-                    pm.nama,
-                    pm.nama_institusi,
-                    b.nama_bidang
-                FROM penilaian p
-                INNER JOIN peserta_magang pm ON p.id_magang = pm.id_magang
-                INNER JOIN bidang b ON pm.id_bidang = b.id_bidang
-                WHERE p.id_penilaian = ?
-            `, [id]);
-
-            // 9. Kirim response sukses
+    
             return res.status(200).json({
                 status: 'success',
-                message: 'Nilai berhasil diupdate',
-                data: updatedData[0]
+                message: 'Nilai berhasil diupdate'
             });
-
+    
         } catch (error) {
             await conn.rollback();
             console.error('Error updating nilai:', error);
             return res.status(500).json({
                 status: 'error',
-                message: 'Terjadi kesalahan saat mengupdate nilai',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                message: 'Terjadi kesalahan saat mengupdate nilai'
             });
         } finally {
             if (conn) conn.release();
         }
-    },
+        },
 
     getByInternId: async (req, res) => {
         try {

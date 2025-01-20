@@ -1,5 +1,7 @@
-// src/pages/RekapNilai.jsx
+//rekap nilai
 import React, { useState, useEffect } from 'react';
+import { LoadingButton } from '@mui/lab';
+import { Close as CloseIcon } from '@mui/icons-material';
 import {
   Box,
   Paper,
@@ -26,22 +28,27 @@ import {
   MenuItem,
   Grid
 } from '@mui/material';
-import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 
 const RekapNilai = () => {
-  // State
+  // State declarations
   const [data, setData] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedIntern, setSelectedIntern] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [bidang, setBidang] = useState('');
-  const [search, setSearch] = useState('');
-  const [snackbar, setSnackbar] = useState({
+  const [bidangList, setBidangList] = useState([]);
+  const [filters, setFilters] = useState({
+    bidang: '',
+    search: ''
+  });
+  const [pagination, setPagination] = useState({
+    page: 0,
+    limit: 10,
+    total: 0
+  });
+  const [editDialog, setEditDialog] = useState({
     open: false,
-    message: '',
-    severity: 'success'
+    loading: false,
+    data: null,
+    error: null
   });
   const [scoreForm, setScoreForm] = useState({
     nilai_teamwork: '',
@@ -54,72 +61,189 @@ const RekapNilai = () => {
     nilai_kerjasama: '',
     nilai_inisiatif: '',
     nilai_kejujuran: '',
-    nilai_kebersihan: ''
+    nilai_kebersihan: '',
+    jumlah_hadir: ''
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
   });
 
-  // Fetch Data
+  // Helper functions
+  const calculateWorkingDays = (startDate, endDate) => {
+    console.log('Start Date dari DB:', startDate);
+  console.log('End Date dari DB:', endDate);
+
+    if (!startDate || !endDate) return 0;
+  
+    // Konversi string tanggal ke objek Date
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Reset waktu ke 00:00:00
+    console.log('Start Date setelah konversi:', start);
+  console.log('End Date setelah konversi:', end);
+  
+    let workingDays = 0;
+    let current = new Date(start);
+  
+    while (current <= end) {
+      // Check if it's a weekday (0 = Sunday, 6 = Saturday)
+      if (current.getDay() !== 0 && current.getDay() !== 6) {
+        workingDays++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    console.log('Total hari kerja:', workingDays);
+    return workingDays;
+  };
+
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  // Fetch functions
+  const fetchBidangList = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('/api/bidang', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBidangList(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching bidang:', error);
+      showSnackbar('Gagal mengambil data bidang', 'error');
+    }
+  };
+
   const fetchData = async () => {
     try {
       const response = await axios.get('/api/intern/rekap-nilai', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: {
-          page,
-          limit: 10,
-          bidang,
-          search
+          page: pagination.page + 1,
+          limit: pagination.limit,
+          bidang: filters.bidang,
+          search: filters.search
         }
       });
       setData(response.data.data);
-      setTotalPages(response.data.pagination.totalPages);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.pagination.total
+      }));
     } catch (error) {
       showSnackbar('Error mengambil data', 'error');
     }
   };
 
+  // Effects
+  useEffect(() => {
+    fetchBidangList();
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [page, bidang, search]);
+  }, [pagination.page, pagination.limit, filters]);
 
   // Handlers
-  const handleEditScore = (intern) => {
-    setSelectedIntern(intern);
-    setScoreForm({
-      nilai_teamwork: intern.nilai_teamwork || '',
-      nilai_komunikasi: intern.nilai_komunikasi || '',
-      nilai_pengambilan_keputusan: intern.nilai_pengambilan_keputusan || '',
-      nilai_kualitas_kerja: intern.nilai_kualitas_kerja || '',
-      nilai_teknologi: intern.nilai_teknologi || '',
-      nilai_disiplin: intern.nilai_disiplin || '',
-      nilai_tanggungjawab: intern.nilai_tanggungjawab || '',
-      nilai_kerjasama: intern.nilai_kerjasama || '',
-      nilai_inisiatif: intern.nilai_inisiatif || '',
-      nilai_kejujuran: intern.nilai_kejujuran || '',
-      nilai_kebersihan: intern.nilai_kebersihan || ''
+  const handleFilter = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    setPagination(prev => ({
+      ...prev,
+      page: 0
+    }));
+  };
+
+  const handleEditScore = (score) => {
+  console.log("Score data:", score); // Debug data yang diterima
+  console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
+
+    setEditDialog({
+      open: true,
+      loading: false,
+      data: score,
+      error: null
     });
-    setOpenDialog(true);
+    setScoreForm({
+      nilai_teamwork: score.nilai_teamwork || '',
+      nilai_komunikasi: score.nilai_komunikasi || '',
+      nilai_pengambilan_keputusan: score.nilai_pengambilan_keputusan || '',
+      nilai_kualitas_kerja: score.nilai_kualitas_kerja || '',
+      nilai_teknologi: score.nilai_teknologi || '',
+      nilai_disiplin: score.nilai_disiplin || '',
+      nilai_tanggungjawab: score.nilai_tanggungjawab || '',
+      nilai_kerjasama: score.nilai_kerjasama || '',
+      nilai_inisiatif: score.nilai_inisiatif || '',
+      nilai_kejujuran: score.nilai_kejujuran || '',
+      nilai_kebersihan: score.nilai_kebersihan || '',
+      jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
+    });
   };
 
   const handleSubmitScore = async (e) => {
     e.preventDefault();
-    console.log('Selected intern:', selectedIntern);
+    setEditDialog(prev => ({ ...prev, loading: true }));
     try {
-      await axios.put(`/api/intern/update-nilai/${selectedIntern.id_penilaian}`, scoreForm, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      showSnackbar('Nilai berhasil diperbarui');
-      setOpenDialog(false);
-      fetchData();
+      // Pastikan semua nilai dikonversi ke number
+      const scoreData = {
+        ...scoreForm,
+        nilai_teamwork: Number(scoreForm.nilai_teamwork),
+        nilai_komunikasi: Number(scoreForm.nilai_komunikasi),
+        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan),
+        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja),
+        nilai_teknologi: Number(scoreForm.nilai_teknologi),
+        nilai_disiplin: Number(scoreForm.nilai_disiplin),
+        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
+        nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
+        nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
+        nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
+        nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
+        jumlah_hadir: Number(scoreForm.jumlah_hadir)  // Pastikan ini terkirim
+      };
+  
+      const response = await axios.put(
+        `/api/intern/update-nilai/${editDialog.data.id_penilaian}`,
+        scoreData,
+        {
+            headers: { 
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+      if (response.data.status === 'success') {
+            showSnackbar('Nilai berhasil diperbarui', 'success');
+            setEditDialog(prev => ({ ...prev, open: false, loading: false }));
+            fetchData();
+        } else {
+            throw new Error(response.data.message || 'Gagal memperbarui nilai');
+        }
     } catch (error) {
-      showSnackbar(error.response?.data?.message || 'Error mengupdate nilai', 'error');
+        console.error('Error updating score:', error);
+        showSnackbar(
+            error.response?.data?.message || 'Gagal memperbarui nilai. Silakan coba lagi.',
+            'error'
+        );
+        setEditDialog(prev => ({
+            ...prev,
+            loading: false,
+            error: error.response?.data?.message || 'Gagal memperbarui nilai'
+        }));
     }
-  };
+};
 
   const handleExport = async () => {
     try {
       const response = await axios.get('/api/intern/export', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         responseType: 'blob',
-        params: { bidang }
+        params: { bidang: filters.bidang }
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -135,11 +259,19 @@ const RekapNilai = () => {
     }
   };
 
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
+  // const showSnackbar = (message, severity = 'success') => {
+  //   setSnackbar({ open: true, message, severity });
+  // };
 
+  // const [pagination, setPagination] = useState({
+  //     page: 0,
+  //     limit: 10,
+  //     total: 0
+  //   });
+    
+    
   return (
+
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
       <Box sx={{ 
@@ -175,8 +307,8 @@ const RekapNilai = () => {
           <TextField
             fullWidth
             label="Search nama/institusi"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={filters.search}
+            onChange={(e) => handleFilter('search', e.target.value)}
             size="small"
           />
         </Grid>
@@ -184,138 +316,332 @@ const RekapNilai = () => {
           <FormControl fullWidth size="small">
             <InputLabel>Bidang</InputLabel>
             <Select
-              value={bidang}
+              value={filters.bidang}
               label="Bidang"
-              onChange={(e) => setBidang(e.target.value)}
+              onChange={(e) => handleFilter('bidang', e.target.value)}
             >
               <MenuItem value="">Semua Bidang</MenuItem>
-              <MenuItem value="1">Bidang A</MenuItem>
-              <MenuItem value="2">Bidang B</MenuItem>
+                              {bidangList.map((bidang) => (
+                                  <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                                      {bidang.nama_bidang}
+                                  </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
       </Grid>
 
+
       {/* Table */}
-      <TableContainer component={Paper} sx={{ mt: 2, borderRadius: '12px' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-              <TableCell sx={{ fontWeight: '600' }}>Nama</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Institusi</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Bidang</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Team Work</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Komunikasi</TableCell>
-              <TableCell align="center" sx={{ fontWeight: '600' }}>Rata-rata</TableCell>
-              <TableCell sx={{ fontWeight: '600' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-                {data.map((score) => {
-                    const average = (
-                      Number(score.nilai_teamwork) +
-                      Number(score.nilai_komunikasi) +
-                      Number(score.nilai_pengambilan_keputusan) +
-                      Number(score.nilai_kualitas_kerja) +
-                      Number(score.nilai_teknologi) +
-                      Number(score.nilai_disiplin) +
-                      Number(score.nilai_tanggungjawab) +
-                      Number(score.nilai_kerjasama) +
-                      Number(score.nilai_inisiatif) +
-                      Number(score.nilai_kejujuran) +
-                      Number(score.nilai_kebersihan)
-                    ) / 11;
-      
-                    return (
-                      <TableRow key={score.id_penilaian}>
-                        <TableCell>{score.nama}</TableCell>
-                        <TableCell>{score.nama_institusi}</TableCell>
-                        <TableCell>{score.nama_bidang}</TableCell>
-                        <TableCell align="center">{score.nilai_teamwork}</TableCell>
-                        <TableCell align="center">{score.nilai_komunikasi}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                          {average.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <IconButton 
-                            onClick={() => handleEditScore(score)}
-                            sx={{ color: '#2196F3' }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-      
-            {/* Pagination */}
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
-                onChange={(e, value) => setPage(value)}
-                color="primary"
-              />
-            </Box>
-      
-            {/* Edit Score Dialog */}
-            <Dialog 
-              open={openDialog} 
-              onClose={() => setOpenDialog(false)}
-              maxWidth="md" 
-              fullWidth
-            >
-              <DialogTitle>
-                {`Edit Nilai - ${selectedIntern?.nama}`}
-              </DialogTitle>
-              <form onSubmit={handleSubmitScore}>
-                <DialogContent>
-                  <Grid container spacing={2}>
-                    {Object.entries(scoreForm).map(([key, value]) => (
-                      <Grid item xs={12} md={6} key={key}>
-                        <TextField
-                          fullWidth
-                          label={key.split('_').slice(1).join(' ').toUpperCase()}
-                          type="number"
-                          value={value}
-                          onChange={(e) => setScoreForm({
-                            ...scoreForm,
-                            [key]: e.target.value
-                          })}
-                          inputProps={{ min: 0, max: 100 }}
-                          required
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </DialogContent>
-                <DialogActions>
-                  <Button onClick={() => setOpenDialog(false)}>Batal</Button>
-                  <Button type="submit" variant="contained">Simpan</Button>
-                </DialogActions>
-              </form>
-            </Dialog>
-      
-            {/* Snackbar */}
-            <Snackbar
-              open={snackbar.open}
-              autoHideDuration={6000}
-              onClose={() => setSnackbar({ ...snackbar, open: false })}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-              <Alert 
-                onClose={() => setSnackbar({ ...snackbar, open: false })} 
-                severity={snackbar.severity}
-                sx={{ width: '100%' }}
-              >
-                {snackbar.message}
-              </Alert>
-            </Snackbar>
-          </Box>
+      {/* Table Section */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="w-[20%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Nama
+            </th>
+            <th className="w-[20%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Institusi
+            </th>
+            <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Bidang
+            </th>
+            <th className="w-[15%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total Nilai
+            </th>
+            <th className="w-[10%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Absensi
+            </th>
+            <th className="w-[10%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Rata-rata
+            </th>
+            <th className="w-[10%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Action
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+        {data.map((score) => {
+          const totalNilai = (
+            Number(score.nilai_teamwork || 0) +
+            Number(score.nilai_komunikasi || 0) +
+            Number(score.nilai_pengambilan_keputusan || 0) +
+            Number(score.nilai_kualitas_kerja || 0) +
+            Number(score.nilai_teknologi || 0) +
+            Number(score.nilai_disiplin || 0) +
+            Number(score.nilai_tanggungjawab || 0) +
+            Number(score.nilai_kerjasama || 0) +
+            Number(score.nilai_inisiatif || 0) +
+            Number(score.nilai_kejujuran || 0) +
+            Number(score.nilai_kebersihan || 0)
+          );
+        
+          const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+  
+          // Hitung persentase kehadiran
+          const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
+          const average = ((totalNilai / 11) + attendanceScore) / 2;
+            return (
+              <tr key={score.id_penilaian} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {score.nama}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {score.nama_institusi}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {score.nama_bidang}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {totalNilai}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                {score.jumlah_hadir || 0}/{workingDays}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                {average.toFixed(2)}
+              </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <IconButton 
+                    onClick={() => handleEditScore(score)}
+                    sx={{ color: 'info.main' }}
+                    size="small"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  
+
+      {/* Pagination */}
+      {/* Updated Pagination Section */}
+      <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
+        <div className="flex items-center gap-2">
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination(prev => ({
+                ...prev,
+                limit: Number(e.target.value),
+                page: 0
+              }));
+            }}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            {[5, 10, 25, 50].map(size => (
+              <option key={size} value={size}>{size} items</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: Math.max(0, prev.page - 1)
+            }))}
+            disabled={pagination.page === 0}
+            className={`px-4 py-2 text-sm font-medium rounded-md 
+              ${pagination.page === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Previous
+          </button>
+          <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
+            {pagination.page + 1}
+          </span>
+          <button
+            onClick={() => setPagination(prev => ({
+              ...prev,
+              page: prev.page + 1
+            }))}
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1}
+            className={`px-4 py-2 text-sm font-medium rounded-md
+              ${pagination.page >= Math.ceil(pagination.total / pagination.limit) - 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Edit Score Dialog */}
+      <Dialog
+      open={editDialog.open}
+      onClose={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
+          <IconButton
+            onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+      <form onSubmit={handleSubmitScore}>
+        <DialogContent>
+          {editDialog.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{editDialog.error}</Alert>
+          )}
+
+          <Grid container spacing={2}>
+            {/* Attendance Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Informasi Kehadiran
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, mb: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={6}>
+  <Typography variant="body2" color="text.secondary">
+    Total Hari Kerja
+  </Typography>
+  <Typography variant="body1" fontWeight="medium">
+  {calculateWorkingDays(editDialog.data?.tanggal_masuk, editDialog.data?.tanggal_keluar)} Hari
+</Typography>
+</Grid>
+  <Grid item xs={12} md={6}>
+    <TextField
+      fullWidth
+      label="Jumlah Kehadiran"
+      type="number"
+      value={scoreForm.jumlah_hadir || ''}
+      onChange={(e) => {
+        const val = e.target.value;
+        const workingDays = calculateWorkingDays(
+          editDialog.data?.tanggal_masuk,
+          editDialog.data?.tanggal_keluar
         );
-      };
-      
+        
+        if (val === '' || (Number(val) >= 0 && Number(val) <= workingDays)) {
+          setScoreForm(prev => ({
+            ...prev,
+            jumlah_hadir: val
+          }));
+        }
+      }}
+      inputProps={{
+        min: 0,
+        max: calculateWorkingDays(
+          editDialog.data?.tanggal_masuk,
+          editDialog.data?.tanggal_keluar
+        ),
+        step: 1
+      }}
+      error={
+        Number(scoreForm.jumlah_hadir) > calculateWorkingDays(
+          editDialog.data?.tanggal_masuk,
+          editDialog.data?.tanggal_keluar
+        )
+      }
+      helperText={
+        Number(scoreForm.jumlah_hadir) > calculateWorkingDays(
+          editDialog.data?.tanggal_masuk,
+          editDialog.data?.tanggal_keluar
+        )
+          ? 'Jumlah kehadiran tidak boleh melebihi total hari kerja'
+          : `Total hari kerja: ${calculateWorkingDays(
+              editDialog.data?.tanggal_masuk,
+              editDialog.data?.tanggal_keluar
+            )} hari`
+      }
+    />
+  </Grid>
+  </Grid>
+  </Box>
+            </Grid>
+
+            {/* Scores Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Penilaian Kinerja
+              </Typography>
+            </Grid>
+            {Object.entries(scoreForm).map(([key, value]) => {
+              if (key === 'jumlah_hadir') return null; // Skip attendance field
+              return (
+                <Grid item xs={12} md={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={key.split('_').slice(1).join(' ').toUpperCase()}
+                    type="number"
+                    value={value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || (Number(val) >= 0 && Number(val) <= 100)) {
+                        setScoreForm(prev => ({
+                          ...prev,
+                          [key]: val
+                        }));
+                      }
+                    }}
+                    inputProps={{
+                      min: 0,
+                      max: 100,
+                      step: "1"
+                    }}
+                    required
+                    error={Number(value) < 0 || Number(value) > 100}
+                    helperText={
+                      Number(value) < 0 || Number(value) > 100
+                        ? 'Nilai harus antara 0-100'
+                        : ''
+                    }
+                  />
+                </Grid>
+              );
+            })}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
+            disabled={editDialog.loading}
+          >
+            Batal
+          </Button>
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            loading={editDialog.loading}
+          >
+            Simpan Perubahan
+          </LoadingButton>
+        </DialogActions>
+      </form>
+    </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+};
+
 export default RekapNilai;

@@ -1,6 +1,7 @@
-// backend/controllers/reportController.js
 const pool = require('../config/database');
 const XLSX = require('xlsx');
+const { jsPDF } = require('jspdf');
+require('jspdf-autotable');
 
 const reportController = {
     exportInternsScore: async (req, res) => {
@@ -29,31 +30,27 @@ const reportController = {
                 END as jurusan,
                 m.semester,
                 s.kelas,
-                COALESCE(p.nilai_teamwork, 0) as nilai_teamwork,
-                COALESCE(p.nilai_komunikasi, 0) as nilai_komunikasi,
-                COALESCE(p.nilai_pengambilan_keputusan, 0) as nilai_pengambilan_keputusan,
-                COALESCE(p.nilai_kualitas_kerja, 0) as nilai_kualitas_kerja,
-                COALESCE(p.nilai_teknologi, 0) as nilai_teknologi,
-                COALESCE(p.nilai_disiplin, 0) as nilai_disiplin,
-                COALESCE(p.nilai_tanggungjawab, 0) as nilai_tanggungjawab,
-                COALESCE(p.nilai_kerjasama, 0) as nilai_kerjasama,
-                COALESCE(p.nilai_inisiatif, 0) as nilai_inisiatif,
-                COALESCE(p.nilai_kejujuran, 0) as nilai_kejujuran,
-                COALESCE(p.nilai_kebersihan, 0) as nilai_kebersihan
+                p.nilai_teamwork,
+                p.nilai_komunikasi,
+                p.nilai_pengambilan_keputusan,
+                p.nilai_kualitas_kerja,
+                p.nilai_teknologi,
+                p.nilai_disiplin,
+                p.nilai_tanggungjawab,
+                p.nilai_kerjasama,
+                p.nilai_inisiatif,
+                p.nilai_kejujuran,
+                p.nilai_kebersihan
             FROM peserta_magang pm
             LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON pm.id_magang = m.id_magang
             LEFT JOIN data_siswa s ON pm.id_magang = s.id_magang
-            LEFT JOIN penilaian p ON pm.id_magang = p.id_magang
-            WHERE 1=1
+            INNER JOIN penilaian p ON pm.id_magang = p.id_magang
+            WHERE pm.status = 'selesai'
+            AND p.id_magang IS NOT NULL
         `;
         
                 const params = [];
-        
-                if (status) {
-                    query += ` AND pm.status = ?`;
-                    params.push(status);
-                }
         
                 if (start_date && start_date !== 'undefined') {
                     query += ` AND DATE(pm.tanggal_masuk) >= ?`;
@@ -88,17 +85,17 @@ const reportController = {
                     'Jurusan': row.jurusan || '-',
                     'Semester': row.semester || '-',
                     'Kelas': row.kelas || '-',
-                    'Nilai Teamwork': row.nilai_teamwork || '0',
-                    'Nilai Komunikasi': row.nilai_komunikasi || '0',
-                    'Nilai Pengambilan Keputusan': row.nilai_pengambilan_keputusan || '0',
-                    'Nilai Kualitas Kerja': row.nilai_kualitas_kerja || '0',
-                    'Nilai Teknologi': row.nilai_teknologi || '0',
-                    'Nilai Disiplin': row.nilai_disiplin || '0',
-                    'Nilai Tanggung Jawab': row.nilai_tanggungjawab || '0',
-                    'Nilai Kerjasama': row.nilai_kerjasama || '0',
-                    'Nilai Inisiatif': row.nilai_inisiatif || '0',
-                    'Nilai Kejujuran': row.nilai_kejujuran || '0',
-                    'Nilai Kebersihan': row.nilai_kebersihan || '0'
+                    'Nilai Teamwork': row.nilai_teamwork || '-',
+                    'Nilai Komunikasi': row.nilai_komunikasi || '-',
+                    'Nilai Pengambilan Keputusan': row.nilai_pengambilan_keputusan || '-',
+                    'Nilai Kualitas Kerja': row.nilai_kualitas_kerja || '-',
+                    'Nilai Teknologi': row.nilai_teknologi || '-',
+                    'Nilai Disiplin': row.nilai_disiplin || '-',
+                    'Nilai Tanggung Jawab': row.nilai_tanggungjawab || '-',
+                    'Nilai Kerjasama': row.nilai_kerjasama || '-',
+                    'Nilai Inisiatif': row.nilai_inisiatif || '-',
+                    'Nilai Kejujuran': row.nilai_kejujuran || '-',
+                    'Nilai Kebersihan': row.nilai_kebersihan || '-'
                 }));
         
                 // Create workbook
@@ -231,6 +228,156 @@ const reportController = {
         } catch (error) {
             console.error('Error generating certificate:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
+        }
+    },
+
+    generateReceipt: async (req, res) => {
+        try {
+            const { internIds } = req.body;
+            const placeholders = internIds.map(() => '?').join(',');
+            const [selectedInterns] = await pool.execute(`
+                SELECT 
+                    pm.nama,
+                    pm.nama_institusi,
+                    b.nama_bidang,
+                    DATE_FORMAT(pm.tanggal_masuk, '%d-%m-%Y') as tanggal_masuk,
+                    DATE_FORMAT(pm.tanggal_keluar, '%d-%m-%Y') as tanggal_keluar
+                FROM peserta_magang pm
+                JOIN bidang b ON pm.id_bidang = b.id_bidang
+                WHERE pm.id_magang IN (${placeholders})
+            `, [...internIds]);
+    
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const formatCurrentDate = () => {
+                const months = [
+                    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+                ];
+                const date = new Date();
+                return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+            };
+    
+            // Define margins
+            const margin = {
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 20
+            };
+    
+            // Header
+            doc.setFontSize(16);
+            doc.text('TANDA TERIMA', doc.internal.pageSize.width / 2, 30, { align: 'center' });
+            doc.setFontSize(12);
+            doc.text('Telah diterima berkas dari peserta magang sebagai berikut:', margin.left, 45);
+    
+            // Table
+            doc.autoTable({
+                startY: 50,
+                margin: { left: margin.left, right: margin.right },
+                head: [
+                    [
+                        { content: 'No.', rowSpan: 2 },
+                        { content: 'Nama', rowSpan: 2 },
+                        { content: 'Nama Sekolah/PT', rowSpan: 2 },
+                        { content: 'Ruang Penempatan', rowSpan: 2 },
+                        { content: 'Tgl Masuk - Tgl Keluar', rowSpan: 2 },
+                        {
+                            content: 'Diterima oleh',
+                            colSpan: 2,
+                            styles: { halign: 'center' }
+                        }
+                    ],
+                    [
+                        'Nama',
+                        'Tandatangan'
+                    ]
+                ],
+                body: selectedInterns.map((intern, index) => [
+                    index + 1,
+                    intern.nama,
+                    intern.nama_institusi,
+                    intern.nama_bidang,
+                    `${intern.tanggal_masuk} - ${intern.tanggal_keluar}`,
+                    '',
+                    ''
+                ]),
+                theme: 'grid',
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 4,
+                    halign: 'left',
+                    valign: 'middle',
+                    lineWidth: 0.5
+                },
+                headStyles: {
+                    fillColor: [80, 80, 80],
+                    textColor: 255,
+                    fontSize: 10,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    valign: 'middle'
+                },
+                columnStyles: {
+                    0: { cellWidth: 15 },
+                    1: { cellWidth: 60 },
+                    2: { cellWidth: 40 },
+                    3: { cellWidth: 40 },
+                    4: { cellWidth: 30 },
+                    5: { cellWidth: 40 },
+                    6: { cellWidth: 30 }
+                },
+                didDrawPage: function(data) {
+                    doc.lastAutoTable.finalY = data.cursor.y;
+                }
+            });
+    
+            // Calculate required height for signature section
+            const signatureHeight = 60; // Increased height for safety
+            const pageHeight = doc.internal.pageSize.height;
+            const pageWidth = doc.internal.pageSize.width;
+            const remainingSpace = pageHeight - doc.lastAutoTable.finalY;
+    
+            // Calculate signature x position (align right with proper margin)
+            const signatureX = pageWidth - margin.right - 65; // 60mm from right margin
+    
+            // Check if there's enough space for signature
+            if (remainingSpace < signatureHeight) {
+                doc.addPage();
+                addSignature(doc, margin.top + 10, signatureX);
+            } else {
+                addSignature(doc, doc.lastAutoTable.finalY + 10, signatureX);
+            }
+    
+            // Helper function to add signature section
+            function addSignature(doc, startY, signatureX) {
+                doc.text('Demikian tanda terima ini dibuat untuk dipergunakan sebagaimana mestinya.', 
+                    margin.left, startY);
+                
+                // Sign section with proper right alignment
+                doc.text(`Padang, ${formatCurrentDate()}`, signatureX, startY + 5, { align: 'left' });
+                doc.text('Kasubag Umpeg', signatureX, startY + 10, { align: 'left' });
+                doc.text('Benny Wahyudi, ST, Msi', signatureX, startY + 35, { align: 'left' });
+                doc.text('NIP. 197810232010011009', signatureX, startY + 40, { align: 'left' });
+            }
+    
+            // Convert and send PDF
+            const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename=tanda-terima-magang.pdf');
+            res.send(pdfBuffer);
+    
+        } catch (error) {
+            console.error('Error generating receipt:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Failed to generate receipt'
+            });
         }
     }
 };

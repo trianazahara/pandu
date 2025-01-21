@@ -1041,14 +1041,9 @@ const AddDialog = () => (
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Box sx={{ mb: 2 }}>
-                <Chip
-                  label={getStatusLabel(detailDialog.data.status)}
-                  sx={{
-                    backgroundColor: `${getStatusStyle(detailDialog.data.status).bg}`,
-                    color: getStatusStyle(detailDialog.data.status).color,
-                    border: `1px solid ${getStatusStyle(detailDialog.data.status).border}`
-                  }}
-                />
+                <span className={getStatusStyle(detailDialog.data.status)}>
+                  {getStatusLabel(detailDialog.data.status)}
+                </span>
               </Box>
             </Grid>
 

@@ -79,6 +79,7 @@ const updateInternStatuses = async (conn) => {
     `;
     await conn.execute(query);
 };
+
 const internController = {
 
     // Tambahkan di internController.js
@@ -214,18 +215,20 @@ setMissingStatus: async (req, res) => {
             conn.release();
         }
     },
-    getAll: async (req, res) => {
-        try {
-            const {
-                page = 1,
-                limit = 10,
-                status,
-                bidang,
-                search
-            } = req.query;
+    // Modifikasi fungsi getAll di internController.js
+getAll: async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            bidang,
+            search,
+            excludeStatus
+        } = req.query;
 
-            const offset = (page - 1) * limit;
-            let query = `
+        const offset = (page - 1) * limit;
+        let query = `
             SELECT 
                 p.id_magang,
                 p.nama,
@@ -259,53 +262,69 @@ setMissingStatus: async (req, res) => {
             WHERE 1=1
         `;
 
-            const params = [];
+        const params = [];
 
-            if (status) {
-                query += ` AND p.status = ?`;
-                params.push(status);
-            }
-
-            if (bidang) {
-                query += ` AND p.id_bidang = ?`;
-                params.push(bidang);
-            }
-
-            if (search) {
-                query += ` AND (p.nama LIKE ? OR p.nama_institusi LIKE ? OR 
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END LIKE ?)`;
-                params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-            }
-
-            // Get total count
-            const [countResult] = await pool.execute(
-                `SELECT COUNT(*) as total FROM (${query}) as count_query`,
-                params
-            );
-            const total = countResult[0].total;
-
-            // Get paginated data
-            query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-            params.push(Number(limit), Number(offset));
-
-            const [rows] = await pool.execute(query, params);
-
-            res.json({
-                data: rows,
-                pagination: {
-                    total,
-                    page: Number(page),
-                    totalPages: Math.ceil(total / limit)
-                }
-            });
-        } catch (error) {
-            console.error('Error getting interns:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+        // Handle excludeStatus (untuk menyembunyikan status missing dan selesai)
+        if (excludeStatus) {
+            const statusesToExclude = excludeStatus.split(',');
+            query += ` AND p.status NOT IN (${statusesToExclude.map(() => '?').join(',')})`;
+            params.push(...statusesToExclude);
         }
-    },
+
+        // Handle filter status
+        if (status) {
+            query += ` AND p.status = ?`;
+            params.push(status);
+        }
+
+        // Handle filter bidang
+        if (bidang) {
+            query += ` AND p.id_bidang = ?`;
+            params.push(bidang);
+        }
+
+        // Handle search
+        if (search) {
+            query += ` AND (p.nama LIKE ? OR p.email LIKE ? OR 
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
+                    ELSE s.nisn
+                END LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Get total count first
+        const countQuery = `SELECT COUNT(*) as total FROM (${query}) as count_query`;
+        const [countResult] = await pool.execute(countQuery, params);
+        const total = countResult[0].total;
+
+        // Add order and pagination to main query
+        query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(Number(limit), Number(offset));
+
+        // Execute main query
+        const [rows] = await pool.execute(query, params);
+
+        // Send response
+        res.json({
+            status: 'success',
+            data: rows,
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                page: Number(page),
+                limit: Number(limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting interns:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Terjadi kesalahan server' 
+        });
+    }
+},
 
     checkAvailability: async (req, res) => {
         try {

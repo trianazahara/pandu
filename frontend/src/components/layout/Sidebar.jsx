@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from "../../contexts/AuthContext";
 import {
     Home,
     History,
@@ -11,9 +12,12 @@ import {
 } from '@mui/icons-material';
 
 export const Sidebar = () => {
+    const { user } = useAuth(); // Dapatkan user dari AuthContext
     const location = useLocation();
     const [expandedMenus, setExpandedMenus] = useState({});
     const [hoveredItem, setHoveredItem] = useState(null);
+
+    console.log('Current user in Sidebar:', user); // Debugging
 
     const toggleMenu = (path) => {
         setExpandedMenus(prev => ({
@@ -22,53 +26,64 @@ export const Sidebar = () => {
         }));
     };
 
-    const menuItems = [
-        {
-            path: '/dashboard',
-            icon: <Home />,
-            label: 'Dashboard'
-        },
-        {
-            path: '/intern',
-            icon: <LibraryBooks />,
-            label: 'Data Magang',
-            subItems: [
-                {
-                    path: '/intern/management',
-                    label: 'Manajemen Data'
-                },
-                {
-                    path: '/intern/availabilityCheck',
-                    label: 'Check Ketersediaan'
-                }
-            ]
-        },
-        {
-            path: '/history',
-            icon: <History />,
-            label: 'Riwayat',
-            subItems: [
-                {
-                    path: '/history/data',
-                    label: 'Riwayat Data'
-                },
-                {
-                    path: '/history/score',
-                    label: 'Rekap Nilai'
-                }
-            ]
-        },
-        {
-            path: '/admin/management',
-            icon: <People />,
-            label: 'Manajemen Admin'
-        },
-        {
-            path: '/settings',
-            icon: <Settings />,
-            label: 'Pengaturan'
+    // Base menu items
+    const getMenuItems = () => {
+        const items = [
+            {
+                path: '/dashboard',
+                icon: <Home />,
+                label: 'Dashboard'
+            },
+            {
+                path: '/intern',
+                icon: <LibraryBooks />,
+                label: 'Data Magang',
+                subItems: [
+                    {
+                        path: '/intern/management',
+                        label: 'Manajemen Data'
+                    },
+                    {
+                        path: '/intern/availabilityCheck',
+                        label: 'Check Ketersediaan'
+                    }
+                ]
+            },
+            {
+                path: '/history',
+                icon: <History />,
+                label: 'Riwayat',
+                subItems: [
+                    {
+                        path: '/history/data',
+                        label: 'Riwayat Data'
+                    },
+                    {
+                        path: '/history/score',
+                        label: 'Rekap Nilai'
+                    }
+                ]
+            },
+            {
+                path: '/settings',
+                icon: <Settings />,
+                label: 'Pengaturan'
+            }
+        ];
+
+        // Add admin management menu only for superadmin
+        if (user?.role === 'superadmin') {  // Ubah dari userRole menjadi user?.role
+            items.splice(3, 0, {
+                path: '/admin/management',
+                icon: <People />,
+                label: 'Manajemen Admin'
+            });
         }
-    ];
+
+        return items;
+    };
+
+    const menuItems = getMenuItems();
 
     return (
         <div className="w-64 h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-green-600 

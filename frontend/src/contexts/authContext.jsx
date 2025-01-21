@@ -16,7 +16,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check if user is logged in
         const checkAuth = async () => {
             try {
                 const token = localStorage.getItem('token');
@@ -28,6 +27,7 @@ export const AuthProvider = ({ children }) => {
                     });
                     if (response.ok) {
                         const userData = await response.json();
+                        console.log('User data from auth check:', userData); // Debugging
                         setUser(userData);
                     } else {
                         localStorage.removeItem('token');
@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }) => {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('Login response:', data); // Debugging
                 localStorage.setItem('token', data.token);
                 setUser(data.user);
                 return true;
@@ -70,6 +71,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setUser(null);
     };
+
+    // Debugging
+    useEffect(() => {
+        console.log('Current user state:', user);
+    }, [user]);
 
     if (loading) {
         return <div>Loading...</div>;

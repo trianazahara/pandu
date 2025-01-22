@@ -980,13 +980,16 @@ const internController = {
             const {
                 page = 1,
                 limit = 10,
-                status = 'selesai',
+                status = 'selesai,missing',
                 bidang,
                 search
             } = req.query;
     
             const offset = (page - 1) * limit;
-    
+            const statusArray = status.split(','); 
+
+            const statusPlaceholders = statusArray.map(() => '?').join(',');
+
             // Base query for data retrieval
             let query = `
                 SELECT 
@@ -999,7 +1002,7 @@ const internController = {
                     pm.tanggal_keluar
                 FROM peserta_magang pm
                 LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
-                WHERE pm.status = ?
+                WHERE pm.status IN (${statusPlaceholders})
             `;
     
             // Base query for counting total records
@@ -1007,11 +1010,11 @@ const internController = {
                 SELECT COUNT(*) AS total 
                 FROM peserta_magang pm
                 LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
-                WHERE pm.status = ?
+                WHERE pm.status IN (${statusPlaceholders})
             `;
     
-            const params = [status];
-            const countParams = [status];
+            const params = [...statusArray];
+            const countParams = [...statusArray];
     
             // Add filter for bidang
             if (bidang) {
@@ -1033,6 +1036,9 @@ const internController = {
             query += ` ORDER BY pm.tanggal_keluar DESC LIMIT ? OFFSET ?`;
             params.push(parseInt(limit), parseInt(offset));
     
+            console.log('Query:', query); // Debug log
+            console.log('Params:', params);
+
             // Execute the main query
             const [rows] = await pool.execute(query, params);
     

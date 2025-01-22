@@ -69,6 +69,7 @@ const updateInternStatuses = async (conn) => {
     const query = `
         UPDATE peserta_magang 
         SET status = CASE
+            WHEN status = 'missing' THEN 'missing'
             WHEN CURRENT_DATE < tanggal_masuk THEN 'not_yet'
             WHEN CURRENT_DATE > tanggal_keluar THEN 'selesai'
             WHEN CURRENT_DATE BETWEEN DATE_SUB(tanggal_keluar, INTERVAL 7 DAY) AND tanggal_keluar THEN 'almost'
@@ -78,7 +79,56 @@ const updateInternStatuses = async (conn) => {
     `;
     await conn.execute(query);
 };
+
 const internController = {
+
+    // Tambahkan di internController.js
+setMissingStatus: async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        
+        const { id } = req.params;
+        
+        // Update status menjadi missing
+        const [updateResult] = await conn.execute(
+            `UPDATE peserta_magang 
+             SET status = 'missing',
+                 updated_by = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id_magang = ?`,
+            [req.user.userId, id]
+        );
+
+        if (updateResult.affectedRows === 0) {
+            throw new Error('Gagal mengupdate status peserta magang');
+        }
+
+        // Buat notifikasi
+        await createInternNotification(conn, {
+            userId: req.user.userId,
+            internName: (await conn.execute('SELECT nama FROM peserta_magang WHERE id_magang = ?', [id]))[0][0].nama,
+            action: 'menandai sebagai missing'
+        });
+
+        await conn.commit();
+        
+        res.json({
+            status: 'success',
+            message: 'Status peserta magang berhasil diubah menjadi missing'
+        });
+
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error setting missing status:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message || 'Terjadi kesalahan server'
+        });
+    } finally {
+        conn.release();
+    }
+},
 
     getDetailedStats: async (req, res) => {
         const conn = await pool.getConnection();
@@ -92,6 +142,7 @@ const internController = {
                     COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
                     COUNT(CASE WHEN status = 'selesai' THEN 1 END) as completed_count,
                     COUNT(CASE WHEN status = 'almost' THEN 1 END) as completing_soon_count,
+                    COUNT(CASE WHEN status = 'missing' THEN 1 END) as missing_count,
                     COUNT(*) as total_count
                 FROM peserta_magang
             `);
@@ -164,18 +215,20 @@ const internController = {
             conn.release();
         }
     },
-    getAll: async (req, res) => {
-        try {
-            const {
-                page = 1,
-                limit = 10,
-                status,
-                bidang,
-                search
-            } = req.query;
+    // Modifikasi fungsi getAll di internController.js
+getAll: async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            bidang,
+            search,
+            excludeStatus
+        } = req.query;
 
-            const offset = (page - 1) * limit;
-            let query = `
+        const offset = (page - 1) * limit;
+        let query = `
             SELECT 
                 p.id_magang,
                 p.nama,
@@ -209,53 +262,69 @@ const internController = {
             WHERE 1=1
         `;
 
-            const params = [];
+        const params = [];
 
-            if (status) {
-                query += ` AND p.status = ?`;
-                params.push(status);
-            }
-
-            if (bidang) {
-                query += ` AND p.id_bidang = ?`;
-                params.push(bidang);
-            }
-
-            if (search) {
-                query += ` AND (p.nama LIKE ? OR p.nama_institusi LIKE ? OR 
-                    CASE 
-                        WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                        ELSE s.nisn
-                    END LIKE ?)`;
-                params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-            }
-
-            // Get total count
-            const [countResult] = await pool.execute(
-                `SELECT COUNT(*) as total FROM (${query}) as count_query`,
-                params
-            );
-            const total = countResult[0].total;
-
-            // Get paginated data
-            query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-            params.push(Number(limit), Number(offset));
-
-            const [rows] = await pool.execute(query, params);
-
-            res.json({
-                data: rows,
-                pagination: {
-                    total,
-                    page: Number(page),
-                    totalPages: Math.ceil(total / limit)
-                }
-            });
-        } catch (error) {
-            console.error('Error getting interns:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+        // Handle excludeStatus (untuk menyembunyikan status missing dan selesai)
+        if (excludeStatus) {
+            const statusesToExclude = excludeStatus.split(',');
+            query += ` AND p.status NOT IN (${statusesToExclude.map(() => '?').join(',')})`;
+            params.push(...statusesToExclude);
         }
-    },
+
+        // Handle filter status
+        if (status) {
+            query += ` AND p.status = ?`;
+            params.push(status);
+        }
+
+        // Handle filter bidang
+        if (bidang) {
+            query += ` AND p.id_bidang = ?`;
+            params.push(bidang);
+        }
+
+        // Handle search
+        if (search) {
+            query += ` AND (p.nama LIKE ? OR p.email LIKE ? OR 
+                CASE 
+                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
+                    ELSE s.nisn
+                END LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Get total count first
+        const countQuery = `SELECT COUNT(*) as total FROM (${query}) as count_query`;
+        const [countResult] = await pool.execute(countQuery, params);
+        const total = countResult[0].total;
+
+        // Add order and pagination to main query
+        query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+        params.push(Number(limit), Number(offset));
+
+        // Execute main query
+        const [rows] = await pool.execute(query, params);
+
+        // Send response
+        res.json({
+            status: 'success',
+            data: rows,
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                page: Number(page),
+                limit: Number(limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting interns:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Terjadi kesalahan server' 
+        });
+    }
+},
 
     checkAvailability: async (req, res) => {
         try {

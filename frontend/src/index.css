@@ -7,14 +7,12 @@
   background-color: #f9fafb;
 }
 
-
 body {
   margin: 0;
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
 }
-
 
 /* Base styles */
 h1 {
@@ -34,7 +32,6 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-
 
 @tailwind base;
 @tailwind components;

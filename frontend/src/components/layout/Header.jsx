@@ -185,7 +185,7 @@ const Header = () => {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
             >
               <div className="text-right">
-                <p className="text-gray-700">{user.username}</p>
+                <p className="text-gray-700">{user.nama}</p>
                 <p className="text-gray-500 text-sm">{user.role}</p>
               </div>
               <div className="flex flex-col items-center gap-1">

@@ -2,6 +2,7 @@
 import React from 'react';
 import { Users, CheckCircle, Package, GraduationCap, Briefcase } from 'lucide-react';
 
+
 export const StatCards = ({ stats, completingInterns }) => {
     return (
         <div className="p-6">
@@ -20,6 +21,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                     </div>
                 </div>
 
+
                 {/* Total Selesai Card */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <div className="flex justify-between items-start">
@@ -32,6 +34,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                         </div>
                     </div>
                 </div>
+
 
                 {/* Total Keseluruhan Card */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -46,6 +49,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                     </div>
                 </div>
             </div>
+
 
             {/* Detail Anak Magang Aktif Card */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
@@ -69,6 +73,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                     </div>
                 </div>
 
+
                 {/* Card Berdasarkan Bidang */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <div className="flex justify-between items-start mb-4">
@@ -87,6 +92,7 @@ export const StatCards = ({ stats, completingInterns }) => {
                     </div>
                 </div>
             </div>
+
 
             {/* Tabel Anak Magang yang Akan Selesai */}
             <div className="mt-8">
@@ -150,3 +156,4 @@ export const StatCards = ({ stats, completingInterns }) => {
         </div>
     );
 };
+

@@ -21,6 +21,7 @@ h1 {
   margin: 0;
 }
 
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -35,3 +36,4 @@ button {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+

@@ -71,15 +71,18 @@ const assessmentController = {
                 nilai_kerjasama,
                 nilai_inisiatif,
                 nilai_kejujuran,
-                nilai_kebersihan
+                nilai_kebersihan,
+                jumlah_hadir     
             } = req.body;
             
             // Validasi input
             const isEmpty = (val) => val === undefined || val === null || val === '';
             if (
                 !id_magang ||
-                [nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan, nilai_kualitas_kerja, nilai_teknologi,
-                 nilai_disiplin, nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif, nilai_kejujuran, nilai_kebersihan]
+                [nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan, 
+                nilai_kualitas_kerja, nilai_teknologi, nilai_disiplin, 
+                nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif, 
+                nilai_kejujuran, nilai_kebersihan, jumlah_hadir]  // Tambahkan jumlah_hadir
                     .some((val) => val === undefined)
             ) {
                 return res.status(400).json({ message: 'Semua nilai harus diisi.' });
@@ -137,40 +140,42 @@ const assessmentController = {
             }
             await conn.execute(`
                 INSERT INTO penilaian (
-                    id_penilaian,
-                    id_magang,
-                    id_users,
-                    nilai_teamwork,
-                    nilai_komunikasi,
-                    nilai_pengambilan_keputusan,
-                    nilai_kualitas_kerja,
-                    nilai_teknologi,
-                    nilai_disiplin,
-                    nilai_tanggungjawab,
-                    nilai_kerjasama,
-                    nilai_inisiatif,
-                    nilai_kejujuran,
-                    nilai_kebersihan,
-                    created_by,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `, [
-                id_penilaian,
-                id_magang,
-                req.user.userId,
-                nilai_teamwork || 0,
-                nilai_komunikasi || 0,
-                nilai_pengambilan_keputusan || 0,
-                nilai_kualitas_kerja || 0,
-                nilai_teknologi || 0,
-                nilai_disiplin || 0,
-                nilai_tanggungjawab || 0,
-                nilai_kerjasama || 0,
-                nilai_inisiatif || 0,
-                nilai_kejujuran || 0,
-                nilai_kebersihan || 0,
-                req.user.userId
-            ]);
+        id_penilaian,
+        id_magang,
+        id_users,
+        nilai_teamwork,
+        nilai_komunikasi,
+        nilai_pengambilan_keputusan,
+        nilai_kualitas_kerja,
+        nilai_teknologi,
+        nilai_disiplin,
+        nilai_tanggungjawab,
+        nilai_kerjasama,
+        nilai_inisiatif,
+        nilai_kejujuran,
+        nilai_kebersihan,
+        jumlah_hadir,        
+        created_by,
+        created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [
+        id_penilaian,
+        id_magang,
+        req.user.userId,
+        nilai_teamwork || 0,
+        nilai_komunikasi || 0,
+        nilai_pengambilan_keputusan || 0,
+        nilai_kualitas_kerja || 0,
+        nilai_teknologi || 0,
+        nilai_disiplin || 0,
+        nilai_tanggungjawab || 0,
+        nilai_kerjasama || 0,
+        nilai_inisiatif || 0,
+        nilai_kejujuran || 0,
+        nilai_kebersihan || 0,
+        req.body.jumlah_hadir || 0,  // Tambahkan ini
+        req.user.userId
+    ]);
 
             // 6. Update status peserta magang
             await conn.execute(`

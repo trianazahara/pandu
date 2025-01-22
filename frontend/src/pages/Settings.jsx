@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
-import { useToast } from '../components/ui/use-toast';
 import { Toaster } from '../components/ui/toaster';
 import {
   Dialog,
@@ -15,11 +14,12 @@ import { Label } from '../components/ui/label';
 import {
   Box,
   Paper,
-  Typography
+  Typography,
+  Snackbar,
+  Alert
 } from '@mui/material';
 
 const Settings = () => {
-  const { toast } = useToast();
   const [profile, setProfile] = useState({
     username: '',
     email: '',
@@ -34,6 +34,11 @@ const Settings = () => {
   
   const [previewUrl, setPreviewUrl] = useState(null);
   const [file, setFile] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   // Fetch profile data
   useEffect(() => {
@@ -49,7 +54,7 @@ const Settings = () => {
           setProfile(data);
         }
       } catch (error) {
-        showToast('error', "Gagal mengambil data profile");
+        showSnackbar('Gagal mengambil data profile', 'error');
       }
     };
 
@@ -65,13 +70,11 @@ const Settings = () => {
     };
   }, [previewUrl]);
 
-  const showToast = (type, message) => {
-    toast({
-      variant: type === 'error' ? "destructive" : "default",
-      title: type === 'error' ? "Error" : "Success",
-      description: message,
-      duration: 3000,
-      className: type === 'error' ? "bg-red-100" : "bg-green-100",
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
     });
   };
 
@@ -105,12 +108,12 @@ const Settings = () => {
           ...prev,
           profile_picture: data.profile_picture
         }));
-        showToast('success', 'Foto profil berhasil diunggah');
+        showSnackbar('Foto profil berhasil diunggah');
       } else {
         throw new Error(data.message || 'Gagal mengunggah foto');
       }
     } catch (error) {
-      showToast('error', error.message || 'Gagal mengunggah foto profil');
+      showSnackbar(error.message || 'Gagal mengunggah foto profil', 'error');
       setPreviewUrl(null);
       setFile(null);
     }
@@ -129,13 +132,13 @@ const Settings = () => {
       });
 
       if (response.ok) {
-        showToast('success', "Profile berhasil diperbarui!");
+        showSnackbar('Profile berhasil diperbarui!');
       } else {
         const errorData = await response.json();
-        showToast('error', errorData.message || "Gagal memperbarui profile");
+        showSnackbar(errorData.message || 'Gagal memperbarui profile', 'error');
       }
     } catch (error) {
-      showToast('error', "Terjadi kesalahan saat memperbarui profile");
+      showSnackbar('Terjadi kesalahan saat memperbarui profile', 'error');
     }
   };
 
@@ -151,14 +154,14 @@ const Settings = () => {
       });
 
       if (response.ok) {
-        showToast('success', "Password berhasil diubah!");
+        showSnackbar('Password berhasil diubah!');
         setPasswords({ oldPassword: '', newPassword: '' });
       } else {
         const errorData = await response.json();
-        showToast('error', errorData.message || "Gagal mengubah password");
+        showSnackbar(errorData.message || 'Gagal mengubah password', 'error');
       }
     } catch (error) {
-      showToast('error', "Terjadi kesalahan saat mengubah password");
+      showSnackbar('Terjadi kesalahan saat mengubah password', 'error');
     }
   };
 
@@ -175,13 +178,13 @@ const Settings = () => {
         setProfile(prev => ({ ...prev, profile_picture: null }));
         setPreviewUrl(null);
         setFile(null);
-        showToast('success', "Foto profile berhasil dihapus!");
+        showSnackbar('Foto profile berhasil dihapus!');
       } else {
         const errorData = await response.json();
-        showToast('error', errorData.message || "Gagal menghapus foto");
+        showSnackbar(errorData.message || 'Gagal menghapus foto', 'error');
       }
     } catch (error) {
-      showToast('error', "Terjadi kesalahan saat menghapus foto");
+      showSnackbar('Terjadi kesalahan saat menghapus foto', 'error');
     }
   };
 
@@ -202,95 +205,101 @@ const Settings = () => {
         
         {/* Profile Section */}
         <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-2xl font-semibold">Profile Settings</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleProfileUpdate} className="space-y-4">
-              <div className="flex justify-between items-start space-x-6">
-                {/* Kolom Kiri - Input */}
-                <div className="w-2/3 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      value={profile.username}
-                      onChange={(e) => setProfile(prev => ({ ...prev, username: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profile.email}
-                      onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="nama">Nama</Label>
-                    <Input
-                      id="nama"
-                      value={profile.nama}
-                      onChange={(e) => setProfile(prev => ({ ...prev, nama: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="flex justify-between">
-                    <Button type="submit" variant="default">Update Profile</Button>
-                  </div>
+        <CardHeader>
+          <h2 className="text-2xl font-semibold">Profile Settings</h2>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            <div className="flex justify-between items-start space-x-6">
+              {/* Kolom Kiri - Input */}
+              <div className="w-2/3 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    value={profile.username}
+                    onChange={(e) => setProfile(prev => ({ ...prev, username: e.target.value }))}
+                  />
                 </div>
 
-                {/* Kolom Kanan - Foto Profil */}
-                <div className="w-1/3 text-center space-y-4">
-                  {/* Display profile picture */}
-                  <div className="mb-4">
-                    {previewUrl || profile.profile_picture ? (
-                      <img
-                        src={previewUrl || profile.profile_picture}
-                        alt="Profile"
-                        className="w-32 h-32 rounded-full object-cover mx-auto"
-                      />
-                    ) : (
-                      <div className="w-32 h-32 rounded-full bg-gray-300 mx-auto flex items-center justify-center text-gray-600">
-                        No Image
-                      </div>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profile.email}
+                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
 
-                  <div className="flex flex-col gap-2 items-center">
-                    <label
-                      htmlFor="file-upload"
-                      className="cursor-pointer inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500"
-                    >
-                      Unggah Foto Profil
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="sr-only"
-                      />
-                    </label>
+                <div className="space-y-2">
+                  <Label htmlFor="nama">Nama</Label>
+                  <Input
+                    id="nama"
+                    value={profile.nama}
+                    onChange={(e) => setProfile(prev => ({ ...prev, nama: e.target.value }))}
+                  />
+                </div>
 
-                    {(previewUrl || profile.profile_picture) && (
-                      <Button
-                        variant="destructive"
-                        onClick={handleDeletePhoto}
-                        className="mt-2"
-                      >
-                        Hapus Foto Profil
-                      </Button>
-                    )}
-                  </div>
+                <div className="flex justify-between">
+                  <Button 
+                    type="submit" 
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Update Profile
+                  </Button>
                 </div>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+
+              {/* Kolom Kanan - Foto Profil */}
+              <div className="w-1/3 text-center space-y-4">
+                {/* Display profile picture */}
+                <div className="mb-4">
+                  {previewUrl || profile.profile_picture ? (
+                    <img
+                      src={previewUrl || profile.profile_picture}
+                      alt="Profile"
+                      className="w-32 h-32 rounded-full object-cover mx-auto"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gray-300 mx-auto flex items-center justify-center text-gray-600">
+                      No Image
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 items-center">
+                  <Button 
+                    type="button"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => document.getElementById('file-upload').click()}
+                  >
+                    Unggah Foto Profil
+                    <input
+                      id="file-upload"
+                      name="file-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </Button>
+
+                  {(previewUrl || profile.profile_picture) && (
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeletePhoto}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      Hapus Foto Profil
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
         {/* Password Change Section */}
         <Card>
@@ -319,12 +328,30 @@ const Settings = () => {
                 />
               </div>
 
-              <Button type="submit">Ubah Password</Button>
+              <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white"
+                  >Ubah Password</Button>
             </form>
           </CardContent>
         </Card>
+
+        <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
       </Box>
-    
+
+      
   );
 };
 

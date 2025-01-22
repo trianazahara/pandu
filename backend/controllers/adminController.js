@@ -58,23 +58,58 @@ const adminController = {
      
 
     // delete
+    // adminController.js 
     deleteAdmin: async (req, res) => {
         try {
             const { id } = req.params;
-    
-            const [result] = await pool.execute(
-                'DELETE FROM users WHERE id_users = ? AND role = "admin"',
-                [id]
-            );
-    
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'Admin tidak ditemukan atau tidak dapat dihapus.' });
+            
+            // 1. Mulai transaction
+            const connection = await pool.getConnection();
+            await connection.beginTransaction();
+            
+            try {
+                // 2. Hapus notifikasi
+                await connection.execute(
+                    'DELETE FROM notifikasi WHERE user_id = ?',
+                    [id]
+                );
+                
+                // 3. Update peserta_magang set created_by to NULL
+                await connection.execute(
+                    'UPDATE peserta_magang SET created_by = NULL WHERE created_by = ?',
+                    [id]
+                );
+                
+                // 4. Hapus user
+                const [result] = await connection.execute(
+                    'DELETE FROM users WHERE id_users = ? AND role = "admin"',
+                    [id]
+                );
+                
+                if (result.affectedRows === 0) {
+                    await connection.rollback();
+                    connection.release();
+                    return res.status(404).json({ message: 'Admin tidak ditemukan atau tidak dapat dihapus.' });
+                }
+                
+                // 5. Commit jika semua berhasil
+                await connection.commit();
+                connection.release();
+                
+                res.json({ message: 'Admin berhasil dihapus.' });
+                
+            } catch (error) {
+                await connection.rollback();
+                connection.release();
+                throw error;
             }
-    
-            res.json({ message: 'Admin berhasil dihapus.' });
+            
         } catch (error) {
             console.error('Delete admin error:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server.' });
+            res.status(500).json({ 
+                message: 'Terjadi kesalahan server.',
+                detail: error.message 
+            });
         }    
     },
 

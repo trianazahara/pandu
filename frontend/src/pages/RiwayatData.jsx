@@ -149,6 +149,7 @@ const RiwayatData = () => {
   });
   const [search, setSearch] = useState('');
   const [bidang, setBidang] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [data, setData] = useState([]);
@@ -196,7 +197,7 @@ const RiwayatData = () => {
           limit: pagination.limit,
           bidang,
           search,
-          status: 'selesai'
+          status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
         }
       });
       console.log('Response data:', response.data);
@@ -218,7 +219,7 @@ const RiwayatData = () => {
 
   useEffect(() => {
     fetchData();
-  }, [pagination.page, pagination.limit, bidang, search]);
+  }, [pagination.page, pagination.limit, bidang, search, statusFilter]);
 
   // Helper functions
   const showSnackbar = (message, severity = 'success') => {
@@ -229,9 +230,28 @@ const RiwayatData = () => {
     const labels = {
       'selesai': 'Selesai',
       'completed': 'Selesai',
+      'missing': 'Missing'  // Tambahkan ini
     };
     return labels[status?.toLowerCase()] || status;
   };
+
+  const getStatusStyle = (status) => {
+    const styles = {
+        'selesai': {
+            bg: '#dbeafe',
+            color: '#1e40af',
+            border: '#1e40af'
+        },
+        'missing': {
+            bg: '#fee2e2', // merah muda
+            color: '#991b1b', // merah tua
+            border: '#991b1b'
+        }
+        // tambahkan status lain jika diperlukan
+    };
+
+    return styles[status?.toLowerCase()] || styles['selesai'];
+};
 
   // Handlers
   const handleOpenScoreDialog = (intern) => {
@@ -353,10 +373,28 @@ const RiwayatData = () => {
             </Select>
           </FormControl>
         </Grid>
+        {/* Add this new Grid item */}
+        <Grid item xs={12} md={4}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+              sx={{
+                borderRadius: '0.375rem',
+              }}
+            >
+              <MenuItem value="">Semua Status</MenuItem>
+              <MenuItem value="selesai">Selesai</MenuItem>
+              <MenuItem value="missing">Missing</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
       </Grid>
 
       {/* Table Section */}
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <div className="bg-white rounded-lg shadow overflow-x-auto" style={{ maxWidth: '950px' }}>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -388,23 +426,33 @@ const RiwayatData = () => {
                   {new Date(intern.tanggal_keluar).toLocaleDateString('id-ID')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-800">
-                    {getStatusLabel(intern.status)}
-                  </span>
+                    <span 
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{
+                            backgroundColor: getStatusStyle(intern.status).bg,
+                            color: getStatusStyle(intern.status).color,
+                            borderColor: getStatusStyle(intern.status).border,
+                            borderWidth: '1px'
+                        }}
+                    >
+                        {getStatusLabel(intern.status)}
+                    </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <IconButton 
-                    onClick={() => handleOpenScoreDialog(intern)}
-                    sx={{ 
-                      color: 'info.main',
-                      '&:hover': {
-                        bgcolor: 'rgba(33, 150, 243, 0.08)'
-                      }
-                    }}
-                    size="small"
-                  >
-                    <AssessmentIcon fontSize="small" />
-                  </IconButton>
+                  {intern.status?.toLowerCase() !== 'missing' && (
+                    <IconButton 
+                      onClick={() => handleOpenScoreDialog(intern)}
+                      sx={{ 
+                        color: 'info.main',
+                        '&:hover': {
+                          bgcolor: 'rgba(33, 150, 243, 0.08)'
+                        }
+                      }}
+                      size="small"
+                    >
+                      <AssessmentIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </td>
               </tr>
             ))}

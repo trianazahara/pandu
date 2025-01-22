@@ -26,8 +26,14 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  FormControlLabel,
+  Radio,
+  RadioGroup
 } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 
@@ -69,39 +75,36 @@ const RekapNilai = () => {
     message: '',
     severity: 'success'
   });
+  const [exportDialog, setExportDialog] = useState({
+    open: false,
+    loading: false,
+    exportType: 'all',
+    dateRange: {
+      startDate: null,
+      endDate: null
+    }
+  });
 
-  // Helper functions
+  // Helper functions dan handlers lainnya tetap sama
   const calculateWorkingDays = (startDate, endDate) => {
-    console.log('Start Date dari DB:', startDate);
-  console.log('End Date dari DB:', endDate);
-
     if (!startDate || !endDate) return 0;
-  
-    // Konversi string tanggal ke objek Date
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
-    // Reset waktu ke 00:00:00
-    console.log('Start Date setelah konversi:', start);
-  console.log('End Date setelah konversi:', end);
-  
     let workingDays = 0;
     let current = new Date(start);
-  
     while (current <= end) {
-      // Check if it's a weekday (0 = Sunday, 6 = Saturday)
       if (current.getDay() !== 0 && current.getDay() !== 6) {
         workingDays++;
       }
       current.setDate(current.getDate() + 1);
     }
-    console.log('Total hari kerja:', workingDays);
     return workingDays;
   };
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
+
 
   // Fetch functions
   const fetchBidangList = async () => {
@@ -238,59 +241,158 @@ const RekapNilai = () => {
     }
 };
 
-  const handleExport = async () => {
-    try {
-      const response = await axios.get('/api/intern/export', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        responseType: 'blob',
-        params: { bidang: filters.bidang }
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Data_Anak_Magang.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      showSnackbar('Data berhasil diexport');
-    } catch (error) {
-      showSnackbar('Error mengexport data', 'error');
-    }
-  };
-
-  // const showSnackbar = (message, severity = 'success') => {
-  //   setSnackbar({ open: true, message, severity });
-  // };
-
-  // const [pagination, setPagination] = useState({
-  //     page: 0,
-  //     limit: 10,
-  //     total: 0
-  //   });
+const handleExport = async () => {
+  setExportDialog(prev => ({ ...prev, loading: true }));
+  try {
+    const params = {
+      bidang: filters.bidang
+    };
     
+    // Jika tipe ekspor adalah filtered, hanya mengirim parameter tanggal untuk filter tanggal_keluar
+    if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
+      // Format tanggal ke YYYY-MM-DD
+      const formatDate = (date) => {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+      
+      // Hanya mengirim range untuk tanggal_keluar
+      params.end_date_start = formatDate(exportDialog.dateRange.startDate);
+      params.end_date_end = formatDate(exportDialog.dateRange.endDate);
+    }
+
+    console.log('Export params:', params); // Debugging
+
+    const response = await axios.get('/api/intern/export', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      responseType: 'blob',
+      params
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Data_Anak_Magang.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    showSnackbar('Data berhasil diexport');
+    setExportDialog(prev => ({ ...prev, open: false, loading: false }));
+  } catch (error) {
+    showSnackbar('Error mengexport data', 'error');
+    setExportDialog(prev => ({ ...prev, loading: false }));
+  }
+};
+
+// Add export dialog JSX after the existing Dialog component
+const ExportDialog = () => (
+  <Dialog
+    open={exportDialog.open}
+    onClose={() => setExportDialog(prev => ({ ...prev, open: false }))}
+    maxWidth="sm"
+    fullWidth
+  >
+    <DialogTitle sx={{ pb: 1 }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Typography variant="h6">Export Data</Typography>
+        <IconButton
+          onClick={() => setExportDialog(prev => ({ ...prev, open: false }))}
+          size="small"
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
+    </DialogTitle>
+    <DialogContent>
+      <Box sx={{ mt: 2 }}>
+        <RadioGroup
+          value={exportDialog.exportType}
+          onChange={(e) => setExportDialog(prev => ({
+            ...prev,
+            exportType: e.target.value
+          }))}
+        >
+          <FormControlLabel 
+            value="all" 
+            control={<Radio />} 
+            label="Export Semua Data" 
+          />
+          <FormControlLabel 
+            value="filtered" 
+            control={<Radio />} 
+            label="Export Berdasarkan Filter Tanggal" 
+          />
+        </RadioGroup>
+
+        {exportDialog.exportType === 'filtered' && (
+          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label="Tanggal Mulai"
+                value={exportDialog.dateRange.startDate}
+                onChange={(date) => setExportDialog(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, startDate: date }
+                }))}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+              <DatePicker
+                label="Tanggal Akhir"
+                value={exportDialog.dateRange.endDate}
+                onChange={(date) => setExportDialog(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, endDate: date }
+                }))}
+                slotProps={{ textField: { fullWidth: true } }}
+                minDate={exportDialog.dateRange.startDate}
+              />
+            </LocalizationProvider>
+          </Box>
+        )}
+      </Box>
+    </DialogContent>
+    <DialogActions>
+      <Button
+        onClick={() => setExportDialog(prev => ({ ...prev, open: false }))}
+        disabled={exportDialog.loading}
+      >
+        Batal
+      </Button>
+      <LoadingButton
+        onClick={handleExport}
+        loading={exportDialog.loading}
+        variant="contained"
+        disabled={
+          exportDialog.exportType === 'filtered' && 
+          (!exportDialog.dateRange.startDate || !exportDialog.dateRange.endDate)
+        }
+      >
+        Export
+      </LoadingButton>
+    </DialogActions>
+  </Dialog>
+);
     
   return (
-
-    <Box sx={{ width: '100%', minWidth: 0 }}>
-      {/* Header */}
-      <Box sx={{ 
-        width: '100%',
-        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-        borderRadius: '12px',
-        mb: 4,
-        p: 3,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+      <Box sx={{ width: '100%', minWidth: 0 }}>
+        {/* Header */}
+        <Box sx={{ 
+          width: '100%',
+          background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
+          borderRadius: '12px',
+          mb: 4,
+          p: 3,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Rekap Nilai Anak Magang
         </Typography>
         <Button
           variant="contained"
           startIcon={<FileDownloadIcon />}
-          onClick={handleExport}
+          onClick={() => setExportDialog(prev => ({ ...prev, open: true }))}
           sx={{
             bgcolor: 'white',
             color: '#26BBAC',
@@ -558,11 +660,11 @@ const RekapNilai = () => {
               editDialog.data?.tanggal_masuk,
               editDialog.data?.tanggal_keluar
             )} hari`
-      }
-    />
-  </Grid>
-  </Grid>
-  </Box>
+              }
+            />
+          </Grid>
+          </Grid>
+          </Box>
             </Grid>
 
             {/* Scores Section */}
@@ -624,6 +726,94 @@ const RekapNilai = () => {
         </DialogActions>
       </form>
     </Dialog>
+
+
+      {/* Export Dialog */}
+      <Dialog
+        open={exportDialog.open}
+        onClose={() => setExportDialog(prev => ({ ...prev, open: false }))}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Export Data</Typography>
+            <IconButton
+              onClick={() => setExportDialog(prev => ({ ...prev, open: false }))}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <RadioGroup
+              value={exportDialog.exportType}
+              onChange={(e) => setExportDialog(prev => ({
+                ...prev,
+                exportType: e.target.value
+              }))}
+            >
+              <FormControlLabel 
+                value="all" 
+                control={<Radio />} 
+                label="Export Semua Data" 
+              />
+              <FormControlLabel 
+                value="filtered" 
+                control={<Radio />} 
+                label="Export Berdasarkan Filter Tanggal" 
+              />
+            </RadioGroup>
+
+            {exportDialog.exportType === 'filtered' && (
+              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Tanggal Mulai"
+                    value={exportDialog.dateRange.startDate}
+                    onChange={(date) => setExportDialog(prev => ({
+                      ...prev,
+                      dateRange: { ...prev.dateRange, startDate: date }
+                    }))}
+                    slotProps={{ textField: { fullWidth: true } }}
+                  />
+                  <DatePicker
+                    label="Tanggal Akhir"
+                    value={exportDialog.dateRange.endDate}
+                    onChange={(date) => setExportDialog(prev => ({
+                      ...prev,
+                      dateRange: { ...prev.dateRange, endDate: date }
+                    }))}
+                    slotProps={{ textField: { fullWidth: true } }}
+                    minDate={exportDialog.dateRange.startDate}
+                  />
+                </LocalizationProvider>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setExportDialog(prev => ({ ...prev, open: false }))}
+            disabled={exportDialog.loading}
+          >
+            Batal
+          </Button>
+          <LoadingButton
+            onClick={handleExport}
+            loading={exportDialog.loading}
+            variant="contained"
+            disabled={
+              exportDialog.exportType === 'filtered' && 
+              (!exportDialog.dateRange.startDate || !exportDialog.dateRange.endDate)
+            }
+          >
+            Export
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

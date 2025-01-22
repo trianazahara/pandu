@@ -1677,7 +1677,7 @@ const handleSelectIntern = (internId) => {
 
       {/* Table Section with Percentage Widths */}
       {/* <div className="bg-white rounded-lg shadow overflow-auto"> */}
-      <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
+        <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
           <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

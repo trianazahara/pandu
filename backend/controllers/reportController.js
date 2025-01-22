@@ -3,10 +3,27 @@ const XLSX = require('xlsx');
 const { jsPDF } = require('jspdf');
 require('jspdf-autotable');
 
-const reportController = {
+const calculateWorkingDays = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let workingDays = 0;
+    let current = new Date(start);
+    while (current <= end) {
+      if (current.getDay() !== 0 && current.getDay() !== 6) {
+        workingDays++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return workingDays;
+  };
+
+  const reportController = {
     exportInternsScore: async (req, res) => {
         try {
-            const { status, start_date, end_date, bidang } = req.query;
+            const { bidang, end_date_start, end_date_end } = req.query;
+
+            // Start building the query
             let query = `
             SELECT 
                 pm.nama,
@@ -40,7 +57,8 @@ const reportController = {
                 p.nilai_kerjasama,
                 p.nilai_inisiatif,
                 p.nilai_kejujuran,
-                p.nilai_kebersihan
+                p.nilai_kebersihan,
+                p.jumlah_hadir
             FROM peserta_magang pm
             LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON pm.id_magang = m.id_magang
@@ -48,31 +66,26 @@ const reportController = {
             INNER JOIN penilaian p ON pm.id_magang = p.id_magang
             WHERE pm.status = 'selesai'
             AND p.id_magang IS NOT NULL
-        `;
-        
-                const params = [];
-        
-                if (start_date && start_date !== 'undefined') {
-                    query += ` AND DATE(pm.tanggal_masuk) >= ?`;
-                    params.push(start_date);
-                }
-        
-                if (end_date && end_date !== 'undefined') {
-                    query += ` AND DATE(pm.tanggal_keluar) <= ?`;
-                    params.push(end_date);
-                }
-        
-                if (bidang && bidang !== 'undefined') {
-                    query += ` AND b.id_bidang = ?`;
-                    params.push(bidang);
-                }
-        
-                query += ` ORDER BY pm.created_at DESC`;
-        
-                const [rows] = await pool.execute(query, params);
-        
-                // Format data sebelum export
-                const formattedData = rows.map(row => ({
+            `;
+
+            // Handle filters (if any)
+            const queryParams = [];
+            if (bidang) {
+                query += ` AND b.nama_bidang = ?`;
+                queryParams.push(bidang);
+            }
+            if (end_date_start && end_date_end) {
+                query += ` AND pm.tanggal_keluar BETWEEN ? AND ?`;
+                queryParams.push(end_date_start);
+                queryParams.push(end_date_end);
+            }
+
+            // Execute the query with the appropriate parameters
+            const [rows] = await pool.execute(query, queryParams);
+
+            // Process the data and map it
+            const formattedData = rows.map(row => {
+                return {
                     'Nama': row.nama || '-',
                     'Jenis Peserta': row.jenis_peserta || '-',
                     'Nomor Induk': row.nomor_induk || '-',
@@ -85,6 +98,7 @@ const reportController = {
                     'Jurusan': row.jurusan || '-',
                     'Semester': row.semester || '-',
                     'Kelas': row.kelas || '-',
+                    'Absensi': row.jumlah_hadir || '-',
                     'Nilai Teamwork': row.nilai_teamwork || '-',
                     'Nilai Komunikasi': row.nilai_komunikasi || '-',
                     'Nilai Pengambilan Keputusan': row.nilai_pengambilan_keputusan || '-',
@@ -96,62 +110,61 @@ const reportController = {
                     'Nilai Inisiatif': row.nilai_inisiatif || '-',
                     'Nilai Kejujuran': row.nilai_kejujuran || '-',
                     'Nilai Kebersihan': row.nilai_kebersihan || '-'
-                }));
-        
-                // Create workbook
-                const wb = XLSX.utils.book_new();
-                
-                // Create worksheet dari data yang sudah diformat
-                const ws = XLSX.utils.json_to_sheet(formattedData);
-        
-                // Set column widths
-                const colWidths = [
-                    { wch: 30 }, // Nama
-                    { wch: 15 }, // Jenis Peserta
-                    { wch: 20 }, // Nomor Induk
-                    { wch: 30 }, // Institusi
-                    { wch: 20 }, // Bidang
-                    { wch: 15 }, // Tanggal Masuk
-                    { wch: 15 }, // Tanggal Keluar
-                    { wch: 15 }, // Status
-                    { wch: 20 }, // Fakultas
-                    { wch: 25 }, // Jurusan
-                    { wch: 10 }, // Semester
-                    { wch: 10 }, // Kelas
-                    { wch: 15 }, // Nilai Teamwork
-                    { wch: 15 }, // Nilai Komunikasi
-                    { wch: 25 }, // Nilai Pengambilan Keputusan
-                    { wch: 20 }, // Nilai Kualitas Kerja
-                    { wch: 15 }, // Nilai Teknologi
-                    { wch: 15 }, // Nilai Disiplin
-                    { wch: 20 }, // Nilai Tanggung Jawab
-                    { wch: 15 }, // Nilai Kerjasama
-                    { wch: 15 }, // Nilai Inisiatif
-                    { wch: 15 }, // Nilai Kejujuran
-                    { wch: 15 }  // Nilai Kebersihan
-                ];
-                ws['!cols'] = colWidths;
-        
-                // Add worksheet ke workbook
-                XLSX.utils.book_append_sheet(wb, ws, 'Data Anak Magang');
-        
-                // Generate buffer
-                const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        
-                // Set response headers
-                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                res.setHeader('Content-Disposition', 'attachment; filename=Data_Anak_Magang.xlsx');
-                res.send(buffer);
-        
-            } catch (error) {
-                console.error('Error exporting data:', error);
-                res.status(500).json({
-                    status: "error",
-                    message: "Terjadi kesalahan saat export data",
-                    error: error.message
-                });
-            }
-        },
+                };
+            });
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(formattedData);
+
+            // Set column widths
+            const colWidths = [
+                { wch: 30 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 30 },
+                { wch: 20 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 25 },
+                { wch: 10 },
+                { wch: 10 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 25 },
+                { wch: 20 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 10 }
+            ];
+            ws['!cols'] = colWidths;
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Data Anak Magang');
+
+            // Generate buffer
+            const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+            // Set response headers
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename=Data_Anak_Magang.xlsx');
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Error exporting data:', error);
+            res.status(500).json({
+                status: "error",
+                message: "Terjadi kesalahan saat export data",
+                error: error.message
+            });
+        }
+    },
 
     generateCertificate: async (req, res) => {
         try {
@@ -231,7 +244,7 @@ const reportController = {
         }
     },
 
-    generateReceipt: async (req, res) => {
+    generateReceipt : async (req, res) => {
         try {
             const { internIds } = req.body;
             const placeholders = internIds.map(() => '?').join(',');

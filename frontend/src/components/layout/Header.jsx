@@ -83,33 +83,52 @@ const Header = () => {
     }
   };
 
-  const markAsRead = async (id) => {
+  // const markAsRead = async (id) => {
+  //   try {
+  //     const response = await fetch(`/api/notifications/${id}/read`, {
+  //       method: 'PUT',
+  //       headers: {
+  //         Authorization: `Bearer ${localStorage.getItem('token')}`,
+  //         'Content-Type': 'application/json',
+  //       },
+  //     });
+  //     if (!response.ok) throw new Error('Failed to mark notification as read');
+      
+  //     // Update local state
+  //     setNotifications((prevNotifications) =>
+  //       prevNotifications.map((notif) =>
+  //         notif.id_notifikasi === id ? { ...notif, dibaca: 1 } : notif
+  //       )
+  //     );
+  //     fetchUnreadCount(); // Update unread count
+  //   } catch (error) {
+  //     console.error('Error marking notification as read:', error);
+  //   }
+  // };
+  const markAllAsRead = async () => {
     try {
-      const response = await fetch(`/api/notifications/${id}/read`, {
+      await fetch('/api/notifications/mark-all-read', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
       });
-      if (!response.ok) throw new Error('Failed to mark notification as read');
       
       // Update local state
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((notif) =>
-          notif.id_notifikasi === id ? { ...notif, dibaca: 1 } : notif
-        )
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notif => ({ ...notif, dibaca: 1 }))
       );
-      fetchUnreadCount(); // Update unread count
+      setUnreadCount(0);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Error marking all notifications as read:', error);
     }
   };
 
   useEffect(() => {
     fetchUserProfile();
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 60000); // Check every minute
+    const interval = setInterval(fetchUnreadCount, 5000); // Check every minute
     return () => clearInterval(interval);
   }, []);
 
@@ -119,19 +138,22 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <div className="relative" ref={notificationRef}>
             <button
-              onClick={() => {
-                setIsOpen(!isOpen);
-                if (!isOpen) fetchNotifications();
-              }}
-              className="relative p-2 rounded-full hover:bg-gray-100 focus:outline-none"
-            >
-              <Bell className="w-6 h-6" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+  onClick={async () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      await fetchNotifications();
+      await markAllAsRead();  // Tambahkan ini
+    }
+  }}
+  className="relative p-2 rounded-full hover:bg-gray-100 focus:outline-none"
+>
+  <Bell className="w-6 h-6" />
+  {unreadCount > 0 && (
+    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+      {unreadCount}
+    </span>
+  )}
+</button>
 
             {isOpen && (
               <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">

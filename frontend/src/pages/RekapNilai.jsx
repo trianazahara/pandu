@@ -36,6 +36,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
+import { BookIcon } from 'lucide-react';
 
 const RekapNilai = () => {
   // State declarations
@@ -162,6 +163,10 @@ const RekapNilai = () => {
     }));
   };
 
+  const handleGenerateClick = async (id) => {
+
+  }
+  
   const handleEditScore = (score) => {
   console.log("Score data:", score); // Debug data yang diterima
   console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
@@ -512,6 +517,13 @@ const ExportDialog = () => (
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleGenerateClick(intern.id_magang)}
+                    sx={{ color: 'info.main' }}
+                    >
+                    <FileDownloadIcon fontSize="small" />
+                    </IconButton>
                 </td>
               </tr>
             );

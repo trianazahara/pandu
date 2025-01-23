@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Upload, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
-import { Toaster } from '../components/ui/toaster';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../components/ui/dialog";
 import { Label } from '../components/ui/label';
 import {
   Box,
-  Paper,
   Typography,
   Snackbar,
   Alert
@@ -40,7 +33,12 @@ const Settings = () => {
     severity: 'success'
   });
 
-  // Fetch profile data
+  // Files state for template section
+  const [files, setFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -61,6 +59,11 @@ const Settings = () => {
     fetchProfile();
   }, []);
 
+  // Load existing template files
+  useEffect(() => {
+    loadExistingFiles();
+  }, []);
+
   // Cleanup preview URL when component unmounts
   useEffect(() => {
     return () => {
@@ -78,21 +81,19 @@ const Settings = () => {
     });
   };
 
+  // Profile functions
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
 
     try {
-      // Create preview
       const preview = URL.createObjectURL(selectedFile);
       setPreviewUrl(preview);
       setFile(selectedFile);
 
-      // Prepare form data
       const formData = new FormData();
       formData.append('profile_picture', selectedFile);
 
-      // Upload file
       const response = await fetch('/api/profile/photo-profile', {
         method: 'POST',
         headers: {
@@ -149,7 +150,8 @@ const Settings = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`        },
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(passwords)
       });
 
@@ -188,6 +190,160 @@ const Settings = () => {
     }
   };
 
+  // Template functions
+  const loadExistingFiles = async () => {
+    try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:5000/api/document/templates', {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        
+        if (response.data.status === 'success') {
+            setUploadedFiles(response.data.data || []); // Pastikan selalu ada array meski kosong
+        }
+    } catch (error) {
+        console.error('Error loading files:', error);
+        showSnackbar('Gagal memuat data template', 'error');
+        setUploadedFiles([]); // Set empty array on error
+    } finally {
+        setIsLoading(false);
+    }
+};
+
+
+  const handleTemplateFileChange = async (e) => {
+    const selectedFiles = Array.from(e.target.files)
+      .filter(file => file.type === 'application/pdf')
+      .map(file => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        size: `${Math.round(file.size / 1024)} KB`,
+        status: 'uploading',
+        progress: 0,
+        file: file
+      }));
+
+    if (selectedFiles.length === 0) {
+      alert('Please select PDF files only');
+      return;
+    }
+
+    setFiles(prev => [...prev, ...selectedFiles]);
+
+    for (const fileObj of selectedFiles) {
+      await handleTemplateUpload(fileObj.file, fileObj.id);
+    }
+  };
+
+  const handleTemplateUpload = async (file, fileId) => {
+    const formData = new FormData();
+    formData.append('file', file);
+  
+    try {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(
+            'http://localhost:5000/api/document/upload',
+            formData,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    setFiles(prevFiles =>
+                        prevFiles.map(f =>
+                            f.id === fileId ? { ...f, progress: percentCompleted } : f
+                        )
+                    );
+                }
+            }
+        );
+  
+        if (response.data.status === 'success') {
+            setFiles(prevFiles =>
+                prevFiles.map(f =>
+                    f.id === fileId ? {
+                        ...f,
+                        status: 'completed',
+                        serverId: response.data.data.id
+                    } : f
+                )
+            );
+            await loadExistingFiles();
+            showSnackbar('File berhasil diupload', 'success');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        const errorMessage = error.response?.data?.message || 'Error uploading file';
+        setFiles(prevFiles =>
+            prevFiles.map(f =>
+                f.id === fileId ? {
+                    ...f,
+                    status: 'error',
+                    errorMessage
+                } : f
+            )
+        );
+        showSnackbar(errorMessage, 'error');
+    }
+};
+
+const removeTemplate = async (id, serverId) => {
+  try {
+      if (serverId) {
+          const token = localStorage.getItem('token');
+          await axios.delete(`http://localhost:5000/api/document/template/:id`, {
+              headers: {
+                  Authorization: `Bearer ${token}`
+              }
+          });
+          
+          setUploadedFiles(prev => prev.filter(file => file.id !== serverId));
+          setFiles(prev => prev.filter(file => file.id !== id));
+          showSnackbar('File berhasil dihapus', 'success');
+      }
+  } catch (error) {
+      console.error('Error deleting file:', error);
+      showSnackbar('Gagal menghapus file', 'error');
+  }
+  };
+
+  const handleTemplateDrop = async (e) => {
+    e.preventDefault();
+    
+    const droppedFiles = Array.from(e.dataTransfer.files)
+      .filter(file => file.type === 'application/pdf')
+      .map(file => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        size: `${Math.round(file.size / 1024)} KB`,
+        status: 'uploading',
+        progress: 0,
+        file: file
+      }));
+
+    if (droppedFiles.length === 0) {
+      alert('Please drop PDF files only');
+      return;
+    }
+
+    setFiles(prev => [...prev, ...droppedFiles]);
+
+    for (const fileObj of droppedFiles) {
+      await handleTemplateUpload(fileObj.file, fileObj.id);
+    }
+  };
+
+  const handleTemplateDragOver = (e) => {
+    e.preventDefault();
+  };
+
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
@@ -202,16 +358,16 @@ const Settings = () => {
           Pengaturan
         </Typography>
       </Box>
-        
-        {/* Profile Section */}
-        <Card className="mb-6">
+      
+      {/* Profile Section */}
+      <Card className="mb-6">
         <CardHeader>
           <h2 className="text-2xl font-semibold">Profile Settings</h2>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProfileUpdate} className="space-y-4">
             <div className="flex justify-between items-start space-x-6">
-              {/* Kolom Kiri - Input */}
+              {/* Left Column - Input Fields */}
               <div className="w-2/3 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
@@ -251,9 +407,8 @@ const Settings = () => {
                 </div>
               </div>
 
-              {/* Kolom Kanan - Foto Profil */}
+              {/* Right Column - Profile Picture */}
               <div className="w-1/3 text-center space-y-4">
-                {/* Display profile picture */}
                 <div className="mb-4">
                   {previewUrl || profile.profile_picture ? (
                     <img
@@ -272,12 +427,12 @@ const Settings = () => {
                   <Button 
                     type="button"
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => document.getElementById('file-upload').click()}
+                    onClick={() => document.getElementById('profile-upload').click()}
                   >
                     Unggah Foto Profil
                     <input
-                      id="file-upload"
-                      name="file-upload"
+                      id="profile-upload"
+                      name="profile-upload"
                       type="file"
                       accept="image/*"
                       onChange={handleFileChange}
@@ -301,40 +456,191 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-        {/* Password Change Section */}
-        <Card>
-          <CardHeader>
-            <h2 className="text-2xl font-semibold">Change Password</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="oldPassword">Password Lama</Label>
+      {/* Password Change Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-2xl font-semibold">Change Password</h2>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="oldPassword">Password Lama</Label>
+              <Input
+                id="oldPassword"
+                type="password"
+                value={passwords.oldPassword}
+                onChange={(e) => setPasswords(prev => ({...prev, oldPassword: e.target.value}))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Password Baru</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwords.newPassword}
+                onChange={(e) => setPasswords(prev => ({...prev, newPassword: e.target.value}))}
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Ubah Password
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Template Section */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-2xl font-semibold">Change Template</h2>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full p-8">
+            <div className="max-w-5xl mx-auto mb-6">
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                <h2 className="text-xl font-semibold">Upload files</h2>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">Select and upload the files of your choice</p>
+            </div>
+
+            <div className="max-w-5xl mx-auto">
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-lg p-12 mb-8 bg-white text-center"
+                onDrop={handleTemplateDrop}
+                onDragOver={handleTemplateDragOver}
+              >
+                <Upload className="w-8 h-8 mx-auto mb-4 text-gray-400" />
+                <p className="text-lg mb-2">Choose a file or drag & drop it here.</p>
+                <p className="text-sm text-gray-500 mb-6">PDF up to 50 MB.</p>
                 <Input
-                  id="oldPassword"
-                  type="password"
-                  value={passwords.oldPassword}
-                  onChange={(e) => setPasswords(prev => ({...prev, oldPassword: e.target.value}))}
+                  type="file"
+                  onChange={handleTemplateFileChange}
+                  className="hidden"
+                  id="pdf-upload"
+                  multiple
+                  accept=".pdf"
                 />
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="bg-white"
+                  onClick={() => document.getElementById('pdf-upload').click()}
+                >
+                  Browse File
+                </Button>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Password Baru</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwords.newPassword}
-                  onChange={(e) => setPasswords(prev => ({...prev, newPassword: e.target.value}))}
-                />
+              {/* File list */}
+              <div className="space-y-3">
+                {files.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="bg-red-100 text-red-600 px-3 py-1 rounded text-xs uppercase">
+                        PDF
+                      </div>
+                      <div>
+                        <p className="text-base font-medium">{file.name}</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>{file.size}</span>
+                          {file.status === 'uploading' && (
+                            <>
+                              <span>•</span>
+                              <span>Uploading... {file.progress}%</span>
+                            </>
+                          )}
+                          {file.status === 'completed' && (
+                            <>
+                              <span>•</span>
+                              <span className="text-green-600">Completed</span>
+                            </>
+                          )}
+                          {file.status === 'error' && (
+                            <>
+                              <span>•</span>
+                              <span className="text-red-600">{file.errorMessage || 'Error'}</span>
+                            </>
+                          )}
+                        </div>
+                        {file.status === 'uploading' && (
+                          <div className="w-64 h-1.5 bg-gray-200 rounded-full mt-2">
+                            <div
+                              className="h-1.5 bg-blue-600 rounded-full"
+                              style={{ width: `${file.progress}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10"
+                      onClick={() => removeTemplate(file.id, file.serverId)}
+                    >
+                      <Trash2 className="h-5 w-5 text-gray-500" />
+                    </Button>
+                  </div>
+                ))}
               </div>
 
-              <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white"
-                  >Ubah Password</Button>
-            </form>
-          </CardContent>
-        </Card>
+              {/* Uploaded files section */}
+              {/* Uploaded files section */}
+{uploadedFiles.length > 0 ? (
+    <div className="mt-8">
+        <h3 className="text-lg font-semibold mb-4">Uploaded Files</h3>
+        <div className="space-y-3">
+            {uploadedFiles.map((file) => (
+                <div
+                    key={file.id}
+                    className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-100 text-red-600 px-3 py-1 rounded text-xs uppercase">
+                            PDF
+                        </div>
+                        <div>
+                            <p className="text-base font-medium">{file.name}</p>
+                            <p className="text-sm text-gray-500">
+                                Completed
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={() => removeTemplate(file.id, file.id)}
+                        >
+                            <Trash2 className="h-5 w-5 text-gray-500" />
+                        </Button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+) : (
+    <div className="mt-8">
+        <div className="text-center text-gray-500">
+            Belum ada template yang diupload
+        </div>
+    </div>
+)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Snackbar
+      {/* Snackbar for notifications */}
+      <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
@@ -348,10 +654,7 @@ const Settings = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-
-      </Box>
-
-      
+    </Box>
   );
 };
 

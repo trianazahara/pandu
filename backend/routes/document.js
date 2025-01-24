@@ -100,11 +100,9 @@ router.delete(
 
 // Routes untuk generasi sertifikat
 router.post(
-    '/generate-sertifikat',
-    // authMiddleware,
+    '/generate-sertifikat/:id',
     documentController.generateSertifikat
-);
-
+ );
 
 // Endpoint untuk mengakses file yang di-generate
 router.get('/certificates/:filename', (req, res) => {

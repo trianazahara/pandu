@@ -29,19 +29,27 @@ import {
   Grid,
   FormControlLabel,
   Radio,
-  RadioGroup
+  RadioGroup,
+  CircularProgress,
+  Stack
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
-import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
+import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { BookIcon } from 'lucide-react';
 
 const RekapNilai = () => {
   // State declarations
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
+  const [detailDialog, setDetailDialog] = useState({
+    open: false,
+    loading: false,
+    data: null,
+    error: null
+  });
   const [filters, setFilters] = useState({
     bidang: '',
     search: ''
@@ -100,6 +108,42 @@ const RekapNilai = () => {
       current.setDate(current.getDate() + 1);
     }
     return workingDays;
+  };
+  // Helper functions
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const handleDetailClick = async (id) => {
+    setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
+    try {
+      const response = await axios.get(`/api/intern/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+  
+      if (response.data.status === 'success') {
+        setDetailDialog(prev => ({ 
+          ...prev, 
+          data: response.data.data, 
+          loading: false 
+        }));
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch detail data');
+      }
+    } catch (error) {
+      console.error('Error fetching intern detail:', error);
+      setDetailDialog(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
+      }));
+    }
   };
 
   const showSnackbar = (message, severity = 'success') => {
@@ -192,6 +236,7 @@ const RekapNilai = () => {
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
+  
 
   const handleSubmitScore = async (e) => {
     e.preventDefault();
@@ -510,6 +555,14 @@ const ExportDialog = () => (
                 {average.toFixed(2)}
               </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
+                <IconButton
+  onClick={() => handleDetailClick(score.id_magang)}
+  sx={{ color: 'info.main' }}
+  size="small"
+>
+  <VisibilityIcon fontSize="small" />
+</IconButton>
+
                   <IconButton 
                     onClick={() => handleEditScore(score)}
                     sx={{ color: 'info.main' }}
@@ -586,6 +639,122 @@ const ExportDialog = () => (
         </div>
       </div>
 
+      <Dialog
+  open={detailDialog.open}
+  onClose={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle sx={{ pb: 1 }}>
+    <Box display="flex" alignItems="center" justifyContent="space-between">
+      <Typography variant="h6">Detail Peserta Magang</Typography>
+      <IconButton
+        onClick={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+        size="small"
+      >
+        <CloseIcon />
+      </IconButton>
+    </Box>
+  </DialogTitle>
+  
+  <DialogContent sx={{ pb: 2 }}>
+    {detailDialog.loading ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    ) : detailDialog.error ? (
+      <Alert severity="error">{detailDialog.error}</Alert>
+    ) : detailDialog.data && (
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Pribadi</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Nama Lengkap</Typography>
+                <Typography variant="body1">{detailDialog.data.nama}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Email</Typography>
+                <Typography variant="body1">{detailDialog.data.email || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">No. HP</Typography>
+                <Typography variant="body1">{detailDialog.data.no_hp || '-'}</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Institusi</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_institusi}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {detailDialog.data.jenis_peserta === 'mahasiswa' ? 'NIM' : 'NISN'}
+                </Typography>
+                <Typography variant="body1">
+                  {detailDialog.data.detail_peserta?.nim || detailDialog.data.detail_peserta?.nisn || '-'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Jurusan</Typography>
+                <Typography variant="body1">
+                  {detailDialog.data.detail_peserta?.jurusan || '-'}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Ruang Penempatan</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
+                <Typography variant="body1">{formatDate(detailDialog.data.tanggal_masuk)}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Tanggal Selesai</Typography>
+                <Typography variant="body1">{formatDate(detailDialog.data.tanggal_keluar)}</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+    )}
+  </DialogContent>
+
+  <DialogActions sx={{ px: 3, pb: 2 }}>
+  </DialogActions>
+</Dialog>
+
       {/* Edit Score Dialog */}
       <Dialog
       open={editDialog.open}
@@ -596,6 +765,7 @@ const ExportDialog = () => (
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
+
           <IconButton
             onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
             size="small"

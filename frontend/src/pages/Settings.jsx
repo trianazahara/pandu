@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Upload, Trash2 } from 'lucide-react';
+import { Upload, Trash2, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -11,6 +11,15 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+
+
 
 const Settings = () => {
   const [profile, setProfile] = useState({
@@ -19,13 +28,17 @@ const Settings = () => {
     nama: '',
     profile_picture: null
   });
-  
+ 
   const [passwords, setPasswords] = useState({
     oldPassword: '',
     newPassword: ''
   });
-  
-  const [previewUrl, setPreviewUrl] = useState(null);
+ 
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
+
+
   const [file, setFile] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -33,10 +46,12 @@ const Settings = () => {
     severity: 'success'
   });
 
+
   // Files state for template section
   const [files, setFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
 
   // Fetch profile data on mount
   useEffect(() => {
@@ -56,13 +71,16 @@ const Settings = () => {
       }
     };
 
+
     fetchProfile();
   }, []);
+
 
   // Load existing template files
   useEffect(() => {
     loadExistingFiles();
   }, []);
+
 
   // Cleanup preview URL when component unmounts
   useEffect(() => {
@@ -73,6 +91,7 @@ const Settings = () => {
     };
   }, [previewUrl]);
 
+
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({
       open: true,
@@ -81,18 +100,22 @@ const Settings = () => {
     });
   };
 
+
   // Profile functions
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
+
 
     try {
       const preview = URL.createObjectURL(selectedFile);
       setPreviewUrl(preview);
       setFile(selectedFile);
 
+
       const formData = new FormData();
       formData.append('profile_picture', selectedFile);
+
 
       const response = await fetch('/api/profile/photo-profile', {
         method: 'POST',
@@ -102,7 +125,9 @@ const Settings = () => {
         body: formData,
       });
 
+
       const data = await response.json();
+
 
       if (response.ok) {
         setProfile(prev => ({
@@ -120,6 +145,7 @@ const Settings = () => {
     }
   };
 
+
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     try {
@@ -132,6 +158,7 @@ const Settings = () => {
         body: JSON.stringify(profile)
       });
 
+
       if (response.ok) {
         showSnackbar('Profile berhasil diperbarui!');
       } else {
@@ -142,6 +169,7 @@ const Settings = () => {
       showSnackbar('Terjadi kesalahan saat memperbarui profile', 'error');
     }
   };
+
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -155,6 +183,7 @@ const Settings = () => {
         body: JSON.stringify(passwords)
       });
 
+
       if (response.ok) {
         showSnackbar('Password berhasil diubah!');
         setPasswords({ oldPassword: '', newPassword: '' });
@@ -167,6 +196,7 @@ const Settings = () => {
     }
   };
 
+
   const handleDeletePhoto = async () => {
     try {
       const response = await fetch('/api/profile/photo-profile', {
@@ -175,6 +205,7 @@ const Settings = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
+
 
       if (response.ok) {
         setProfile(prev => ({ ...prev, profile_picture: null }));
@@ -190,6 +221,7 @@ const Settings = () => {
     }
   };
 
+
   // Template functions
   const loadExistingFiles = async () => {
     try {
@@ -200,23 +232,37 @@ const Settings = () => {
                 Authorization: `Bearer ${token}`
             }
         });
-        
-        if (response.data.status === 'success') {
-            setUploadedFiles(response.data.data || []); // Pastikan selalu ada array meski kosong
-        }
+        const activeTemplate = response.data.data.filter(file => file.active === 1);
+        setUploadedFiles(activeTemplate);
+       
+        // Remove the status check since backend doesn't return it
+        setUploadedFiles(response.data.data || []);
     } catch (error) {
         console.error('Error loading files:', error);
         showSnackbar('Gagal memuat data template', 'error');
-        setUploadedFiles([]); // Set empty array on error
+        setUploadedFiles([]);
     } finally {
         setIsLoading(false);
     }
 };
 
+const handlePreview = async (file) => {
+  setPreviewTitle(file.name || 'Document Preview');
+  const token = localStorage.getItem('token');
+  const previewUrl = `http://localhost:5000/api/document/preview/${file.id_dokumen}`;
 
-  const handleTemplateFileChange = async (e) => {
-    const selectedFiles = Array.from(e.target.files)
-      .filter(file => file.type === 'application/pdf')
+  try {
+      setIsPreviewOpen(true);
+      setPreviewUrl(previewUrl);
+  } catch (error) {
+      showSnackbar('Gagal memuat preview dokumen', 'error');
+  }
+};
+
+const handleTemplateFileChange = async (e) => {
+  const selectedFiles = Array.from(e.target.files)
+    .filter(file => file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                    file.type === 'application/msword')
       .map(file => ({
         id: Date.now() + Math.random(),
         name: file.name,
@@ -226,22 +272,26 @@ const Settings = () => {
         file: file
       }));
 
+
     if (selectedFiles.length === 0) {
       alert('Please select PDF files only');
       return;
     }
 
+
     setFiles(prev => [...prev, ...selectedFiles]);
+
 
     for (const fileObj of selectedFiles) {
       await handleTemplateUpload(fileObj.file, fileObj.id);
     }
   };
 
+
   const handleTemplateUpload = async (file, fileId) => {
     const formData = new FormData();
     formData.append('file', file);
-  
+ 
     try {
         const token = localStorage.getItem('token');
         const response = await axios.post(
@@ -264,7 +314,7 @@ const Settings = () => {
                 }
             }
         );
-  
+ 
         if (response.data.status === 'success') {
             setFiles(prevFiles =>
                 prevFiles.map(f =>
@@ -294,29 +344,29 @@ const Settings = () => {
     }
 };
 
-const removeTemplate = async (id, serverId) => {
+
+const removeTemplate = async (id) => {
   try {
-      if (serverId) {
-          const token = localStorage.getItem('token');
-          await axios.delete(`http://localhost:5000/api/document/template/:id`, {
-              headers: {
-                  Authorization: `Bearer ${token}`
-              }
-          });
-          
-          setUploadedFiles(prev => prev.filter(file => file.id !== serverId));
-          setFiles(prev => prev.filter(file => file.id !== id));
-          showSnackbar('File berhasil dihapus', 'success');
+    const token = localStorage.getItem('token');
+    await axios.delete(`http://localhost:5000/api/document/template/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
+    });
+   
+    setUploadedFiles(prev => prev.filter(file => file.id_dokumen !== id));
+    showSnackbar('Template berhasil dihapus', 'success');
+    await loadExistingFiles();
   } catch (error) {
-      console.error('Error deleting file:', error);
-      showSnackbar('Gagal menghapus file', 'error');
+    console.error('Error deleting file:', error);
+    showSnackbar('Gagal menghapus template', 'error');
   }
-  };
+};
+
 
   const handleTemplateDrop = async (e) => {
     e.preventDefault();
-    
+   
     const droppedFiles = Array.from(e.dataTransfer.files)
       .filter(file => file.type === 'application/pdf')
       .map(file => ({
@@ -328,17 +378,21 @@ const removeTemplate = async (id, serverId) => {
         file: file
       }));
 
+
     if (droppedFiles.length === 0) {
       alert('Please drop PDF files only');
       return;
     }
 
+
     setFiles(prev => [...prev, ...droppedFiles]);
+
 
     for (const fileObj of droppedFiles) {
       await handleTemplateUpload(fileObj.file, fileObj.id);
     }
   };
+
 
   const handleTemplateDragOver = (e) => {
     e.preventDefault();
@@ -347,7 +401,7 @@ const removeTemplate = async (id, serverId) => {
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
-      <Box sx={{ 
+      <Box sx={{
         width: '100%',
         background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
         borderRadius: '12px',
@@ -358,7 +412,7 @@ const removeTemplate = async (id, serverId) => {
           Pengaturan
         </Typography>
       </Box>
-      
+     
       {/* Profile Section */}
       <Card className="mb-6">
         <CardHeader>
@@ -378,6 +432,7 @@ const removeTemplate = async (id, serverId) => {
                   />
                 </div>
 
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -388,6 +443,7 @@ const removeTemplate = async (id, serverId) => {
                   />
                 </div>
 
+
                 <div className="space-y-2">
                   <Label htmlFor="nama">Nama</Label>
                   <Input
@@ -397,15 +453,17 @@ const removeTemplate = async (id, serverId) => {
                   />
                 </div>
 
+
                 <div className="flex justify-between">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     Update Profile
                   </Button>
                 </div>
               </div>
+
 
               {/* Right Column - Profile Picture */}
               <div className="w-1/3 text-center space-y-4">
@@ -423,8 +481,9 @@ const removeTemplate = async (id, serverId) => {
                   )}
                 </div>
 
+
                 <div className="flex flex-col gap-2 items-center">
-                  <Button 
+                  <Button
                     type="button"
                     className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={() => document.getElementById('profile-upload').click()}
@@ -439,6 +498,7 @@ const removeTemplate = async (id, serverId) => {
                       className="hidden"
                     />
                   </Button>
+
 
                   {(previewUrl || profile.profile_picture) && (
                     <Button
@@ -455,6 +515,7 @@ const removeTemplate = async (id, serverId) => {
           </form>
         </CardContent>
       </Card>
+
 
       {/* Password Change Section */}
       <Card className="mb-6">
@@ -473,6 +534,7 @@ const removeTemplate = async (id, serverId) => {
               />
             </div>
 
+
             <div className="space-y-2">
               <Label htmlFor="newPassword">Password Baru</Label>
               <Input
@@ -483,8 +545,9 @@ const removeTemplate = async (id, serverId) => {
               />
             </div>
 
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               Ubah Password
@@ -492,6 +555,7 @@ const removeTemplate = async (id, serverId) => {
           </form>
         </CardContent>
       </Card>
+
 
       {/* Template Section */}
       <Card>
@@ -508,6 +572,7 @@ const removeTemplate = async (id, serverId) => {
               <p className="text-sm text-gray-500 mt-2">Select and upload the files of your choice</p>
             </div>
 
+
             <div className="max-w-5xl mx-auto">
               <div
                 className="border-2 border-dashed border-gray-300 rounded-lg p-12 mb-8 bg-white text-center"
@@ -516,14 +581,14 @@ const removeTemplate = async (id, serverId) => {
               >
                 <Upload className="w-8 h-8 mx-auto mb-4 text-gray-400" />
                 <p className="text-lg mb-2">Choose a file or drag & drop it here.</p>
-                <p className="text-sm text-gray-500 mb-6">PDF up to 50 MB.</p>
+                <p className="text-sm text-gray-500 mb-6">DOC/DOCX up to 50 MB.</p>
                 <Input
                   type="file"
                   onChange={handleTemplateFileChange}
                   className="hidden"
                   id="pdf-upload"
                   multiple
-                  accept=".pdf"
+                  accept=".doc,.docx"
                 />
                 <Button
                   variant="outline"
@@ -535,6 +600,7 @@ const removeTemplate = async (id, serverId) => {
                 </Button>
               </div>
 
+
               {/* File list */}
               <div className="space-y-3">
                 {files.map((file) => (
@@ -543,9 +609,9 @@ const removeTemplate = async (id, serverId) => {
                     className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="bg-red-100 text-red-600 px-3 py-1 rounded text-xs uppercase">
-                        PDF
-                      </div>
+                    <div className="bg-blue-100 text-blue-600 px-3 py-1 rounded text-xs uppercase">
+                      DOCX
+                    </div>
                       <div>
                         <p className="text-base font-medium">{file.name}</p>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -591,40 +657,36 @@ const removeTemplate = async (id, serverId) => {
                 ))}
               </div>
 
-              {/* Uploaded files section */}
-              {/* Uploaded files section */}
-{uploadedFiles.length > 0 ? (
+
+              {uploadedFiles.length > 0 ? (
     <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-4">Uploaded Files</h3>
+        <h3 className="text-lg font-semibold mb-4">Template Aktif</h3>
         <div className="space-y-3">
-            {uploadedFiles.map((file) => (
-                <div
-                    key={file.id}
-                    className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="bg-red-100 text-red-600 px-3 py-1 rounded text-xs uppercase">
-                            PDF
-                        </div>
-                        <div>
-                            <p className="text-base font-medium">{file.name}</p>
-                            <p className="text-sm text-gray-500">
-                                Completed
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10"
-                            onClick={() => removeTemplate(file.id, file.id)}
-                        >
-                            <Trash2 className="h-5 w-5 text-gray-500" />
-                        </Button>
-                    </div>
-                </div>
-            ))}
+        {uploadedFiles.map((file) => (
+    <div
+        key={file.id_dokumen}
+        className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm cursor-pointer"
+        onClick={() => handlePreview(file)}
+    >
+        <div className="flex items-center gap-4">
+            <div className="bg-blue-100 text-blue-600 px-3 py-1 rounded text-xs uppercase">
+                DOCX
+            </div>
+            <div>
+                <p className="text-base font-medium">{file.name || 'Document'}</p>
+                <p className="text-sm text-gray-500">Click to preview</p>
+            </div>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={(e) => {
+                e.stopPropagation();
+                removeTemplate(file.id_dokumen);
+            }}>
+                <Trash2 className="h-5 w-5 text-gray-500" />
+            </Button>
+        </div>
+    </div>
+))}
         </div>
     </div>
 ) : (
@@ -634,10 +696,30 @@ const removeTemplate = async (id, serverId) => {
         </div>
     </div>
 )}
-            </div>
-          </div>
+
+
+{/* Add Dialog component just before the last closing div of the Template Section */}
+<Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+    <DialogContent className="max-w-6xl w-full">
+        <DialogHeader>
+            <DialogTitle>{previewTitle}</DialogTitle>
+        </DialogHeader>
+        <div className="h-[95vh]">
+            <embed
+                src={previewUrl}
+                type="application/pdf"
+                width="100%"
+                height="100%"
+                style={{ border: 'none' }}
+            />
+        </div>
+    </DialogContent>
+</Dialog>
+</div>
+</div>
         </CardContent>
       </Card>
+
 
       {/* Snackbar for notifications */}
       <Snackbar
@@ -646,8 +728,8 @@ const removeTemplate = async (id, serverId) => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
@@ -658,4 +740,8 @@ const removeTemplate = async (id, serverId) => {
   );
 };
 
+
 export default Settings;
+
+
+

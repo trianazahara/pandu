@@ -1,3 +1,4 @@
+//internmanagement
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -1893,7 +1894,3 @@ const handleSelectIntern = (internId) => {
 
 
 export default InternManagement;
-
-
-
-

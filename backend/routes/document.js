@@ -8,11 +8,15 @@ const documentController = require('../controllers/documentController');
 const { authMiddleware } = require('../middleware/auth');
 
 
+
+
 // Konfigurasi direktori upload
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+
 
 
 // Konfigurasi multer untuk upload file
@@ -28,6 +32,8 @@ const storage = multer.diskStorage({
 });
 
 
+
+
 const fileFilter = (req, file, cb) => {
                 if (file.mimetype === 'application/msword' || // .doc
                     file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') { // .docx
@@ -39,6 +45,9 @@ const fileFilter = (req, file, cb) => {
 
 
 
+
+
+
 // Inisialisasi multer dengan konfigurasi
 const upload = multer({
     storage: storage,
@@ -47,6 +56,8 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // Batasan 5MB
     }
 });
+
+
 
 
 // Middleware untuk handling error multer
@@ -74,6 +85,8 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 
+
+
 // Routes untuk manajemen template
 router.post(
     '/upload',
@@ -84,11 +97,17 @@ router.post(
 );
 
 
+
+
 router.get(
     '/templates',
     // authMiddleware,
     documentController.getTemplates
 );
+
+// routes/document.js 
+router.get('/preview/:id', documentController.previewDocument);
+
 
 
 router.delete(
@@ -98,12 +117,13 @@ router.delete(
 );
 
 
+
+
 // Routes untuk generasi sertifikat
 router.post(
-    '/generate-sertifikat',
-    // authMiddleware,
+    '/generate-sertifikat/:id',
     documentController.generateSertifikat
-);
+ );
 
 
 // Endpoint untuk mengakses file yang di-generate
@@ -120,11 +140,17 @@ router.get('/certificates/:filename', (req, res) => {
 });
 
 
+
+
 router.get('/download-sertifikat/:id_magang', documentController.downloadSertifikat);
+
+
 
 
 // Akses file sertifikat
 router.use('/certificates', express.static(path.join(__dirname, '..', 'public', 'certificates')));
+
+
 
 
 // Route untuk preview template
@@ -141,6 +167,8 @@ router.get('/templates/:filename', (req, res) => {
 });
 
 
+
+
 router.get('/certificates/:filename', (req, res) => {
     const filePath = path.join(__dirname, '..', 'public', 'certificates', req.params.filename);
     res.sendFile(filePath, (err) => {
@@ -154,6 +182,8 @@ router.get('/certificates/:filename', (req, res) => {
 });
 
 
+
+
 // Error handler untuk route
 router.use((err, req, res, next) => {
     console.error('Route error:', err);
@@ -165,4 +195,9 @@ router.use((err, req, res, next) => {
 });
 
 
+
+
 module.exports = router;
+
+
+

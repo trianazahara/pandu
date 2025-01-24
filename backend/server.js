@@ -4,6 +4,9 @@ const path = require('path');
 require('dotenv').config();
 const { WebSocketServer } = require('ws');
 
+
+
+
 const authRoutes = require('./routes/auth');
 const internRoutes = require('./routes/intern');
 const documentRoutes = require('./routes/document');
@@ -14,21 +17,40 @@ const NotificationCron = require('./cron/notificationCron');
 const bidangRoutes = require('./routes/bidang');
 
 
+
+
+
+
+
+
 const app = express();
 const server = require('http').createServer(app); // Create HTTP server
+
+
+
 
 // Initialize WebSocket server
 const wsServer = new WebSocketServer({ server });
 
+
+
+
 // Initialize and start cron jobs
 const notificationCron = new NotificationCron(wsServer);
 notificationCron.start();
+
+
+
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/notifications', notificationRoutes); // Ensure the base path is correct
+app.use('/certificates', express.static(path.join(__dirname, 'public', 'certificates')));
+
+
+
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -39,14 +61,20 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/bidang', bidangRoutes);
 
+
+
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);
-    res.status(500).json({ 
+    res.status(500).json({
         status: 'error',
         message: 'Terjadi kesalahan server'
     });
 });
+
+
+
 
 // Handle 404
 app.use((req, res) => {
@@ -56,7 +84,13 @@ app.use((req, res) => {
     });
 });
 
+
+
+
 const PORT = process.env.PORT || 5000;
+
+
+
 
 // Improved error handling for server startup
 const startServer = async () => {
@@ -74,4 +108,8 @@ app.use((req, res, next) => {
     next();
 });
 
+
+
+
 startServer();
+

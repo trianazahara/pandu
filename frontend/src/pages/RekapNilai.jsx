@@ -36,6 +36,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
+import { BookIcon } from 'lucide-react';
+
 
 const RekapNilai = () => {
   // State declarations
@@ -85,6 +87,7 @@ const RekapNilai = () => {
     }
   });
 
+
   // Helper functions dan handlers lainnya tetap sama
   const calculateWorkingDays = (startDate, endDate) => {
     if (!startDate || !endDate) return 0;
@@ -101,9 +104,12 @@ const RekapNilai = () => {
     return workingDays;
   };
 
+
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
+
+
 
 
   // Fetch functions
@@ -119,6 +125,7 @@ const RekapNilai = () => {
       showSnackbar('Gagal mengambil data bidang', 'error');
     }
   };
+
 
   const fetchData = async () => {
     try {
@@ -141,14 +148,17 @@ const RekapNilai = () => {
     }
   };
 
+
   // Effects
   useEffect(() => {
     fetchBidangList();
   }, []);
 
+
   useEffect(() => {
     fetchData();
   }, [pagination.page, pagination.limit, filters]);
+
 
   // Handlers
   const handleFilter = (key, value) => {
@@ -162,9 +172,43 @@ const RekapNilai = () => {
     }));
   };
 
+
+  const handleGenerateClick = async (id) => {
+    try {
+      const generateResponse = await axios.post(`/api/document/generate-sertifikat/${id}`,
+        {},  // Empty body since ID is in URL
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
+      );
+ 
+      if (generateResponse.data.success) {
+        // Download the generated certificate
+        const downloadResponse = await axios.get(`/api/document/download-sertifikat/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          responseType: 'blob'
+        });
+ 
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sertifikat_${generateResponse.data.data.nama_peserta}.docx`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+ 
+        showSnackbar('Sertifikat berhasil di-generate dan diunduh');
+      }
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      showSnackbar(error.response?.data?.message || 'Gagal generate sertifikat', 'error');
+    }
+  };
+ 
   const handleEditScore = (score) => {
   console.log("Score data:", score); // Debug data yang diterima
   console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
+
 
     setEditDialog({
       open: true,
@@ -188,6 +232,7 @@ const RekapNilai = () => {
     });
   };
 
+
   const handleSubmitScore = async (e) => {
     e.preventDefault();
     setEditDialog(prev => ({ ...prev, loading: true }));
@@ -208,17 +253,18 @@ const RekapNilai = () => {
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)  // Pastikan ini terkirim
       };
-  
+ 
       const response = await axios.put(
         `/api/intern/update-nilai/${editDialog.data.id_penilaian}`,
         scoreData,
         {
-            headers: { 
+            headers: {
                 Authorization: `Bearer ${localStorage.getItem('token')}`,
                 'Content-Type': 'application/json'
             }
         }
     );
+
 
       if (response.data.status === 'success') {
             showSnackbar('Nilai berhasil diperbarui', 'success');
@@ -241,13 +287,14 @@ const RekapNilai = () => {
     }
 };
 
+
 const handleExport = async () => {
   setExportDialog(prev => ({ ...prev, loading: true }));
   try {
     const params = {
       bidang: filters.bidang
     };
-    
+   
     // Jika tipe ekspor adalah filtered, hanya mengirim parameter tanggal untuk filter tanggal_keluar
     if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
       // Format tanggal ke YYYY-MM-DD
@@ -255,19 +302,22 @@ const handleExport = async () => {
         const d = new Date(date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       };
-      
+     
       // Hanya mengirim range untuk tanggal_keluar
       params.end_date_start = formatDate(exportDialog.dateRange.startDate);
       params.end_date_end = formatDate(exportDialog.dateRange.endDate);
     }
 
+
     console.log('Export params:', params); // Debugging
+
 
     const response = await axios.get('/api/intern/export', {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       responseType: 'blob',
       params
     });
+
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
@@ -283,6 +333,7 @@ const handleExport = async () => {
     setExportDialog(prev => ({ ...prev, loading: false }));
   }
 };
+
 
 // Add export dialog JSX after the existing Dialog component
 const ExportDialog = () => (
@@ -312,17 +363,18 @@ const ExportDialog = () => (
             exportType: e.target.value
           }))}
         >
-          <FormControlLabel 
-            value="all" 
-            control={<Radio />} 
-            label="Export Semua Data" 
+          <FormControlLabel
+            value="all"
+            control={<Radio />}
+            label="Export Semua Data"
           />
-          <FormControlLabel 
-            value="filtered" 
-            control={<Radio />} 
-            label="Export Berdasarkan Filter Tanggal" 
+          <FormControlLabel
+            value="filtered"
+            control={<Radio />}
+            label="Export Berdasarkan Filter Tanggal"
           />
         </RadioGroup>
+
 
         {exportDialog.exportType === 'filtered' && (
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
@@ -363,7 +415,7 @@ const ExportDialog = () => (
         loading={exportDialog.loading}
         variant="contained"
         disabled={
-          exportDialog.exportType === 'filtered' && 
+          exportDialog.exportType === 'filtered' &&
           (!exportDialog.dateRange.startDate || !exportDialog.dateRange.endDate)
         }
       >
@@ -372,11 +424,11 @@ const ExportDialog = () => (
     </DialogActions>
   </Dialog>
 );
-    
+   
   return (
       <Box sx={{ width: '100%', minWidth: 0 }}>
         {/* Header */}
-        <Box sx={{ 
+        <Box sx={{
           width: '100%',
           background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
           borderRadius: '12px',
@@ -402,6 +454,7 @@ const ExportDialog = () => (
           Export Excel
         </Button>
       </Box>
+
 
       {/* Filter Section */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -432,6 +485,8 @@ const ExportDialog = () => (
           </FormControl>
         </Grid>
       </Grid>
+
+
 
 
       {/* Table */}
@@ -478,9 +533,9 @@ const ExportDialog = () => (
             Number(score.nilai_kejujuran || 0) +
             Number(score.nilai_kebersihan || 0)
           );
-        
+       
           const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
-  
+ 
           // Hitung persentase kehadiran
           const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
           const average = ((totalNilai / 11) + attendanceScore) / 2;
@@ -505,12 +560,19 @@ const ExportDialog = () => (
                 {average.toFixed(2)}
               </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <IconButton 
+                  <IconButton
                     onClick={() => handleEditScore(score)}
                     sx={{ color: 'info.main' }}
                     size="small"
                   >
                     <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleGenerateClick(score.id_magang)}
+                    sx={{ color: 'info.main' }}
+                  >
+                    <FileDownloadIcon fontSize="small" />
                   </IconButton>
                 </td>
               </tr>
@@ -519,7 +581,8 @@ const ExportDialog = () => (
         </tbody>
       </table>
     </div>
-  
+ 
+
 
       {/* Pagination */}
       {/* Updated Pagination Section */}
@@ -548,9 +611,9 @@ const ExportDialog = () => (
               page: Math.max(0, prev.page - 1)
             }))}
             disabled={pagination.page === 0}
-            className={`px-4 py-2 text-sm font-medium rounded-md 
+            className={`px-4 py-2 text-sm font-medium rounded-md
               ${pagination.page === 0
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
           >
             Previous
@@ -573,6 +636,7 @@ const ExportDialog = () => (
           </button>
         </div>
       </div>
+
 
       {/* Edit Score Dialog */}
       <Dialog
@@ -597,6 +661,7 @@ const ExportDialog = () => (
           {editDialog.error && (
             <Alert severity="error" sx={{ mb: 2 }}>{editDialog.error}</Alert>
           )}
+
 
           <Grid container spacing={2}>
             {/* Attendance Section */}
@@ -628,7 +693,7 @@ const ExportDialog = () => (
           editDialog.data?.tanggal_masuk,
           editDialog.data?.tanggal_keluar
         );
-        
+       
         if (val === '' || (Number(val) >= 0 && Number(val) <= workingDays)) {
           setScoreForm(prev => ({
             ...prev,
@@ -666,6 +731,7 @@ const ExportDialog = () => (
           </Grid>
           </Box>
             </Grid>
+
 
             {/* Scores Section */}
             <Grid item xs={12}>
@@ -710,7 +776,7 @@ const ExportDialog = () => (
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
             disabled={editDialog.loading}
           >
@@ -726,6 +792,8 @@ const ExportDialog = () => (
         </DialogActions>
       </form>
     </Dialog>
+
+
 
 
       {/* Export Dialog */}
@@ -755,17 +823,18 @@ const ExportDialog = () => (
                 exportType: e.target.value
               }))}
             >
-              <FormControlLabel 
-                value="all" 
-                control={<Radio />} 
-                label="Export Semua Data" 
+              <FormControlLabel
+                value="all"
+                control={<Radio />}
+                label="Export Semua Data"
               />
-              <FormControlLabel 
-                value="filtered" 
-                control={<Radio />} 
-                label="Export Berdasarkan Filter Tanggal" 
+              <FormControlLabel
+                value="filtered"
+                control={<Radio />}
+                label="Export Berdasarkan Filter Tanggal"
               />
             </RadioGroup>
+
 
             {exportDialog.exportType === 'filtered' && (
               <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
@@ -806,7 +875,7 @@ const ExportDialog = () => (
             loading={exportDialog.loading}
             variant="contained"
             disabled={
-              exportDialog.exportType === 'filtered' && 
+              exportDialog.exportType === 'filtered' &&
               (!exportDialog.dateRange.startDate || !exportDialog.dateRange.endDate)
             }
           >
@@ -815,6 +884,7 @@ const ExportDialog = () => (
         </DialogActions>
       </Dialog>
 
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -822,8 +892,8 @@ const ExportDialog = () => (
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
@@ -834,4 +904,6 @@ const ExportDialog = () => (
   );
 };
 
+
 export default RekapNilai;
+

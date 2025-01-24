@@ -9,6 +9,7 @@ const { authMiddleware } = require('../middleware/auth');
 
 
 
+
 // Konfigurasi direktori upload
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -30,6 +31,8 @@ const storage = multer.diskStorage({
 });
 
 
+
+
 const fileFilter = (req, file, cb) => {
                 if (file.mimetype === 'application/msword' || // .doc
                     file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') { // .docx
@@ -38,6 +41,9 @@ const fileFilter = (req, file, cb) => {
                     cb(new Error('Format file tidak didukung. Gunakan .doc atau .docx'), false);
                 }
             };
+
+
+
 
 
 
@@ -79,6 +85,8 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 
+
+
 // Routes untuk manajemen template
 router.post(
     '/upload',
@@ -89,17 +97,24 @@ router.post(
 );
 
 
+
+
 router.get(
     '/templates',
     // authMiddleware,
     documentController.getTemplates
 );
 
+
+// routes/document.js 
+router.get('/preview/:id', documentController.previewDocument);
+
 router.delete(
     '/template/:id',
     // authMiddleware,
     documentController.deleteTemplate
 );
+
 
 // Routes untuk generasi sertifikat
 router.post(
@@ -123,13 +138,15 @@ router.get('/certificates/:filename', (req, res) => {
 
 
 
-
-
 router.get('/download-sertifikat/:id_magang', documentController.downloadSertifikat);
+
+
 
 
 // Akses file sertifikat
 router.use('/certificates', express.static(path.join(__dirname, '..', 'public', 'certificates')));
+
+
 
 
 // Route untuk preview template
@@ -146,6 +163,8 @@ router.get('/templates/:filename', (req, res) => {
 });
 
 
+
+
 router.get('/certificates/:filename', (req, res) => {
     const filePath = path.join(__dirname, '..', 'public', 'certificates', req.params.filename);
     res.sendFile(filePath, (err) => {
@@ -160,6 +179,8 @@ router.get('/certificates/:filename', (req, res) => {
 });
 
 
+
+
 // Error handler untuk route
 router.use((err, req, res, next) => {
     console.error('Route error:', err);
@@ -170,6 +191,5 @@ router.use((err, req, res, next) => {
     });
 });
 
-
-
 module.exports = router;
+

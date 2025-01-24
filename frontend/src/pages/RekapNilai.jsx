@@ -29,7 +29,9 @@ import {
   Grid,
   FormControlLabel,
   Radio,
-  RadioGroup
+  RadioGroup,
+  CircularProgress,
+  Stack
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -44,6 +46,12 @@ const RekapNilai = () => {
   const [interns, setInterns] = useState([]);
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
+  const [detailDialog, setDetailDialog] = useState({
+    open: false,
+    loading: false,
+    data: null,
+    error: null
+  });
   const [filters, setFilters] = useState({
     bidang: '',
     search: ''
@@ -109,6 +117,42 @@ const RekapNilai = () => {
       current.setDate(current.getDate() + 1);
     }
     return workingDays;
+  };
+  // Helper functions
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const handleDetailClick = async (id) => {
+    setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
+    try {
+      const response = await axios.get(`/api/intern/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+  
+      if (response.data.status === 'success') {
+        setDetailDialog(prev => ({ 
+          ...prev, 
+          data: response.data.data, 
+          loading: false 
+        }));
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch detail data');
+      }
+    } catch (error) {
+      console.error('Error fetching intern detail:', error);
+      setDetailDialog(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
+      }));
+    }
   };
 
 
@@ -266,6 +310,7 @@ const RekapNilai = () => {
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
+  
 
 
   const handleSubmitScore = async (e) => {
@@ -852,6 +897,7 @@ const DetailDialog = () => (
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
+
           <IconButton
             onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
             size="small"

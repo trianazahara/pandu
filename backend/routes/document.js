@@ -8,11 +8,13 @@ const documentController = require('../controllers/documentController');
 const { authMiddleware } = require('../middleware/auth');
 
 
+
 // Konfigurasi direktori upload
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
 
 
 // Konfigurasi multer untuk upload file
@@ -49,6 +51,7 @@ const upload = multer({
 });
 
 
+
 // Middleware untuk handling error multer
 const handleMulterError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -63,6 +66,7 @@ const handleMulterError = (err, req, res, next) => {
             message: 'Error pada upload file',
             error: err.message
         });
+
     }
     if (err) {
         return res.status(400).json({
@@ -70,6 +74,7 @@ const handleMulterError = (err, req, res, next) => {
             message: err.message
         });
     }
+
     next();
 };
 
@@ -90,19 +95,18 @@ router.get(
     documentController.getTemplates
 );
 
-
 router.delete(
     '/template/:id',
     // authMiddleware,
     documentController.deleteTemplate
 );
 
-
 // Routes untuk generasi sertifikat
 router.post(
     '/generate-sertifikat/:id',
     documentController.generateSertifikat
  );
+
 
 // Endpoint untuk mengakses file yang di-generate
 router.get('/certificates/:filename', (req, res) => {
@@ -116,6 +120,9 @@ router.get('/certificates/:filename', (req, res) => {
         }
     });
 });
+
+
+
 
 
 router.get('/download-sertifikat/:id_magang', documentController.downloadSertifikat);
@@ -149,6 +156,7 @@ router.get('/certificates/:filename', (req, res) => {
             });
         }
     });
+
 });
 
 
@@ -161,6 +169,7 @@ router.use((err, req, res, next) => {
         error: err.message
     });
 });
+
 
 
 module.exports = router;

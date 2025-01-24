@@ -35,12 +35,13 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
-import { Edit as EditIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
+import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { BookIcon } from 'lucide-react';
 
 
 const RekapNilai = () => {
   // State declarations
+  const [interns, setInterns] = useState([]);
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
   const [filters, setFilters] = useState({
@@ -86,6 +87,12 @@ const RekapNilai = () => {
       endDate: null
     }
   });
+  const [detailDialog, setDetailDialog] = useState({
+      open: false,
+      loading: false,
+      data: null,
+      error: null
+    });
 
 
   // Helper functions dan handlers lainnya tetap sama
@@ -173,38 +180,66 @@ const RekapNilai = () => {
   };
 
 
-  const handleGenerateClick = async (id) => {
+  const handleDetailClick = async (id) => {
+    setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
-      const generateResponse = await axios.post(`/api/document/generate-sertifikat/${id}`,
-        {},  // Empty body since ID is in URL
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
-      );
- 
-      if (generateResponse.data.success) {
-        // Download the generated certificate
-        const downloadResponse = await axios.get(`/api/document/download-sertifikat/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          responseType: 'blob'
-        });
- 
-        // Create download link
-        const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `sertifikat_${generateResponse.data.data.nama_peserta}.docx`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
- 
-        showSnackbar('Sertifikat berhasil di-generate dan diunduh');
+      const response = await fetch(`/api/intern/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+
+      if (!response.ok) {
+        throw new Error('Gagal memuat data');
       }
+
+
+      const result = await response.json();
+      setDetailDialog(prev => ({ ...prev, data: result.data, loading: false }));
     } catch (error) {
-      console.error('Error generating certificate:', error);
-      showSnackbar(error.response?.data?.message || 'Gagal generate sertifikat', 'error');
+      setDetailDialog(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
+      }));
     }
   };
- 
+  
+  const handleGenerateClick = async (id) => {
+    try {
+      await axios.post(`http://localhost:5000/api/document/generate-sertifikat/${id}`, {}, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const downloadResponse = await axios.get(
+        `http://localhost:5000/api/document/download-sertifikat/${id}`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          responseType: 'blob'
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sertifikat.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSnackbar('Sertifikat berhasil di-generate dan diunduh');
+    } catch (error) {
+      console.error('Error:', error);
+      showSnackbar(error.response?.data?.message || 'Gagal generate sertifikat', 'error');
+    }
+};
+
+
   const handleEditScore = (score) => {
   console.log("Score data:", score); // Debug data yang diterima
   console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
@@ -424,7 +459,156 @@ const ExportDialog = () => (
     </DialogActions>
   </Dialog>
 );
+
+
+const DetailDialog = () => (
+  <Dialog
+    open={detailDialog.open}
+    onClose={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+    maxWidth="md"
+    fullWidth
+  >
+    <DialogTitle sx={{ pb: 1 }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Typography variant="h6">Detail Peserta Magang</Typography>
+        <IconButton
+          onClick={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+          size="small"
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
+    </DialogTitle>
    
+    <DialogContent sx={{ pb: 2 }}>
+      {detailDialog.loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : detailDialog.error ? (
+        <Alert severity="error">{detailDialog.error}</Alert>
+      ) : detailDialog.data && (
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 2 }}>
+              <span className={getStatusStyle(detailDialog.data.status)}>
+                {getStatusLabel(detailDialog.data.status)}
+              </span>
+            </Box>
+          </Grid>
+
+
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" color="text.secondary">Informasi Pribadi</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Nama Lengkap</Typography>
+                  <Typography variant="body1">{detailDialog.data.nama}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Email</Typography>
+                  <Typography variant="body1">{detailDialog.data.email || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">No. HP</Typography>
+                  <Typography variant="body1">{detailDialog.data.no_hp || '-'}</Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+
+
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Institusi</Typography>
+                  <Typography variant="body1">{detailDialog.data.nama_institusi}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {detailDialog.data.jenis_peserta === 'mahasiswa' ? 'NIM' : 'NISN'}
+                  </Typography>
+                  <Typography variant="body1">
+                    {detailDialog.data.detail_peserta?.nim || detailDialog.data.detail_peserta?.nisn || '-'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Jurusan</Typography>
+                  <Typography variant="body1">
+                    {detailDialog.data.detail_peserta?.jurusan || '-'}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+
+
+          <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Ruang Penempatan</Typography>
+                  <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
+                  <Typography variant="body1">{formatDate(detailDialog.data.tanggal_masuk)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Tanggal Selesai</Typography>
+                  <Typography variant="body1">{formatDate(detailDialog.data.tanggal_keluar)}</Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+
+      )}
+    </DialogContent>
+
+
+    <DialogActions sx={{ px: 3, pb: 2 }}>
+    <Button
+  onClick={() => handleEditClick(detailDialog.data?.id_magang)}
+  startIcon={<EditIcon />}
+  sx={{ 
+    color: '#2E7D32',
+    borderColor: '#2E7D32',
+    '&:hover': {
+      borderColor: '#1B5E20',
+      bgcolor: '#E8F5E9'
+    }
+  }}
+  variant="outlined"  // Ganti ke outlined
+  disabled={!detailDialog.data || detailDialog.loading}
+>
+  Edit Data
+</Button>
+    </DialogActions>
+  </Dialog>
+);
+
   return (
       <Box sx={{ width: '100%', minWidth: 0 }}>
         {/* Header */}
@@ -560,20 +744,40 @@ const ExportDialog = () => (
                 {average.toFixed(2)}
               </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
+
                   <IconButton
+
+                  <div className="flex justify-center space-x-1">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDetailClick(intern.id_magang)}
+                                            sx={{ color: 'info.main' }}
+                                          >
+                                            <VisibilityIcon fontSize="small" />
+                                          </IconButton>
+                  <IconButton 
+
                     onClick={() => handleEditScore(score)}
                     sx={{ color: 'info.main' }}
                     size="small"
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton
+
+                  <IconButton 
                     size="small"
-                    onClick={() => handleGenerateClick(score.id_magang)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGenerateClick(score.id_magang);
+                    }}
+
                     sx={{ color: 'info.main' }}
                   >
                     <FileDownloadIcon fontSize="small" />
                   </IconButton>
+
+                </div>
+
                 </td>
               </tr>
             );

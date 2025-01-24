@@ -297,7 +297,7 @@ const calculateWorkingDays = (startDate, endDate) => {
                     [
                         { content: 'No.', rowSpan: 2 },
                         { content: 'Nama', rowSpan: 2 },
-                        { content: 'Nama Sekolah/PT', rowSpan: 2 },
+                        { content: 'Nama Institusi', rowSpan: 2 },
                         { content: 'Ruang Penempatan', rowSpan: 2 },
                         { content: 'Tgl Masuk - Tgl Keluar', rowSpan: 2 },
                         {

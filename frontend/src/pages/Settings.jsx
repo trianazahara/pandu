@@ -20,7 +20,6 @@ import {
 
 
 
-
 const Settings = () => {
   const [profile, setProfile] = useState({
     username: '',
@@ -33,12 +32,10 @@ const Settings = () => {
     oldPassword: '',
     newPassword: ''
   });
- 
+
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
-
-
   const [file, setFile] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -234,9 +231,11 @@ const Settings = () => {
         });
         const activeTemplate = response.data.data.filter(file => file.active === 1);
         setUploadedFiles(activeTemplate);
+
        
         // Remove the status check since backend doesn't return it
         setUploadedFiles(response.data.data || []);
+
     } catch (error) {
         console.error('Error loading files:', error);
         showSnackbar('Gagal memuat data template', 'error');
@@ -262,6 +261,7 @@ const handlePreview = async (file) => {
 const handleTemplateFileChange = async (e) => {
   const selectedFiles = Array.from(e.target.files)
     .filter(file => file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+
                     file.type === 'application/msword')
       .map(file => ({
         id: Date.now() + Math.random(),
@@ -344,7 +344,6 @@ const handleTemplateFileChange = async (e) => {
     }
 };
 
-
 const removeTemplate = async (id) => {
   try {
     const token = localStorage.getItem('token');
@@ -353,7 +352,7 @@ const removeTemplate = async (id) => {
         Authorization: `Bearer ${token}`
       }
     });
-   
+
     setUploadedFiles(prev => prev.filter(file => file.id_dokumen !== id));
     showSnackbar('Template berhasil dihapus', 'success');
     await loadExistingFiles();
@@ -656,12 +655,11 @@ const removeTemplate = async (id) => {
                   </div>
                 ))}
               </div>
-
-
               {uploadedFiles.length > 0 ? (
     <div className="mt-8">
         <h3 className="text-lg font-semibold mb-4">Template Aktif</h3>
         <div className="space-y-3">
+
         {uploadedFiles.map((file) => (
     <div
         key={file.id_dokumen}
@@ -687,6 +685,7 @@ const removeTemplate = async (id) => {
         </div>
     </div>
 ))}
+
         </div>
     </div>
 ) : (
@@ -696,6 +695,7 @@ const removeTemplate = async (id) => {
         </div>
     </div>
 )}
+
 
 
 {/* Add Dialog component just before the last closing div of the Template Section */}
@@ -711,6 +711,7 @@ const removeTemplate = async (id) => {
                 width="100%"
                 height="100%"
                 style={{ border: 'none' }}
+
             />
         </div>
     </DialogContent>

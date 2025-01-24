@@ -11,11 +11,13 @@ import {
     KeyboardArrowRight,
 } from '@mui/icons-material';
 
+
 export const Sidebar = () => {
     const { user } = useAuth();
     const location = useLocation();
     const [expandedMenus, setExpandedMenus] = useState({});
     const [hoveredItem, setHoveredItem] = useState(null);
+
 
     const toggleMenu = (path) => {
         setExpandedMenus(prev => ({
@@ -23,6 +25,7 @@ export const Sidebar = () => {
             [path]: !prev[path]
         }));
     };
+
 
     const getMenuItems = () => {
         const items = [
@@ -76,23 +79,25 @@ export const Sidebar = () => {
             });
         }
 
+
         return items;
     };
 
+
     const menuItems = getMenuItems();
 
+
     return (
-        <div className="w-64 h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-green-600 
+        <div className="w-64 h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-green-600
             fixed left-0 top-0 shadow-xl animate-slideRight border-r border-r-slate-200/50
             backdrop-blur-sm flex flex-col">
-            
             <div className="p-4 perspective shrink-0">
                 <div className="flex items-center gap-3 hover:scale-105 transition-all duration-500
                     transform hover:translate-z-4 relative">
                     <div className="relative transform transition-all duration-500 hover:rotate-y-180">
-                        <img 
-                            src="/images/logo.jpg" 
-                            alt="Pandu Logo" 
+                        <img
+                            src="/images/logo.jpg"
+                            alt="Pandu Logo"
                             className="w-12 h-12 shadow-lg animate-float"
                         />
                         <div className="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent
@@ -108,7 +113,6 @@ export const Sidebar = () => {
                     </div>
                 </div>
             </div>
-
             <nav className="mt-6 perspective flex-1 overflow-y-auto scrollbar-hide">
                 <div className="px-2 pb-6">
                     {menuItems.map((item) => (
@@ -136,17 +140,19 @@ export const Sidebar = () => {
                                         </div>
                                         <div className={`transform transition-all duration-500
                                             ${expandedMenus[item.path] ? 'rotate-180' : ''}`}>
+
                                             {expandedMenus[item.path] ? 
                                                 <KeyboardArrowDown /> : 
+
                                                 <KeyboardArrowRight />
                                             }
                                         </div>
                                     </button>
-
                                     <div 
                                         className={`ml-8 mt-2 space-y-2 transition-all duration-500 transform
                                             ${expandedMenus[item.path] 
                                                 ? 'opacity-100 translate-y-0' 
+
                                                 : 'opacity-0 -translate-y-4 hidden'}`}
                                     >
                                         {item.subItems.map((subItem, index) => (
@@ -176,8 +182,10 @@ export const Sidebar = () => {
                                     className={`flex items-center p-3 rounded-xl transform transition-all duration-500
                                         hover:shadow-lg hover:shadow-green-500/10 focus:outline-none relative
                                         ${hoveredItem === item.path ? 'animate-tilt-3d' : ''}
+
                                         ${location.pathname === item.path 
                                             ? 'bg-gradient-to-r from-green-200 to-emerald-100 shadow-md scale-105' 
+
                                             : 'hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50'}
                                         active:scale-95`}
                                 >
@@ -193,7 +201,6 @@ export const Sidebar = () => {
                     ))}
                 </div>
             </nav>
-
             <style jsx global>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -208,3 +215,4 @@ export const Sidebar = () => {
 };
 
 export default Sidebar;
+

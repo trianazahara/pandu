@@ -15,8 +15,6 @@ const NotificationCron = require('./cron/notificationCron');
 const bidangRoutes = require('./routes/bidang');
 
 
-
-
 const app = express();
 const server = require('http').createServer(app); // Create HTTP server
 
@@ -24,11 +22,9 @@ const server = require('http').createServer(app); // Create HTTP server
 // Initialize WebSocket server
 const wsServer = new WebSocketServer({ server });
 
-
 // Initialize and start cron jobs
 const notificationCron = new NotificationCron(wsServer);
 notificationCron.start();
-
 
 // Middleware
 app.use(cors());
@@ -70,6 +66,7 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 
 
+
 // Improved error handling for server startup
 const startServer = async () => {
     try {
@@ -88,3 +85,4 @@ app.use((req, res, next) => {
 
 
 startServer();
+

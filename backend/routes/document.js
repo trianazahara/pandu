@@ -18,7 +18,6 @@ if (!fs.existsSync(uploadsDir)) {
 
 
 
-
 // Konfigurasi multer untuk upload file
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
@@ -59,7 +58,6 @@ const upload = multer({
 
 
 
-
 // Middleware untuk handling error multer
 const handleMulterError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -74,6 +72,7 @@ const handleMulterError = (err, req, res, next) => {
             message: 'Error pada upload file',
             error: err.message
         });
+
     }
     if (err) {
         return res.status(400).json({
@@ -81,6 +80,7 @@ const handleMulterError = (err, req, res, next) => {
             message: err.message
         });
     }
+
     next();
 };
 
@@ -105,18 +105,15 @@ router.get(
     documentController.getTemplates
 );
 
+
 // routes/document.js 
 router.get('/preview/:id', documentController.previewDocument);
-
-
 
 router.delete(
     '/template/:id',
     // authMiddleware,
     documentController.deleteTemplate
 );
-
-
 
 
 // Routes untuk generasi sertifikat
@@ -138,7 +135,6 @@ router.get('/certificates/:filename', (req, res) => {
         }
     });
 });
-
 
 
 
@@ -179,6 +175,7 @@ router.get('/certificates/:filename', (req, res) => {
             });
         }
     });
+
 });
 
 
@@ -194,10 +191,5 @@ router.use((err, req, res, next) => {
     });
 });
 
-
-
-
 module.exports = router;
-
-
 

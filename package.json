@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@mui/x-date-pickers": "^7.23.6",
+    "@pdftron/pdfnet-node": "^11.2.0",
     "@react-pdf/renderer": "^4.1.6",
     "date-fns": "^2.29.3",
     "jspdf": "^2.5.2",

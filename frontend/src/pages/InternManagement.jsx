@@ -1,4 +1,3 @@
-//internmanagement
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -935,7 +934,9 @@ const AddDialog = () => (
         fullWidth
         label="NIM"
         size="small"
+
         required={true}
+
       />
     </Grid>
     <Grid item xs={12} md={6}>
@@ -954,7 +955,9 @@ const AddDialog = () => (
         fullWidth
         label="Jurusan"
         size="small"
+
         required={true}
+
       />
     </Grid>
     <Grid item xs={12} md={6}>
@@ -977,7 +980,11 @@ const AddDialog = () => (
                       component={FormTextField}
                       fullWidth
                       label="NISN"
+
+                      size="small"
+
                       required={true}
+
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -987,7 +994,9 @@ const AddDialog = () => (
                       fullWidth
                       label="Jurusan"
                       size="small"
+
                       required={true}
+
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1282,6 +1291,16 @@ const EditDialog = () => (
             nama: Yup.string()
               .required('Nama wajib diisi')
               .min(3, 'Nama minimal 3 karakter'),
+
+            email: Yup.string()
+              .email('Format email tidak valid'),
+            jenis_institusi: Yup.string()
+              .required('Jenis institusi wajib dipilih'),
+            no_hp: Yup.string()
+              .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
+              .min(10, 'Nomor HP minimal 10 digit')
+              .max(15, 'Nomor HP maksimal 15 digit'),
+
             nama_institusi: Yup.string()
               .required('Nama institusi wajib diisi'),
             jenis_institusi: Yup.string()
@@ -1661,22 +1680,46 @@ const handleSelectIntern = (internId) => {
     } else {
       setSelectedInterns([]);
     }
-  }
+  };
   
+  const style = document.createElement('style');
+style.textContent = `
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .animated-bg {
+    background: linear-gradient(45deg, #BCFB69, #26BBAC, #BCFB69);
+    background-size: 200% 200%;
+    animation: gradient 10s ease infinite;
+  }
+`;
+document.head.appendChild(style);
+
   // Main render
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
       <Box sx={{
-        width: '100%',
-        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-        borderRadius: '12px',
-        mb: 4,
-        p: 3,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+      width: '100%',
+      borderRadius: '12px',
+      mb: 4,
+      p: 3,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      overflow: 'hidden'
+    }}
+    className="animated-bg"
+  >
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Manajemen Data Anak Magang
         </Typography>

@@ -17,9 +17,10 @@ import {
   DialogActions,
   Button,
   Snackbar,
-  Alert
+  Alert,
+  Tooltip
 } from '@mui/material';
-import { Assessment as AssessmentIcon } from '@mui/icons-material';
+import { Assessment as AssessmentIcon, Info as InfoIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 // Helper function untuk menghitung hari kerja
@@ -163,7 +164,7 @@ const RiwayatData = () => {
     nilai_disiplin: 0,
     nilai_tanggungjawab: 0,
     nilai_kerjasama: 0,
-    nilai_inisiatif: 0,
+    // nilai_inisiatif: 0,
     nilai_kejujuran: 0,
     nilai_kebersihan: 0,
     jumlah_hadir: 0
@@ -266,7 +267,7 @@ const RiwayatData = () => {
       nilai_disiplin: 0,
       nilai_tanggungjawab: 0,
       nilai_kerjasama: 0,
-      nilai_inisiatif: 0,
+      // nilai_inisiatif: 0,
       nilai_kejujuran: 0,
       nilai_kebersihan: 0,
       jumlah_hadir: 0
@@ -288,7 +289,7 @@ const RiwayatData = () => {
         nilai_disiplin: Number(scoreForm.nilai_disiplin),
         nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
         nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
+        // nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)
@@ -333,6 +334,14 @@ const RiwayatData = () => {
       console.error('Submit error:', error);
       showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
     }
+  };
+
+  const getRowStyle = (intern) => {
+    // Prioritaskan pengecekan has_scores
+    if (intern.has_scores) {
+      return 'bg-blue-50'; // Biru muda untuk yang sudah dinilai
+    }
+    return ''; // Kosong untuk yang belum dinilai
   };
 
   // Render
@@ -421,11 +430,20 @@ const RiwayatData = () => {
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((intern) => (
-              <tr key={intern.id_magang} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {intern.nama}
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.map((intern) => (
+                <tr key={intern.id_magang} 
+                className={`hover:bg-gray-100 transition-colors duration-200 ${getRowStyle(intern)}`}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 relative group">
+                  {String(intern.nama)} {/* Konversi eksplisit ke string untuk memastikan hanya nama yang ditampilkan */}
+                  {Boolean(intern.has_scores) && ( // Konversi eksplisit ke boolean
+                    <Tooltip title="Sudah memiliki penilaian" placement="top">
+                      <InfoIcon 
+                        className="text-blue-500 ml-2 h-4 w-4 inline-block" 
+                        fontSize="small"
+                      />
+                    </Tooltip>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {intern.email}
@@ -454,20 +472,42 @@ const RiwayatData = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   {intern.status?.toLowerCase() !== 'missing' && (
-                    <IconButton 
-                      onClick={() => handleOpenScoreDialog(intern)}
-                      sx={{ 
-                        color: intern.has_score ? 'success.main' : 'info.main',
-        '&:hover': {
-          bgcolor: intern.has_score 
-            ? 'rgba(76, 175, 80, 0.08)'  // Hijau transparan untuk hover jika sudah dinilai
-            : 'rgba(33, 150, 243, 0.08)' // Biru transparan untuk hover jika belum dinilai
-        }
-                      }}
-                      size="small"
-                    >
-                      <AssessmentIcon fontSize="small" />
-                    </IconButton>
+                    intern.has_scores ? (
+                      <Tooltip title="Sudah dinilai">
+                        <span>  {/* Wrap dalam span agar tooltip tetap muncul tapi tidak bisa diklik */}
+                          <IconButton 
+                            sx={{ 
+                              color: 'success.main',
+                              '&:hover': {
+                                bgcolor: 'rgba(76, 175, 80, 0.08)'
+                              },
+                              cursor: 'default'  // Ubah cursor agar menunjukkan tidak bisa diklik
+                            }}
+                            size="small"
+                            disableRipple  // Hilangkan efek ripple saat hover
+                            disabled  // Nonaktifkan button
+                          >
+                            <AssessmentIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="Tambah penilaian">
+                        <IconButton 
+                          onClick={() => handleOpenScoreDialog(intern)}
+                          sx={{ 
+                            color: 'info.main',
+                            '&:hover': {
+                              bgcolor: 'rgba(33, 150, 243, 0.08)'
+                            }
+                          }}
+                          size="small"
+                        >
+                          <AssessmentIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )
+
                   )}
                 </td>
               </tr>

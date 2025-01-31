@@ -162,60 +162,52 @@ const angkaKeTeks = (angka) => {
         "", "Satu", "Dua", "Tiga", "Empat", "Lima",
         "Enam", "Tujuh", "Delapan", "Sembilan"
     ];
-   
+    
     const puluhan = Math.floor(angka);
     const desimal = Math.round((angka - puluhan) * 100);
-   
+    
     if (puluhan === 0) return "Nol";
-   
+    
     let hasil = "";
-   
+    let tempPuluhan = puluhan; // Store puluhan in temporary variable
+    
     // Handle thousands
-    if (puluhan >= 1000) {
-        const ribu = Math.floor(puluhan / 1000);
+    if (tempPuluhan >= 1000) {
+        const ribu = Math.floor(tempPuluhan / 1000);
         if (ribu === 1) hasil += "Seribu ";
         else hasil += angkaKeTeks(ribu) + " Ribu ";
-        angka = puluhan % 1000;
+        tempPuluhan = tempPuluhan % 1000;
     }
-   
+    
     // Handle hundreds
-    if (puluhan >= 100) {
-        const ratus = Math.floor((puluhan % 1000) / 100);
+    if (tempPuluhan >= 100) {
+        const ratus = Math.floor(tempPuluhan / 100);
         if (ratus === 1) hasil += "Seratus ";
         else if (ratus > 0) hasil += satuanTeks[ratus] + " Ratus ";
-        angka = puluhan % 100;
+        tempPuluhan = tempPuluhan % 100;
     }
-   
+    
     // Handle tens and ones
-    if (angka >= 20) {
-        const sepuluh = Math.floor(angka / 10);
+    if (tempPuluhan >= 20) {
+        const sepuluh = Math.floor(tempPuluhan / 10);
         hasil += satuanTeks[sepuluh] + " Puluh ";
-        angka = angka % 10;
-        if (angka > 0) hasil += satuanTeks[angka];
-    } else if (angka >= 10) {
-        if (angka === 10) hasil += "Sepuluh";
-        else if (angka === 11) hasil += "Sebelas";
-        else hasil += satuanTeks[angka - 10] + " Belas";
-    } else if (angka > 0) {
-        hasil += satuanTeks[angka];
+        tempPuluhan = tempPuluhan % 10;
+        if (tempPuluhan > 0) hasil += satuanTeks[tempPuluhan];
+    } else if (tempPuluhan >= 10) {
+        if (tempPuluhan === 10) hasil += "Sepuluh";
+        else if (tempPuluhan === 11) hasil += "Sebelas";
+        else hasil += satuanTeks[tempPuluhan - 10] + " Belas";
+    } else if (tempPuluhan > 0) {
+        hasil += satuanTeks[tempPuluhan];
     }
-   
+    
+    // Handle decimal numbers
     if (desimal > 0) {
-        hasil += ` Koma ${desimal}`;
+        hasil += " Koma " + angkaKeTeks(desimal);
     }
-   
+    
     return hasil.trim();
 };
-
-
-
-
-
-
-
-
-
-
 
 
 // Format tanggal ke dd/mm/yyyy

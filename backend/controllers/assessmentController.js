@@ -69,7 +69,7 @@ const assessmentController = {
                 nilai_disiplin,
                 nilai_tanggungjawab,
                 nilai_kerjasama,
-                nilai_inisiatif,
+                // nilai_inisiatif,
                 nilai_kejujuran,
                 nilai_kebersihan,
                 jumlah_hadir     
@@ -81,7 +81,7 @@ const assessmentController = {
                 !id_magang ||
                 [nilai_teamwork, nilai_komunikasi, nilai_pengambilan_keputusan, 
                 nilai_kualitas_kerja, nilai_teknologi, nilai_disiplin, 
-                nilai_tanggungjawab, nilai_kerjasama, nilai_inisiatif, 
+                nilai_tanggungjawab, nilai_kerjasama, 
                 nilai_kejujuran, nilai_kebersihan, jumlah_hadir]  // Tambahkan jumlah_hadir
                     .some((val) => val === undefined)
             ) {
@@ -151,7 +151,7 @@ const assessmentController = {
         nilai_disiplin,
         nilai_tanggungjawab,
         nilai_kerjasama,
-        nilai_inisiatif,
+       
         nilai_kejujuran,
         nilai_kebersihan,
         jumlah_hadir,        
@@ -170,7 +170,7 @@ const assessmentController = {
         nilai_disiplin || 0,
         nilai_tanggungjawab || 0,
         nilai_kerjasama || 0,
-        nilai_inisiatif || 0,
+        // nilai_inisiatif || 0,
         nilai_kejujuran || 0,
         nilai_kebersihan || 0,
         req.body.jumlah_hadir || 0,  // Tambahkan ini
@@ -261,7 +261,7 @@ const assessmentController = {
             `;
     
             if (bidang && bidang !== '') {
-                query += ` AND b.nama_bidang = ?`;
+                query += ` AND pm.id_bidang = ?`;  // Ubah dari b.nama_bidang menjadi pm.id_bidang
                 params.push(bidang);
             }
     
@@ -390,7 +390,7 @@ const assessmentController = {
                 nilai_disiplin,
                 nilai_tanggungjawab,
                 nilai_kerjasama,
-                nilai_inisiatif,
+                // nilai_inisiatif,
                 nilai_kejujuran,
                 nilai_kebersihan,
                 jumlah_hadir
@@ -409,7 +409,6 @@ const assessmentController = {
                     nilai_disiplin = ?,
                     nilai_tanggungjawab = ?,
                     nilai_kerjasama = ?,
-                    nilai_inisiatif = ?,
                     nilai_kejujuran = ?,
                     nilai_kebersihan = ?,
                     jumlah_hadir = ?
@@ -426,7 +425,7 @@ const assessmentController = {
                 nilai_disiplin,
                 nilai_tanggungjawab,
                 nilai_kerjasama,
-                nilai_inisiatif,
+                // nilai_inisiatif,
                 nilai_kejujuran,
                 nilai_kebersihan,
                 jumlah_hadir,

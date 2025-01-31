@@ -43,6 +43,7 @@ import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
 
+
 const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
   <TextField
     {...field}
@@ -51,6 +52,7 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
     helperText={touched[field.name] && errors[field.name]}
   />
 );
+
 
 const RekapNilai = () => {
   // State declarations
@@ -86,7 +88,7 @@ const RekapNilai = () => {
     nilai_disiplin: '',
     nilai_tanggungjawab: '',
     nilai_kerjasama: '',
-    nilai_inisiatif: '',
+    // nilai_inisiatif: '',
     nilai_kejujuran: '',
     nilai_kebersihan: '',
     jumlah_hadir: ''
@@ -105,6 +107,7 @@ const RekapNilai = () => {
       endDate: null
     }
   });
+
 
 
   const adjustDateForTimezone = (date) => {
@@ -222,6 +225,9 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 };
 
 
+  
+
+
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
@@ -229,7 +235,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
- 
       if (response.data.status === 'success') {
         setDetailDialog(prev => ({
           ...prev,
@@ -249,7 +254,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       }));
     }
   };
-
 
 
   const showSnackbar = (message, severity = 'success') => {
@@ -281,25 +285,49 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 
 
   const fetchData = async () => {
-    try {
-      const response = await axios.get('/api/intern/rekap-nilai', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        params: {
-          page: pagination.page + 1,
-          limit: pagination.limit,
-          bidang: filters.bidang,
-          search: filters.search
-        }
-      });
-      setData(response.data.data);
-      setPagination(prev => ({
-        ...prev,
-        total: response.data.pagination.total
-      }));
-    } catch (error) {
-      showSnackbar('Error mengambil data', 'error');
-    }
-  };
+  try {
+    // Log state saat ini
+    console.log('Current filters:', filters);
+    console.log('Current pagination:', pagination);
+
+    const response = await axios.get('/api/intern/rekap-nilai', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      params: {
+        page: pagination.page + 1,
+        limit: pagination.limit,
+        bidang: filters.bidang,
+        search: filters.search
+      }
+    });
+
+    // Log request dan response
+    console.log('Request config:', {
+      url: '/api/intern/rekap-nilai',
+      params: {
+        page: pagination.page + 1,
+        limit: pagination.limit,
+        bidang: filters.bidang,
+        search: filters.search
+      }
+    });
+    console.log('Raw response:', response);
+    console.log('Response data structure:', {
+      status: response.data.status,
+      dataLength: response.data.data?.length,
+      pagination: response.data.pagination
+    });
+
+    setData(response.data.data);
+    setPagination(prev => ({
+      ...prev,
+      total: response.data.pagination.total
+    }));
+  } catch (error) {
+    console.error('Error fetching data:', error.response || error);
+    showSnackbar('Error mengambil data', 'error');
+  }
+};
+
 
 
 
@@ -321,10 +349,17 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 
   // Handlers
   const handleFilter = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    console.log(`Handling filter change: ${key} = ${value}`); // Debug log
+    
+    setFilters(prev => {
+      const newFilters = {
+        ...prev,
+        [key]: value
+      };
+      console.log('New filters state:', newFilters); // Debug log
+      return newFilters;
+    });
+    
     setPagination(prev => ({
       ...prev,
       page: 0
@@ -398,12 +433,13 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       nilai_disiplin: score.nilai_disiplin || '',
       nilai_tanggungjawab: score.nilai_tanggungjawab || '',
       nilai_kerjasama: score.nilai_kerjasama || '',
-      nilai_inisiatif: score.nilai_inisiatif || '',
+      // nilai_inisiatif: score.nilai_inisiatif || '',
       nilai_kejujuran: score.nilai_kejujuran || '',
       nilai_kebersihan: score.nilai_kebersihan || '',
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
+
 
 
 
@@ -422,7 +458,7 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
         nilai_disiplin: Number(scoreForm.nilai_disiplin),
         nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
         nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
+        // nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)  // Pastikan ini terkirim
@@ -612,22 +648,49 @@ const ExportDialog = () => (
     </DialogActions>
   </Dialog>
 );
+
+
+   const style = document.createElement('style');
+   style.textContent = `
+     @keyframes gradient {
+       0% {
+         background-position: 0% 50%;
+       }
+       50% {
+         background-position: 100% 50%;
+       }
+       100% {
+         background-position: 0% 50%;
+       }
+     }
    
-  return (
-      <Box sx={{ width: '100%', minWidth: 0 }}>
-        {/* Header */}
-        <Box sx={{
-          width: '100%',
-          background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-          borderRadius: '12px',
-          mb: 4,
-          p: 3,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+     .animated-bg {
+       background: linear-gradient(45deg, #BCFB69, #26BBAC, #BCFB69);
+       background-size: 200% 200%;
+       animation: gradient 10s ease infinite;
+     }
+   `;
+   document.head.appendChild(style);
+   
+     // Main render
+     return (
+       <Box sx={{ width: '100%', minWidth: 0 }}>
+         {/* Header */}
+         <Box sx={{
+         width: '100%',
+         borderRadius: '12px',
+         mb: 4,
+         p: 3,
+         display: 'flex',
+         justifyContent: 'space-between',
+         alignItems: 'center',
+         overflow: 'hidden'
+       }}
+       className="animated-bg"
+      >
+
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-          Rekap Nilai Anak Magang
+            Rekap Nilai
         </Typography>
         <Button
           variant="contained"
@@ -642,8 +705,6 @@ const ExportDialog = () => (
           Export Excel
         </Button>
       </Box>
-
-
 
 
       {/* Filter Section */}
@@ -714,25 +775,27 @@ const ExportDialog = () => (
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
         {data.map((score) => {
-          const totalNilai = (
-            Number(score.nilai_teamwork || 0) +
-            Number(score.nilai_komunikasi || 0) +
-            Number(score.nilai_pengambilan_keputusan || 0) +
-            Number(score.nilai_kualitas_kerja || 0) +
-            Number(score.nilai_teknologi || 0) +
-            Number(score.nilai_disiplin || 0) +
-            Number(score.nilai_tanggungjawab || 0) +
-            Number(score.nilai_kerjasama || 0) +
-            Number(score.nilai_inisiatif || 0) +
-            Number(score.nilai_kejujuran || 0) +
-            Number(score.nilai_kebersihan || 0)
-          );
-       
-          const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+  const totalNilai = (
+    Number(score.nilai_teamwork || 0) +
+    Number(score.nilai_komunikasi || 0) +
+    Number(score.nilai_pengambilan_keputusan || 0) +
+    Number(score.nilai_kualitas_kerja || 0) +
+    Number(score.nilai_teknologi || 0) +
+    Number(score.nilai_disiplin || 0) +
+    Number(score.nilai_tanggungjawab || 0) +
+    Number(score.nilai_kerjasama || 0) +
+    // Hapus nilai_inisiatif
+    Number(score.nilai_kejujuran || 0) +
+    Number(score.nilai_kebersihan || 0)
+  );
+ 
+  const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+  // Hapus perhitungan attendanceScore
+  const average = totalNilai / 10;
  
           // Hitung persentase kehadiran
           const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
-          const average = ((totalNilai / 11) + attendanceScore) / 2;
+          // const average = ((totalNilai / 11) + attendanceScore) / 2;
             return (
               <tr key={score.id_penilaian} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -987,7 +1050,6 @@ const ExportDialog = () => (
 </Button>
   </DialogActions>
 </Dialog>
-
 
   <Dialog
     open={editDataDialog.open}
@@ -1676,8 +1738,4 @@ const ExportDialog = () => (
 
 
 
-
 export default RekapNilai;
-
-
-

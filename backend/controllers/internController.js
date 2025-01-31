@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 
+
 // Fungsi helper untuk menentukan status berdasarkan tanggal
 const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     const current = new Date();
@@ -10,6 +11,7 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     const keluar = new Date(tanggal_keluar);
     const sevenDaysBefore = new Date(keluar);
     sevenDaysBefore.setDate(keluar.getDate() - 7);
+
 
     if (current < masuk) {
         return 'not_yet';
@@ -22,6 +24,7 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     }
 };
 
+
 const createInternNotification = async (conn, {userId, internName, action = 'menambah'}) => {
     try {
         // 1. Ambil data user yang melakukan aksi
@@ -30,10 +33,10 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
             [userId]
         );
         const username = userData[0]?.username || 'Unknown User';
-        
+       
         // 2. Ambil semua user yang terdaftar
         const [allUsers] = await conn.execute('SELECT id_users FROM users');
-        
+       
         // 3. Siapkan query untuk insert
         const query = `
             INSERT INTO notifikasi (
@@ -45,7 +48,7 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
                 created_at
             ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
-        
+       
         // 4. Insert notifikasi untuk setiap user
         for (const user of allUsers) {
             const values = [
@@ -55,10 +58,10 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
                 `${username} telah ${action} data peserta magang: ${internName}`,
                 0
             ];
-            
+           
             await conn.execute(query, values);
         }
-        
+       
     } catch (error) {
         console.error('Error creating notification:', error);
         throw error;
@@ -67,7 +70,7 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
 // Fungsi untuk mengupdate status peserta magang
 const updateInternStatuses = async (conn) => {
     const query = `
-        UPDATE peserta_magang 
+        UPDATE peserta_magang
         SET status = CASE
             WHEN status = 'missing' THEN 'missing'
             WHEN CURRENT_DATE < tanggal_masuk THEN 'not_yet'
@@ -80,19 +83,21 @@ const updateInternStatuses = async (conn) => {
     await conn.execute(query);
 };
 
+
 const internController = {
+
 
     // Tambahkan di internController.js
 setMissingStatus: async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
-        
+       
         const { id } = req.params;
-        
+       
         // Update status menjadi missing
         const [updateResult] = await conn.execute(
-            `UPDATE peserta_magang 
+            `UPDATE peserta_magang
              SET status = 'missing',
                  updated_by = ?,
                  updated_at = CURRENT_TIMESTAMP
@@ -100,9 +105,11 @@ setMissingStatus: async (req, res) => {
             [req.user.userId, id]
         );
 
+
         if (updateResult.affectedRows === 0) {
             throw new Error('Gagal mengupdate status peserta magang');
         }
+
 
         // Buat notifikasi
         await createInternNotification(conn, {
@@ -111,12 +118,14 @@ setMissingStatus: async (req, res) => {
             action: 'menandai sebagai missing'
         });
 
+
         await conn.commit();
-        
+       
         res.json({
             status: 'success',
             message: 'Status peserta magang berhasil diubah menjadi missing'
         });
+
 
     } catch (error) {
         await conn.rollback();
@@ -130,12 +139,13 @@ setMissingStatus: async (req, res) => {
     }
 },
 
+
     getDetailedStats: async (req, res) => {
         const conn = await pool.getConnection();
         try {
             // Update status terlebih dahulu
             await updateInternStatuses(conn);
-    
+   
             // 1. Dapatkan statistik dasar - Perbaikan untuk menghitung aktif + almost
             const [basicStats] = await conn.execute(`
                 SELECT
@@ -146,7 +156,7 @@ setMissingStatus: async (req, res) => {
                     COUNT(*) as total_count
                 FROM peserta_magang
             `);
-    
+   
             // 2. Dapatkan statistik berdasarkan jenis peserta untuk yang aktif + almost
             const [educationStats] = await conn.execute(`
                 SELECT
@@ -156,7 +166,7 @@ setMissingStatus: async (req, res) => {
                 WHERE status IN ('aktif', 'almost')
                 GROUP BY jenis_peserta
             `);
-    
+   
             // 3. Dapatkan statistik berdasarkan bidang untuk yang aktif + almost
             const [departmentStats] = await conn.execute(`
                 SELECT
@@ -167,10 +177,10 @@ setMissingStatus: async (req, res) => {
                 WHERE p.status IN ('aktif', 'almost')
                 GROUP BY b.id_bidang, b.nama_bidang
             `);
-    
+   
             // 4. Dapatkan data peserta yang akan selesai dalam 7 hari (status almost)
             const [completingSoon] = await conn.execute(`
-                SELECT 
+                SELECT
                     p.nama,
                     p.nama_institusi,
                     b.nama_bidang,
@@ -181,7 +191,7 @@ setMissingStatus: async (req, res) => {
                 WHERE p.status = 'almost'
                 ORDER BY p.tanggal_keluar ASC
             `);
-    
+   
             // Format response
             const response = {
                 activeInterns: {
@@ -202,12 +212,12 @@ setMissingStatus: async (req, res) => {
                     interns: completingSoon
                 }
             };
-    
+   
             res.json(response);
-    
+   
         } catch (error) {
             console.error('Error getting detailed stats:', error);
-            res.status(500).json({ 
+            res.status(500).json({
                 status: 'error',
                 message: 'Terjadi kesalahan server saat mengambil statistik detail'
             });
@@ -227,9 +237,10 @@ getAll: async (req, res) => {
             excludeStatus
         } = req.query;
 
+
         const offset = (page - 1) * limit;
         let query = `
-            SELECT 
+            SELECT
                 p.id_magang,
                 p.nama,
                 p.jenis_peserta,
@@ -243,15 +254,15 @@ getAll: async (req, res) => {
                 p.nama_pembimbing,
                 p.telp_pembimbing,
                 b.nama_bidang,
-                CASE 
+                CASE
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
                     ELSE s.nisn
                 END as nomor_induk,
-                CASE 
+                CASE
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
                     ELSE s.kelas
                 END as detail_pendidikan,
-                CASE 
+                CASE
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
                     ELSE s.jurusan
                 END as jurusan
@@ -262,7 +273,9 @@ getAll: async (req, res) => {
             WHERE 1=1
         `;
 
+
         const params = [];
+
 
         // Handle excludeStatus (untuk menyembunyikan status missing dan selesai)
         if (excludeStatus) {
@@ -271,11 +284,13 @@ getAll: async (req, res) => {
             params.push(...statusesToExclude);
         }
 
+
         // Handle filter status
         if (status) {
             query += ` AND p.status = ?`;
             params.push(status);
         }
+
 
         // Handle filter bidang
         if (bidang) {
@@ -283,27 +298,32 @@ getAll: async (req, res) => {
             params.push(bidang);
         }
 
+
         // Handle search
         if (search) {
-            query += ` AND (p.nama LIKE ? OR p.email LIKE ? OR 
-                CASE 
+            query += ` AND (p.nama LIKE ? OR p.email LIKE ? OR
+                CASE
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
                     ELSE s.nisn
                 END LIKE ?)`;
             params.push(`%${search}%`, `%${search}%`, `%${search}%`);
         }
 
+
         // Get total count first
         const countQuery = `SELECT COUNT(*) as total FROM (${query}) as count_query`;
         const [countResult] = await pool.execute(countQuery, params);
         const total = countResult[0].total;
 
+
         // Add order and pagination to main query
         query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
         params.push(Number(limit), Number(offset));
 
+
         // Execute main query
         const [rows] = await pool.execute(query, params);
+
 
         // Send response
         res.json({
@@ -317,29 +337,31 @@ getAll: async (req, res) => {
             }
         });
 
+
     } catch (error) {
         console.error('Error getting interns:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             status: 'error',
-            message: 'Terjadi kesalahan server' 
+            message: 'Terjadi kesalahan server'
         });
     }
 },
+
 
     checkAvailability: async (req, res) => {
         try {
             res.setHeader('Content-Type', 'application/json');
             const inputDate = req.query.date;
             if (!inputDate) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     success: false,
-                    message: 'Parameter tanggal diperlukan' 
+                    message: 'Parameter tanggal diperlukan'
                 });
             }
-    
+   
             const formattedDate = inputDate;
             const SLOT_LIMIT = 50;
-    
+   
             // Query untuk peserta yang benar-benar aktif (tidak termasuk yang almost)
             const [activeInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
@@ -347,7 +369,7 @@ getAll: async (req, res) => {
                 WHERE status = 'aktif'
                 AND ? BETWEEN tanggal_masuk AND tanggal_keluar
             `, [formattedDate]);
-    
+   
             // Query untuk peserta yang akan datang
             const [upcomingInterns] = await pool.execute(`
                 SELECT COUNT(*) as count
@@ -355,10 +377,10 @@ getAll: async (req, res) => {
                 WHERE status = 'not_yet'
                 AND tanggal_masuk <= ?
             `, [formattedDate]);
-    
+   
             // Query untuk peserta yang akan selesai dalam 7 hari
             const [leavingInterns] = await pool.execute(`
-                SELECT 
+                SELECT
                     p.id_magang,
                     p.nama,
                     DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
@@ -369,18 +391,18 @@ getAll: async (req, res) => {
                 AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
                 ORDER BY p.tanggal_keluar ASC
             `, [formattedDate, formattedDate]);
-    
+   
             // Hitung total yang aktif (tidak termasuk yang almost)
             const totalOccupied = parseInt(activeInterns[0].count) + parseInt(upcomingInterns[0].count);
             const availableSlots = SLOT_LIMIT - totalOccupied;
-    
+   
             // Tambahkan slot yang akan tersedia dari peserta yang hampir selesai
             const soonAvailableSlots = leavingInterns.length;
             const totalAvailableSlots = availableSlots - soonAvailableSlots;
-    
+   
             // Tentukan apakah ada slot tersedia
             const isAvailable = totalAvailableSlots > 0;
-    
+   
             // Siapkan pesan yang lebih informatif
             let message = '';
             if (isAvailable) {
@@ -396,7 +418,7 @@ getAll: async (req, res) => {
             } else {
                 message = 'Saat ini semua slot telah terisi dan tidak ada peserta yang akan selesai dalam waktu dekat';
             }
-    
+   
             // Kirim response
             return res.status(200).json({
                 success: true,
@@ -410,17 +432,17 @@ getAll: async (req, res) => {
                 message,
                 date: formattedDate
             });
-    
+   
         } catch (error) {
             console.error('Error pada pengecekan ketersediaan:', error);
-            return res.status(500).json({ 
+            return res.status(500).json({
                 success: false,
                 message: 'Terjadi kesalahan saat mengecek ketersediaan',
                 error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
             });
         }
     },
-    
+   
     // Fungsi untuk validasi format tanggal
     isValidDate : (dateString) => {
         const date = new Date(dateString);
@@ -484,6 +506,7 @@ getAll: async (req, res) => {
             }
         } else if (jenis_peserta === 'siswa') {
             if (!detail_peserta.nisn || !detail_peserta.jurusan) {
+
                 return res.status(400).json({
                     status: 'error',
                     message: 'NISN dan jurusan wajib diisi untuk siswa'
@@ -576,17 +599,18 @@ getAll: async (req, res) => {
         if (conn) conn.release();
     }
 },
+  
     getDetail : async (req, res) => {
         try {
             const { id } = req.params;
-    
+   
             const [rows] = await pool.execute(`
-                SELECT 
+                SELECT
                     p.*,
                     b.nama_bidang,
                     p.nama_pembimbing,    /* menggunakan comment style SQL yang benar */
                     p.telp_pembimbing,    /* menggunakan comment style SQL yang benar */
-                    CASE 
+                    CASE
                         WHEN p.jenis_peserta = 'mahasiswa' THEN (
                             SELECT JSON_OBJECT(
                                 'nim', m.nim,
@@ -609,23 +633,23 @@ getAll: async (req, res) => {
                 LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
                 WHERE p.id_magang = ?
             `, [id]);
-                
+               
             if (rows.length === 0) {
                 return res.status(404).json({
                     status: 'error',
                     message: 'Data peserta magang tidak ditemukan'
                 });
             }
-    
+   
             if (rows[0].detail_peserta) {
                 rows[0].detail_peserta = JSON.parse(rows[0].detail_peserta);
             }
-    
+   
             res.json({
                 status: 'success',
                 data: rows[0]
             });
-    
+   
         } catch (error) {
             console.error('Error getting intern detail:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
@@ -637,7 +661,7 @@ getAll: async (req, res) => {
             await conn.beginTransaction();
             await updateInternStatuses(conn);
             await conn.commit();
-            
+           
             res.json({
                 status: 'success',
                 message: 'Status peserta magang berhasil diperbarui'
@@ -654,7 +678,7 @@ getAll: async (req, res) => {
         let conn = null;
         try {
             conn = await pool.getConnection();
-            
+           
             // Validasi user authentication
             if (!req.user || !req.user.userId) {
                 return res.status(401).json({
@@ -662,11 +686,11 @@ getAll: async (req, res) => {
                     message: 'Unauthorized: User authentication required'
                 });
             }
-    
+   
             console.log('Request Body:', req.body);
-    
+   
             await conn.beginTransaction();
-            
+           
             const { id } = req.params;
             const updated_by = req.user.userId;
             const {
@@ -684,41 +708,44 @@ getAll: async (req, res) => {
                 nama_pembimbing,
                 telp_pembimbing
             } = req.body;
-    
+
             // 1. Validasi data yang diperlukan
             if (!id || !nama || !nama_institusi || !bidang_id || !tanggal_masuk || !tanggal_keluar) {
                 throw new Error('Data wajib tidak lengkap');
             }
-    
+
             // 2. Cek apakah peserta magang ada
             const [existingIntern] = await conn.execute(
-                `SELECT pm.*, 
+                `SELECT pm.*,
                         dm.nim, dm.fakultas, dm.jurusan as mhs_jurusan, dm.semester,
-                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas 
-                 FROM peserta_magang pm 
-                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang 
-                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang 
+
+                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas
+                 FROM peserta_magang pm
+                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang
+                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang
+
                  WHERE pm.id_magang = ?`,
                 [id]
             );
-    
+   
             if (existingIntern.length === 0) {
                 throw new Error('Data peserta magang tidak ditemukan');
             }
-    
+
             // 3. Validasi bidang
             const [bidangExists] = await conn.execute(
                 'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
                 [bidang_id]
             );
-    
+
             if (bidangExists.length === 0) {
                 throw new Error('Bidang yang dipilih tidak valid');
             }
             const newStatus = determineStatus(tanggal_masuk, tanggal_keluar);
             // 4. Update tabel peserta_magang
             const updateQuery = `
-                UPDATE peserta_magang 
+                UPDATE peserta_magang
+
                 SET nama = ?,
                     jenis_peserta = ?,
                     nama_institusi = ?,
@@ -735,7 +762,7 @@ getAll: async (req, res) => {
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id_magang = ?
             `;
-    
+
             const updateValues = [
                 nama,
                 jenis_peserta || existingIntern[0].jenis_peserta,
@@ -788,43 +815,44 @@ getAll: async (req, res) => {
                     VALUES (UUID(), ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 `, [id, nisn, jurusan, kelas]);
             }
-    
+
             // 6. Buat notifikasi
             await createInternNotification(conn, {
                 userId: req.user.userId,
                 internName: nama,
                 action: 'mengupdate'
             });
-    
+
+   
             // 7. Commit transaksi
             await conn.commit();
-    
+
             // 8. Ambil data terbaru
             const [updatedData] = await conn.execute(
-                `SELECT pm.*, 
+                `SELECT pm.*,
                         dm.nim, dm.fakultas, dm.jurusan as mhs_jurusan, dm.semester,
-                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas 
-                 FROM peserta_magang pm 
-                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang 
-                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang 
+                        ds.nisn, ds.jurusan as siswa_jurusan, ds.kelas
+                 FROM peserta_magang pm
+                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang
+                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang
                  WHERE pm.id_magang = ?`,
                 [id]
             );
-    
+
             // 9. Kirim response
             res.json({
                 status: 'success',
                 message: 'Data peserta magang berhasil diperbarui',
                 data: updatedData[0]
             });
-    
+   
         } catch (error) {
             console.error('Error updating intern:', error);
-            
+           
             if (conn) {
                 await conn.rollback();
             }
-    
+
             // Handle specific errors
             if (error.message.includes('wajib')) {
                 res.status(400).json({
@@ -853,15 +881,15 @@ getAll: async (req, res) => {
             const conn = await pool.getConnection();
             try {
                 await conn.beginTransaction();
-                
+               
                 const { id } = req.params;
-                
+               
                 // Cek apakah data magang ada
                 const [existingIntern] = await conn.execute(
                     'SELECT jenis_peserta FROM peserta_magang WHERE id_magang = ?',
                     [id]
                 );
-        
+       
                 if (existingIntern.length === 0) {
                     await conn.rollback();
                     return res.status(404).json({
@@ -869,7 +897,7 @@ getAll: async (req, res) => {
                         message: 'Data peserta magang tidak ditemukan'
                     });
                 }
-        
+       
                 // Hapus data terkait berdasarkan jenis_peserta
                 if (existingIntern[0].jenis_peserta === 'mahasiswa') {
                     await conn.execute(
@@ -882,23 +910,23 @@ getAll: async (req, res) => {
                         [id]
                     );
                 }
-        
+       
                 // Hapus data utama dari tabel peserta_magang
                 const [deleteResult] = await conn.execute(
                     'DELETE FROM peserta_magang WHERE id_magang = ?',
                     [id]
                 );
-        
+       
                 if (deleteResult.affectedRows === 0) {
                     throw new Error('Gagal menghapus data peserta magang');
                 }
-        
+       
                 await conn.commit();
                 res.json({
                     status: 'success',
                     message: 'Data peserta magang berhasil dihapus'
                 });
-        
+       
             } catch (error) {
                 await conn.rollback();
                 console.error('Error deleting intern:', error);
@@ -916,34 +944,34 @@ getAll: async (req, res) => {
     //     try {
     //         // Update statuses first to ensure we have current data
     //         await updateInternStatuses(conn);
-    
-    //         // Get active interns count 
+   
+    //         // Get active interns count
     //         const [activeCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count 
-    //             FROM peserta_magang 
+    //             SELECT COUNT(*) as count
+    //             FROM peserta_magang
     //             WHERE status = 'aktif'
     //         `);
-    
+   
     //         // Get completed interns count
     //         const [completedCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count 
-    //             FROM peserta_magang 
+    //             SELECT COUNT(*) as count
+    //             FROM peserta_magang
     //             WHERE status = 'selesai'
     //         `);
-    
+   
     //         // Get interns completing soon (status = 'almost')
     //         const [completingSoon] = await conn.execute(`
-    //             SELECT COUNT(*) as count 
-    //             FROM peserta_magang 
+    //             SELECT COUNT(*) as count
+    //             FROM peserta_magang
     //             WHERE status = 'almost'
     //         `);
-    
+   
     //         // Get total interns count
     //         const [totalCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count 
+    //             SELECT COUNT(*) as count
     //             FROM peserta_magang
     //         `);
-    
+   
     //         // Prepare response object
     //         const response = {
     //             activeInterns: activeCount[0].count,
@@ -951,12 +979,12 @@ getAll: async (req, res) => {
     //             totalInterns: totalCount[0].count,
     //             completingSoon: completingSoon[0].count
     //         };
-    
+   
     //         res.json(response);
-    
+   
     //     } catch (error) {
     //         console.error('Error getting stats:', error);
-    //         res.status(500).json({ 
+    //         res.status(500).json({
     //             status: 'error',
     //             message: 'Terjadi kesalahan server saat mengambil statistik'
     //         });
@@ -965,7 +993,9 @@ getAll: async (req, res) => {
     //     }
     // },
 
-    
+
+   
+
 
      // Modify getCompletingSoon to use 'almost' status
      getCompletingSoon: async (req, res) => {
@@ -973,10 +1003,10 @@ getAll: async (req, res) => {
         try {
             // Update statuses first
             await updateInternStatuses(conn);
-    
+   
             // Modifikasi query untuk mencakup data yang akan selesai dalam 7 hari
             const [interns] = await conn.execute(`
-                SELECT 
+                SELECT
                     p.*,
                     b.nama_bidang
                 FROM peserta_magang p
@@ -984,11 +1014,11 @@ getAll: async (req, res) => {
                 WHERE p.tanggal_keluar BETWEEN CURRENT_DATE AND DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
                 ORDER BY p.tanggal_keluar ASC
             `);
-    
+   
             if (interns.length === 0) {
                 return res.json([]); // Kembalikan array kosong alih-alih error
             }
-    
+   
             res.json(interns);
         } catch (error) {
             console.error('Error getting completing soon interns:', error);
@@ -997,6 +1027,7 @@ getAll: async (req, res) => {
             conn.release();
         }
     },
+
 
     getHistory: async (req, res) => {
         try {
@@ -1010,10 +1041,10 @@ getAll: async (req, res) => {
     
             const offset = (page - 1) * limit;
             const statusArray = status.split(','); 
-
+    
             const statusPlaceholders = statusArray.map(() => '?').join(',');
-
-            // Base query for data retrieval
+    
+            // Modified query to include has_scores field
             let query = `
                 SELECT 
                     pm.id_magang, 
@@ -1022,7 +1053,11 @@ getAll: async (req, res) => {
                     b.nama_bidang, 
                     pm.status, 
                     pm.tanggal_masuk, 
-                    pm.tanggal_keluar
+                    pm.tanggal_keluar,
+                    EXISTS (
+                        SELECT 1 FROM penilaian p 
+                        WHERE p.id_magang = pm.id_magang
+                    ) as has_scores
                 FROM peserta_magang pm
                 LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
                 WHERE pm.status IN (${statusPlaceholders})
@@ -1046,7 +1081,7 @@ getAll: async (req, res) => {
                 params.push(bidang);
                 countParams.push(bidang);
             }
-    
+
             // Add search filter
             if (search) {
                 query += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;
@@ -1054,14 +1089,14 @@ getAll: async (req, res) => {
                 params.push(`%${search}%`, `%${search}%`);
                 countParams.push(`%${search}%`, `%${search}%`);
             }
-    
+            
             // Add sorting and pagination
             query += ` ORDER BY pm.tanggal_keluar DESC LIMIT ? OFFSET ?`;
             params.push(parseInt(limit), parseInt(offset));
     
             console.log('Query:', query); // Debug log
             console.log('Params:', params);
-
+    
             // Execute the main query
             const [rows] = await pool.execute(query, params);
     
@@ -1090,8 +1125,6 @@ getAll: async (req, res) => {
             });
         }
     },
-    
-        
 };
 
 module.exports = internController;

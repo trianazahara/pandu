@@ -703,7 +703,7 @@ const removeTemplate = async (id) => {
 
 {/* Add Dialog component just before the last closing div of the Template Section */}
 <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-    <DialogContent className="max-w-6xl w-full">
+    <DialogContent className="max-w-4xl " style={{ maxWidth: '950px' }}>
         <DialogHeader>
             <DialogTitle>{previewTitle}</DialogTitle>
         </DialogHeader>

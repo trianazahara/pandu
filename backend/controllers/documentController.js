@@ -1,3 +1,5 @@
+// documentController 
+
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const fs = require('fs').promises;
@@ -21,6 +23,9 @@ const calculateAverageScore = (nilaiData) => {
     const values = nilaiFields.map(field => parseFloat(nilaiData[field] || 0));
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
 };
+
+
+
 
 //Tr
 // const calculateTotalScore = (nilaiData) => {
@@ -134,8 +139,6 @@ const calculateTotalScore = (nilaiData) => {
 };
 
 
-
-
 // Fungsi untuk menentukan akreditasi berdasarkan rata-rata
 // const getAkreditasi = (rataRata) => {
 //     const nilai = parseFloat(rataRata);
@@ -145,6 +148,10 @@ const calculateTotalScore = (nilaiData) => {
 //     if (nilai > 60) return "Sedang";
 //     return "Kurang";
 // };
+
+
+
+
 
 
 
@@ -205,6 +212,12 @@ const angkaKeTeks = (angka) => {
 
 
 
+
+
+
+
+
+
 // Format tanggal ke dd/mm/yyyy
 const formatTanggal = (tanggal) => {
     const date = new Date(tanggal);
@@ -214,6 +227,10 @@ const formatTanggal = (tanggal) => {
         year: 'numeric'
     }).replace(/\./g, '/');
 };
+
+
+
+
 
 
 
@@ -228,12 +245,16 @@ const documentController = {
             );
 
 
+
+
             if (!req.file) {
                 return res.status(400).json({
                     success: false,
                     message: 'File template tidak ditemukan'
                 });
             }
+
+
 
 
            
@@ -248,6 +269,8 @@ const documentController = {
             await fs.rename(req.file.path, filePath);
 
 
+
+
             const templateData = {
                 id_dokumen: Date.now().toString(),
                 id_users: req.user?.id || null,
@@ -256,6 +279,10 @@ const documentController = {
                 created_by: req.user?.id || null,
                 created_at: new Date()
             };
+
+
+
+
 
 
 
@@ -278,6 +305,10 @@ const documentController = {
 
 
 
+
+
+
+
             res.json({
                 success: true,
                 message: 'Template berhasil diupload',
@@ -285,6 +316,10 @@ const documentController = {
                     template_id: templateData.id_dokumen
                 }
             });
+
+
+
+
 
 
 
@@ -302,6 +337,10 @@ const documentController = {
 
 
 
+
+
+
+
     async getTemplates(req, res) {
         try {
             const [templates] = await pool.execute(
@@ -311,10 +350,18 @@ const documentController = {
 
 
 
+
+
+
+
             res.json({
                 success: true,
                 data: templates
             });
+
+
+
+
 
 
 
@@ -363,6 +410,39 @@ const documentController = {
         }
     },
 
+    async previewDocument(req, res) {
+        try {
+            const id = req.params.id;
+            const [templates] = await pool.execute(
+                'SELECT * FROM dokumen_template WHERE id_dokumen = ? AND active = 1',
+                [id]
+            );
+   
+            if (templates.length === 0) {
+                return res.status(404).json({ success: false, message: 'Template tidak ditemukan' });
+            }
+   
+            const filePath = templates[0].file_path;
+            if (!fsSync.existsSync(filePath)) {
+                return res.status(404).json({ success: false, message: 'File tidak ditemukan' });
+            }
+   
+            // Convert DOCX to PDF
+            const inputBuffer = await fs.readFile(filePath);
+            const outputBuffer = await convertAsync(inputBuffer, '.pdf', undefined);
+           
+            res.setHeader('Content-Type', 'application/pdf');
+            res.send(outputBuffer);
+   
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Gagal memuat preview dokumen',
+                error: error.message
+            });
+        }
+    },
 
 
     async deleteTemplate(req, res) {
@@ -377,10 +457,18 @@ const documentController = {
 
 
 
+
+
+
+
             res.json({
                 success: true,
                 message: 'Template berhasil dihapus'
             });
+
+
+
+
 
 
 
@@ -518,6 +606,8 @@ const documentController = {
    
 
 
+
+
             // Simpan file
             await fs.writeFile(docxPath, buffer);
            
@@ -548,6 +638,8 @@ const documentController = {
     },
 
 
+
+
     // Endpoint untuk download sertifikat
     async downloadSertifikat(req, res) {
         try {
@@ -558,9 +650,6 @@ const documentController = {
                 [id_magang]
             );
 
-
-
-
             if (!peserta[0]?.sertifikat_path) {
                 return res.status(404).json({
                     success: false,
@@ -568,14 +657,8 @@ const documentController = {
                 });
             }
 
-
-
-
             const filePath = path.join(__dirname, '..', 'public', peserta[0].sertifikat_path.replace(/^\//, ''));
             res.download(filePath);
-
-
-
 
         } catch (error) {
             console.error('Error downloading certificate:', error);
@@ -600,8 +683,6 @@ const documentController = {
             });
 
 
-
-
         } catch (error) {
             console.error('Error generating receipt:', error);
             res.status(500).json({
@@ -613,7 +694,6 @@ const documentController = {
     }
 };
 
-
 // Helper function untuk extract text dari PDF
 async function extractTextFromPDF(pdfPath) {
     // Menggunakan pdf-parse package
@@ -622,8 +702,6 @@ async function extractTextFromPDF(pdfPath) {
     const data = await pdf(dataBuffer);
     return data.text;
 }
-
-
 
 module.exports = documentController;
 

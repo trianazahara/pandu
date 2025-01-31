@@ -315,6 +315,20 @@ const RiwayatData = () => {
         setOpenDialog(false);
         fetchData();
       }
+
+      if (response.status === 201) {
+        showSnackbar('Nilai berhasil disimpan');
+        setOpenDialog(false);
+        
+        // Update data local untuk mengubah status penilaian
+        setData(prevData => 
+          prevData.map(item => 
+            item.id_magang === selectedIntern.id_magang 
+              ? { ...item, has_score: true }
+              : item
+          )
+        );
+      }
     } catch (error) {
       console.error('Submit error:', error);
       showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
@@ -443,10 +457,12 @@ const RiwayatData = () => {
                     <IconButton 
                       onClick={() => handleOpenScoreDialog(intern)}
                       sx={{ 
-                        color: 'info.main',
-                        '&:hover': {
-                          bgcolor: 'rgba(33, 150, 243, 0.08)'
-                        }
+                        color: intern.has_score ? 'success.main' : 'info.main',
+        '&:hover': {
+          bgcolor: intern.has_score 
+            ? 'rgba(76, 175, 80, 0.08)'  // Hijau transparan untuk hover jika sudah dinilai
+            : 'rgba(33, 150, 243, 0.08)' // Biru transparan untuk hover jika belum dinilai
+        }
                       }}
                       size="small"
                     >

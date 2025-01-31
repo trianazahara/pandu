@@ -83,28 +83,6 @@ const Header = () => {
     }
   };
 
-  // const markAsRead = async (id) => {
-  //   try {
-  //     const response = await fetch(`/api/notifications/${id}/read`, {
-  //       method: 'PUT',
-  //       headers: {
-  //         Authorization: `Bearer ${localStorage.getItem('token')}`,
-  //         'Content-Type': 'application/json',
-  //       },
-  //     });
-  //     if (!response.ok) throw new Error('Failed to mark notification as read');
-      
-  //     // Update local state
-  //     setNotifications((prevNotifications) =>
-  //       prevNotifications.map((notif) =>
-  //         notif.id_notifikasi === id ? { ...notif, dibaca: 1 } : notif
-  //       )
-  //     );
-  //     fetchUnreadCount(); // Update unread count
-  //   } catch (error) {
-  //     console.error('Error marking notification as read:', error);
-  //   }
-  // };
   const markAllAsRead = async () => {
     try {
       await fetch('/api/notifications/mark-all-read', {
@@ -212,7 +190,7 @@ const Header = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <img
-                  src={user.profile_picture || '/avatar.jpg'}
+                  src={user.profile_picture || 'images/default-avatar.jpg'}
                   alt="Profile"
                   className="w-10 h-10 rounded-full object-cover"
                 />

@@ -39,8 +39,19 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { BookIcon } from 'lucide-react';
+import { Formik, Form, Field } from 'formik';
+import * as Yup from 'yup';
 
 
+
+const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
+  <TextField
+    {...field}
+    {...props}
+    error={touched[field.name] && Boolean(errors[field.name])}
+    helperText={touched[field.name] && errors[field.name]}
+  />
+);
 
 
 const RekapNilai = () => {
@@ -99,6 +110,11 @@ const RekapNilai = () => {
 
 
 
+  const adjustDateForTimezone = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  };
 
   // Helper functions dan handlers lainnya tetap sama
   const calculateWorkingDays = (startDate, endDate) => {
@@ -125,6 +141,89 @@ const RekapNilai = () => {
       day: '2-digit'
     });
   };
+  
+  // Tambahkan state baru untuk dialog edit data
+  const [editDataDialog, setEditDataDialog] = useState({
+    open: false,
+    loading: false,
+    data: null,
+    error: null
+  });
+
+// Fungsi untuk menangani klik tombol edit data
+const handleEditDataClick = async (id) => {
+  try {
+    // Tutup dialog detail
+    setDetailDialog(prev => ({ ...prev, open: false }));
+    
+    // Set loading state
+    setEditDataDialog(prev => ({
+      ...prev,
+      loading: true,
+      open: true
+    }));
+
+    const response = await axios.get(`/api/intern/${id}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+
+    if (response.data.status === 'success') {
+      // Update edit dialog dengan data yang diterima
+      setEditDataDialog(prev => ({
+        ...prev,
+        loading: false,
+        data: response.data.data,
+        error: null
+      }));
+    } else {
+      throw new Error(response.data.message || 'Failed to fetch intern data');
+    }
+  } catch (error) {
+    console.error('Error fetching intern data:', error);
+    setEditDataDialog(prev => ({
+      ...prev,
+      loading: false,
+      error: error.response?.data?.message || 'Gagal mengambil data peserta magang'
+    }));
+    showSnackbar(error.response?.data?.message || 'Gagal mengambil data peserta magang', 'error');
+  }
+};
+
+const handleEditSubmit = async (values, { setSubmitting }) => {
+  try {
+    const response = await axios.put(
+      `/api/intern/${editDataDialog.data.id_magang}`,
+      values,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.data.status === 'success') {
+      showSnackbar('Data berhasil diperbarui', 'success');
+      setEditDataDialog({ open: false, loading: false, data: null, error: null });
+      fetchData(); // Refresh data
+    } else {
+      throw new Error(response.data.message || 'Gagal memperbarui data');
+    }
+  } catch (error) {
+    console.error('Error updating intern data:', error);
+    showSnackbar(
+      error.response?.data?.message || 'Gagal memperbarui data. Silakan coba lagi.',
+      'error'
+    );
+    setEditDataDialog(prev => ({
+      ...prev,
+      error: error.response?.data?.message || 'Gagal memperbarui data'
+    }));
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   
 
@@ -135,12 +234,13 @@ const RekapNilai = () => {
       const response = await axios.get(`/api/intern/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
- 
+
       if (response.data.status === 'success') {
         setDetailDialog(prev => ({
           ...prev,
           data: response.data.data,
           loading: false
+
         }));
       } else {
         throw new Error(response.data.message || 'Failed to fetch detail data');
@@ -154,8 +254,6 @@ const RekapNilai = () => {
       }));
     }
   };
-
-
 
 
   const showSnackbar = (message, severity = 'success') => {
@@ -229,6 +327,8 @@ const RekapNilai = () => {
     showSnackbar('Error mengambil data', 'error');
   }
 };
+
+
 
 
 
@@ -339,7 +439,6 @@ const RekapNilai = () => {
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
- 
 
 
 
@@ -550,6 +649,7 @@ const ExportDialog = () => (
   </Dialog>
 );
 
+
    const style = document.createElement('style');
    style.textContent = `
      @keyframes gradient {
@@ -588,6 +688,7 @@ const ExportDialog = () => (
        }}
        className="animated-bg"
       >
+
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
             Rekap Nilai
         </Typography>
@@ -604,8 +705,6 @@ const ExportDialog = () => (
           Export Excel
         </Button>
       </Box>
-
-
 
 
       {/* Filter Section */}
@@ -932,15 +1031,430 @@ const ExportDialog = () => (
     )}
   </DialogContent>
 
-
-
-
   <DialogActions sx={{ px: 3, pb: 2 }}>
+  <Button
+  onClick={() => handleEditDataClick(detailDialog.data?.id_magang)}
+  startIcon={<EditIcon />}
+  sx={{ 
+    color: '#2E7D32',
+    borderColor: '#2E7D32',
+    '&:hover': {
+      borderColor: '#1B5E20',
+      bgcolor: '#E8F5E9'
+    }
+  }}
+  variant="outlined" 
+  disabled={!detailDialog.data || detailDialog.loading}
+>
+  Edit Data
+</Button>
   </DialogActions>
 </Dialog>
 
+  <Dialog
+    open={editDataDialog.open}
+    onClose={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
+    maxWidth="md"
+    fullWidth
+  >
+    <DialogTitle sx={{ pb: 1 }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Typography variant="h6">Edit Data Peserta Magang</Typography>
+        <IconButton
+          onClick={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
+          size="small"
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
+    </DialogTitle>
+   
+    <DialogContent>
+      {editDataDialog.loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : editDataDialog.error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>{editDataDialog.error}</Alert>
+      ) : editDataDialog.data && (
+        <Formik
+          initialValues={{
+            nama: editDataDialog.data.nama || '',
+            email: editDataDialog.data.email || '',
+            no_hp: editDataDialog.data.no_hp || '',
+            nama_institusi: editDataDialog.data.nama_institusi || '',
+            jenis_institusi: editDataDialog.data.jenis_institusi || '',
+            bidang_id: editDataDialog.data.id_bidang || '',
+            tanggal_masuk: adjustDateForTimezone(editDataDialog.data.tanggal_masuk),
+            tanggal_keluar: adjustDateForTimezone(editDataDialog.data.tanggal_keluar),
+            nama_pembimbing: editDataDialog.data.nama_pembimbing || '',
+            telp_pembimbing: editDataDialog.data.telp_pembimbing || '',
+            status: editDataDialog.data.status || 'not_yet', // Tambahkan initial value untuk status
+            detail_peserta: {
+              ...(editDataDialog.data.jenis_peserta === 'mahasiswa'
+                ? {
+                    nim: editDataDialog.data.detail_peserta?.nim || '',
+                    fakultas: editDataDialog.data.detail_peserta?.fakultas || '',
+                    jurusan: editDataDialog.data.detail_peserta?.jurusan || '',
+                    semester: editDataDialog.data.detail_peserta?.semester || ''
+                  }
+                : {
+                    nisn: editDataDialog.data.detail_peserta?.nisn || '',
+                    jurusan: editDataDialog.data.detail_peserta?.jurusan || '',
+                    kelas: editDataDialog.data.detail_peserta?.kelas || ''
+                  }
+              )
+            }
+          }}
+          onSubmit={handleEditSubmit}
+          validationSchema={Yup.object({
+            nama: Yup.string()
+              .required('Nama wajib diisi')
+              .min(3, 'Nama minimal 3 karakter'),
+            email: Yup.string()
+              .email('Format email tidak valid'),
+            jenis_institusi: Yup.string()
+              .required('Jenis institusi wajib dipilih'),
+            no_hp: Yup.string()
+              .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
+              .min(10, 'Nomor HP minimal 10 digit')
+              .max(15, 'Nomor HP maksimal 15 digit'),
+            nama_institusi: Yup.string()
+              .required('Nama institusi wajib diisi'),
+            bidang_id: Yup.string()
+              .required('Ruang Penempatan wajib dipilih'),
+            tanggal_masuk: Yup.date()
+              .required('Tanggal masuk wajib diisi'),
+            tanggal_keluar: Yup.date()
+              .required('Tanggal keluar wajib diisi')
+              .min(
+                Yup.ref('tanggal_masuk'),
+                'Tanggal keluar harus setelah tanggal masuk'
+              ),
+            nama_pembimbing: Yup.string()
+              .required('Nama pembimbing wajib diisi')
+              .min(3, 'Nama pembimbing minimal 3 karakter'),
+            telp_pembimbing: Yup.string()
+              .required('No. Telp pembimbing wajib diisi')
+              .matches(/^[0-9]+$/, 'Nomor telepon hanya boleh berisi angka')
+              .min(10, 'Nomor telepon minimal 10 digit')
+              .max(15, 'Nomor telepon maksimal 15 digit'),
+            status: Yup.string()
+              .required('Status wajib dipilih'),
+            detail_peserta: Yup.object().shape(
+              editDataDialog.data.jenis_peserta === 'mahasiswa'
+                ? {
+                    nim: Yup.string().required('NIM wajib diisi'),
+                    jurusan: Yup.string().required('Jurusan wajib diisi'),
+                    fakultas: Yup.string().required('Fakultas wajib diisi'),
+                    semester: Yup.number()
+                      .typeError('Semester harus berupa angka')
+                      .min(1, 'Minimal semester 1')
+                      .max(14, 'Maksimal semester 14')
+                  }
+                : {
+                    nisn: Yup.string().required('NISN wajib diisi'),
+                    jurusan: Yup.string().required('Jurusan wajib diisi'),
+                    kelas: Yup.string().required('Kelas wajib diisi')
+                  }
+            )
+          })}
+        >
+          {({ isSubmitting }) => (
+            <Form>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                {/* Status Magang - Ditambahkan di awal form */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                    Status Magang
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="status"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small" error={form.touched.status && Boolean(form.errors.status)}>
+                        <InputLabel>Status Magang</InputLabel>
+                        <Select {...field} label="Status Magang">
+                          <MenuItem value="not_yet">Belum Mulai</MenuItem>
+                          <MenuItem value="aktif">Aktif</MenuItem>
+                          <MenuItem value="almost">Hampir Selesai</MenuItem>
+                          <MenuItem value="selesai">Selesai</MenuItem>
+                          <MenuItem value="missing">Missing</MenuItem>
+                        </Select>
+                        {form.touched.status && form.errors.status && (
+                          <FormHelperText>{form.errors.status}</FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
 
 
+                {/* Informasi Pribadi */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 2 }}>
+                    Informasi Pribadi
+                  </Typography>
+                </Grid>
+               
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Lengkap"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="email"
+                    component={FormTextField}
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="no_hp"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nomor HP"
+                    size="small"
+                  />
+                </Grid>
+
+
+                {/* Informasi Institusi */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Institusi
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_institusi"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Institusi"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="bidang_id"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
+                        <InputLabel>Ruang Penempatan</InputLabel>
+                        <Select {...field} label="Bidang">
+                          {bidangList.map(bidang => (
+                            <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                              {bidang.nama_bidang}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {form.touched.bidang_id && form.errors.bidang_id && (
+                          <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+
+                {/* Detail Peserta */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Detail Peserta
+                  </Typography>
+                </Grid>
+
+
+                {editDataDialog.data.jenis_peserta === 'mahasiswa' ? (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.nim"
+                        component={FormTextField}
+                        fullWidth
+                        label="NIM"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.fakultas"
+                        component={FormTextField}
+                        fullWidth
+                        label="Fakultas"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.jurusan"
+                        component={FormTextField}
+                        fullWidth
+                        label="Jurusan"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.semester"
+                        component={FormTextField}
+                        fullWidth
+                        label="Semester"
+                        type="number"
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                ) : (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.nisn"
+                        component={FormTextField}
+                        fullWidth
+                        label="NISN"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.jurusan"
+                        component={FormTextField}
+                        fullWidth
+                        label="Jurusan"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.kelas"
+                        component={FormTextField}
+                        fullWidth
+                        label="Kelas"
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                )}
+
+
+                {/* Periode Magang */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Periode Magang
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_masuk"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Mulai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_keluar"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Selesai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+
+                {/* Informasi Pembimbing */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Pembimbing
+                  </Typography>
+                </Grid>
+               
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Pembimbing"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="telp_pembimbing"
+                    component={FormTextField}
+                    fullWidth
+                    label="No. Telp Pembimbing"
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+
+
+              <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  onClick={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
+                  disabled={isSubmitting}
+                  sx={{ 
+                    color: '#2E7D32',
+                    borderColor: '#2E7D32',
+                    '&:hover': {
+                      borderColor: '#1B5E20',
+                      bgcolor: '#E8F5E9'
+                    }
+                  }}
+                  variant="outlined"
+                >
+
+                  Batal
+                </Button>
+                <LoadingButton
+                  type="submit"
+                  variant="contained"
+                  loading={isSubmitting}
+                  sx={{
+                    bgcolor: '#2E7D32',
+                    '&:hover': {
+                      bgcolor: '#1B5E20'
+                    }
+                  }}
+                >
+                  Simpan Perubahan
+                </LoadingButton>
+              </Box>
+            </Form>
+          )}
+        </Formik>
+      )}
+    </DialogContent>
+  </Dialog>
 
       {/* Edit Score Dialog */}
       <Dialog
@@ -952,8 +1466,6 @@ const ExportDialog = () => (
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
-
-
 
 
           <IconButton
@@ -1223,7 +1735,6 @@ const ExportDialog = () => (
     </Box>
   );
 };
-
 
 
 

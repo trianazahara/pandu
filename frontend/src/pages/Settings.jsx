@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Avatar } from "../components/ui/avatar"
 
 
 
@@ -474,9 +475,11 @@ const removeTemplate = async (id) => {
                       className="w-32 h-32 rounded-full object-cover mx-auto"
                     />
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-gray-300 mx-auto flex items-center justify-center text-gray-600">
-                      No Image
-                    </div>
+                    <img
+                      src="/images/default-avatar.jpg" // Pastikan menyimpan gambar default avatar di folder public
+                      alt="Default Avatar"
+                      className="w-32 h-32 rounded-full mx-auto bg-gray-200"
+                    />
                   )}
                 </div>
 

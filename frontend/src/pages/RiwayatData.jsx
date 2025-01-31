@@ -316,6 +316,20 @@ const RiwayatData = () => {
         setOpenDialog(false);
         fetchData();
       }
+
+      if (response.status === 201) {
+        showSnackbar('Nilai berhasil disimpan');
+        setOpenDialog(false);
+        
+        // Update data local untuk mengubah status penilaian
+        setData(prevData => 
+          prevData.map(item => 
+            item.id_magang === selectedIntern.id_magang 
+              ? { ...item, has_score: true }
+              : item
+          )
+        );
+      }
     } catch (error) {
       console.error('Submit error:', error);
       showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
@@ -493,6 +507,7 @@ const RiwayatData = () => {
                         </IconButton>
                       </Tooltip>
                     )
+
                   )}
                 </td>
               </tr>

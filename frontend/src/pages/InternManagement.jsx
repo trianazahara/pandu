@@ -667,7 +667,7 @@ const AddDialog = () => (
         <Formik
           initialValues={{
             nama: '',
-            jenis_peserta: 'mahasiswa',
+            jenis_peserta: '',
             nama_institusi: '',
             jenis_institusi: '',
             email: '',
@@ -934,6 +934,9 @@ const AddDialog = () => (
         fullWidth
         label="NIM"
         size="small"
+
+        required={true}
+
       />
     </Grid>
     <Grid item xs={12} md={6}>
@@ -952,6 +955,9 @@ const AddDialog = () => (
         fullWidth
         label="Jurusan"
         size="small"
+
+        required={true}
+
       />
     </Grid>
     <Grid item xs={12} md={6}>
@@ -974,7 +980,11 @@ const AddDialog = () => (
                       component={FormTextField}
                       fullWidth
                       label="NISN"
+
                       size="small"
+
+                      required={true}
+
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -984,6 +994,9 @@ const AddDialog = () => (
                       fullWidth
                       label="Jurusan"
                       size="small"
+
+                      required={true}
+
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1274,9 +1287,11 @@ const EditDialog = () => (
           }}
           onSubmit={handleEditSubmit}
           validationSchema={Yup.object({
+            // Field Wajib
             nama: Yup.string()
               .required('Nama wajib diisi')
               .min(3, 'Nama minimal 3 karakter'),
+
             email: Yup.string()
               .email('Format email tidak valid'),
             jenis_institusi: Yup.string()
@@ -1285,8 +1300,11 @@ const EditDialog = () => (
               .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
               .min(10, 'Nomor HP minimal 10 digit')
               .max(15, 'Nomor HP maksimal 15 digit'),
+
             nama_institusi: Yup.string()
               .required('Nama institusi wajib diisi'),
+            jenis_institusi: Yup.string()
+              .required('Jenis institusi wajib dipilih'),
             bidang_id: Yup.string()
               .required('Ruang Penempatan wajib dipilih'),
             tanggal_masuk: Yup.date()
@@ -1297,31 +1315,53 @@ const EditDialog = () => (
                 Yup.ref('tanggal_masuk'),
                 'Tanggal keluar harus setelah tanggal masuk'
               ),
-            nama_pembimbing: Yup.string()
-              .required('Nama pembimbing wajib diisi')
-              .min(3, 'Nama pembimbing minimal 3 karakter'),
-            telp_pembimbing: Yup.string()
-              .required('No. Telp pembimbing wajib diisi')
-              .matches(/^[0-9]+$/, 'Nomor telepon hanya boleh berisi angka')
-              .min(10, 'Nomor telepon minimal 10 digit')
-              .max(15, 'Nomor telepon maksimal 15 digit'),
             status: Yup.string()
               .required('Status wajib dipilih'),
+          
+            // Field Opsional
+            email: Yup.string()
+              .email('Format email tidak valid')
+              .nullable(),
+            no_hp: Yup.string()
+              .nullable()
+              .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
+              .min(10, 'Nomor HP minimal 10 digit')
+              .max(15, 'Nomor HP maksimal 15 digit'),
+            nama_pembimbing: Yup.string()
+              .nullable(),
+            telp_pembimbing: Yup.string()
+              .nullable()
+              .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
+              .min(10, 'Nomor telepon minimal 10 digit')
+              .max(15, 'Nomor telepon maksimal 15 digit'),
+          
+            // Detail Peserta
             detail_peserta: Yup.object().shape(
               editDialog.data.jenis_peserta === 'mahasiswa'
                 ? {
-                    nim: Yup.string().required('NIM wajib diisi'),
-                    jurusan: Yup.string().required('Jurusan wajib diisi'),
-                    fakultas: Yup.string().required('Fakultas wajib diisi'),
+                    // Wajib untuk mahasiswa
+                    nim: Yup.string()
+                      .required('NIM wajib diisi'),
+                    jurusan: Yup.string()
+                      .required('Jurusan wajib diisi'),
+                    // Opsional untuk mahasiswa
+                    fakultas: Yup.string()
+                      .nullable(),
                     semester: Yup.number()
+                      .nullable()
                       .typeError('Semester harus berupa angka')
                       .min(1, 'Minimal semester 1')
                       .max(14, 'Maksimal semester 14')
                   }
                 : {
-                    nisn: Yup.string().required('NISN wajib diisi'),
-                    jurusan: Yup.string().required('Jurusan wajib diisi'),
-                    kelas: Yup.string().required('Kelas wajib diisi')
+                    // Wajib untuk siswa
+                    nisn: Yup.string()
+                      .required('NISN wajib diisi'),
+                    jurusan: Yup.string()
+                      .required('Jurusan wajib diisi'),
+                    // Opsional untuk siswa
+                    kelas: Yup.string()
+                      .nullable()
                   }
             )
           })}

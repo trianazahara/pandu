@@ -41,9 +41,10 @@ import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as Visib
 import { BookIcon } from 'lucide-react';
 
 
+
+
 const RekapNilai = () => {
   // State declarations
-  const [interns, setInterns] = useState([]);
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
   const [detailDialog, setDetailDialog] = useState({
@@ -76,7 +77,7 @@ const RekapNilai = () => {
     nilai_disiplin: '',
     nilai_tanggungjawab: '',
     nilai_kerjasama: '',
-    nilai_inisiatif: '',
+    // nilai_inisiatif: '',
     nilai_kejujuran: '',
     nilai_kebersihan: '',
     jumlah_hadir: ''
@@ -95,12 +96,8 @@ const RekapNilai = () => {
       endDate: null
     }
   });
-  const [detailDialog, setDetailDialog] = useState({
-      open: false,
-      loading: false,
-      data: null,
-      error: null
-    });
+
+
 
 
   // Helper functions dan handlers lainnya tetap sama
@@ -129,18 +126,21 @@ const RekapNilai = () => {
     });
   };
 
+  
+
+
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
       const response = await axios.get(`/api/intern/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-  
+ 
       if (response.data.status === 'success') {
-        setDetailDialog(prev => ({ 
-          ...prev, 
-          data: response.data.data, 
-          loading: false 
+        setDetailDialog(prev => ({
+          ...prev,
+          data: response.data.data,
+          loading: false
         }));
       } else {
         throw new Error(response.data.message || 'Failed to fetch detail data');
@@ -156,9 +156,15 @@ const RekapNilai = () => {
   };
 
 
+
+
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
+
+
+
+
 
 
 
@@ -178,26 +184,52 @@ const RekapNilai = () => {
   };
 
 
+
+
   const fetchData = async () => {
-    try {
-      const response = await axios.get('/api/intern/rekap-nilai', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        params: {
-          page: pagination.page + 1,
-          limit: pagination.limit,
-          bidang: filters.bidang,
-          search: filters.search
-        }
-      });
-      setData(response.data.data);
-      setPagination(prev => ({
-        ...prev,
-        total: response.data.pagination.total
-      }));
-    } catch (error) {
-      showSnackbar('Error mengambil data', 'error');
-    }
-  };
+  try {
+    // Log state saat ini
+    console.log('Current filters:', filters);
+    console.log('Current pagination:', pagination);
+
+    const response = await axios.get('/api/intern/rekap-nilai', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      params: {
+        page: pagination.page + 1,
+        limit: pagination.limit,
+        bidang: filters.bidang,
+        search: filters.search
+      }
+    });
+
+    // Log request dan response
+    console.log('Request config:', {
+      url: '/api/intern/rekap-nilai',
+      params: {
+        page: pagination.page + 1,
+        limit: pagination.limit,
+        bidang: filters.bidang,
+        search: filters.search
+      }
+    });
+    console.log('Raw response:', response);
+    console.log('Response data structure:', {
+      status: response.data.status,
+      dataLength: response.data.data?.length,
+      pagination: response.data.pagination
+    });
+
+    setData(response.data.data);
+    setPagination(prev => ({
+      ...prev,
+      total: response.data.pagination.total
+    }));
+  } catch (error) {
+    console.error('Error fetching data:', error.response || error);
+    showSnackbar('Error mengambil data', 'error');
+  }
+};
+
 
 
   // Effects
@@ -206,17 +238,28 @@ const RekapNilai = () => {
   }, []);
 
 
+
+
   useEffect(() => {
     fetchData();
   }, [pagination.page, pagination.limit, filters]);
 
 
+
+
   // Handlers
   const handleFilter = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    console.log(`Handling filter change: ${key} = ${value}`); // Debug log
+    
+    setFilters(prev => {
+      const newFilters = {
+        ...prev,
+        [key]: value
+      };
+      console.log('New filters state:', newFilters); // Debug log
+      return newFilters;
+    });
+    
     setPagination(prev => ({
       ...prev,
       page: 0
@@ -224,40 +267,19 @@ const RekapNilai = () => {
   };
 
 
-  const handleDetailClick = async (id) => {
-    setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
-    try {
-      const response = await fetch(`/api/intern/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
 
 
-      if (!response.ok) {
-        throw new Error('Gagal memuat data');
-      }
-
-
-      const result = await response.json();
-      setDetailDialog(prev => ({ ...prev, data: result.data, loading: false }));
-    } catch (error) {
-      setDetailDialog(prev => ({
-        ...prev,
-        error: error.message,
-        loading: false
-      }));
-    }
-  };
-  
   const handleGenerateClick = async (id) => {
     try {
       await axios.post(`http://localhost:5000/api/document/generate-sertifikat/${id}`, {}, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         }
       });
+
+
+
 
       const downloadResponse = await axios.get(
         `http://localhost:5000/api/document/download-sertifikat/${id}`,
@@ -266,6 +288,9 @@ const RekapNilai = () => {
           responseType: 'blob'
         }
       );
+
+
+
 
       const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
       const link = document.createElement('a');
@@ -276,17 +301,21 @@ const RekapNilai = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+
+
+
       showSnackbar('Sertifikat berhasil di-generate dan diunduh');
     } catch (error) {
       console.error('Error:', error);
       showSnackbar(error.response?.data?.message || 'Gagal generate sertifikat', 'error');
     }
 };
-
-
+ 
   const handleEditScore = (score) => {
   console.log("Score data:", score); // Debug data yang diterima
   console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
+
+
 
 
     setEditDialog({
@@ -304,13 +333,15 @@ const RekapNilai = () => {
       nilai_disiplin: score.nilai_disiplin || '',
       nilai_tanggungjawab: score.nilai_tanggungjawab || '',
       nilai_kerjasama: score.nilai_kerjasama || '',
-      nilai_inisiatif: score.nilai_inisiatif || '',
+      // nilai_inisiatif: score.nilai_inisiatif || '',
       nilai_kejujuran: score.nilai_kejujuran || '',
       nilai_kebersihan: score.nilai_kebersihan || '',
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
-  
+ 
+
+
 
 
   const handleSubmitScore = async (e) => {
@@ -328,7 +359,7 @@ const RekapNilai = () => {
         nilai_disiplin: Number(scoreForm.nilai_disiplin),
         nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
         nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
+        // nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)  // Pastikan ini terkirim
@@ -344,6 +375,8 @@ const RekapNilai = () => {
             }
         }
     );
+
+
 
 
       if (response.data.status === 'success') {
@@ -368,6 +401,8 @@ const RekapNilai = () => {
 };
 
 
+
+
 const handleExport = async () => {
   setExportDialog(prev => ({ ...prev, loading: true }));
   try {
@@ -389,7 +424,11 @@ const handleExport = async () => {
     }
 
 
+
+
     console.log('Export params:', params); // Debugging
+
+
 
 
     const response = await axios.get('/api/intern/export', {
@@ -397,6 +436,8 @@ const handleExport = async () => {
       responseType: 'blob',
       params
     });
+
+
 
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -413,6 +454,8 @@ const handleExport = async () => {
     setExportDialog(prev => ({ ...prev, loading: false }));
   }
 };
+
+
 
 
 // Add export dialog JSX after the existing Dialog component
@@ -454,6 +497,8 @@ const ExportDialog = () => (
             label="Export Berdasarkan Filter Tanggal"
           />
         </RadioGroup>
+
+
 
 
         {exportDialog.exportType === 'filtered' && (
@@ -505,170 +550,46 @@ const ExportDialog = () => (
   </Dialog>
 );
 
-
-const DetailDialog = () => (
-  <Dialog
-    open={detailDialog.open}
-    onClose={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
-    maxWidth="md"
-    fullWidth
-  >
-    <DialogTitle sx={{ pb: 1 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Typography variant="h6">Detail Peserta Magang</Typography>
-        <IconButton
-          onClick={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
-          size="small"
-        >
-          <CloseIcon />
-        </IconButton>
-      </Box>
-    </DialogTitle>
+   const style = document.createElement('style');
+   style.textContent = `
+     @keyframes gradient {
+       0% {
+         background-position: 0% 50%;
+       }
+       50% {
+         background-position: 100% 50%;
+       }
+       100% {
+         background-position: 0% 50%;
+       }
+     }
    
-    <DialogContent sx={{ pb: 2 }}>
-      {detailDialog.loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      ) : detailDialog.error ? (
-        <Alert severity="error">{detailDialog.error}</Alert>
-      ) : detailDialog.data && (
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Box sx={{ mb: 2 }}>
-              <span className={getStatusStyle(detailDialog.data.status)}>
-                {getStatusLabel(detailDialog.data.status)}
-              </span>
-            </Box>
-          </Grid>
-
-
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="text.secondary">Informasi Pribadi</Typography>
-            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Nama Lengkap</Typography>
-                  <Typography variant="body1">{detailDialog.data.nama}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Email</Typography>
-                  <Typography variant="body1">{detailDialog.data.email || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">No. HP</Typography>
-                  <Typography variant="body1">{detailDialog.data.no_hp || '-'}</Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
-            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Institusi</Typography>
-                  <Typography variant="body1">{detailDialog.data.nama_institusi}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {detailDialog.data.jenis_peserta === 'mahasiswa' ? 'NIM' : 'NISN'}
-                  </Typography>
-                  <Typography variant="body1">
-                    {detailDialog.data.detail_peserta?.nim || detailDialog.data.detail_peserta?.nisn || '-'}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Jurusan</Typography>
-                  <Typography variant="body1">
-                    {detailDialog.data.detail_peserta?.jurusan || '-'}
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-
-          <Grid item xs={12} md={6}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
-          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
-                <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
-                <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
-              </Box>
-            </Stack>
-          </Paper>
-        </Grid>
-
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
-            <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="body2" color="text.secondary">Ruang Penempatan</Typography>
-                  <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
-                  <Typography variant="body1">{formatDate(detailDialog.data.tanggal_masuk)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="body2" color="text.secondary">Tanggal Selesai</Typography>
-                  <Typography variant="body1">{formatDate(detailDialog.data.tanggal_keluar)}</Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
-        </Grid>
-
-      )}
-    </DialogContent>
-
-
-    <DialogActions sx={{ px: 3, pb: 2 }}>
-    <Button
-  onClick={() => handleEditClick(detailDialog.data?.id_magang)}
-  startIcon={<EditIcon />}
-  sx={{ 
-    color: '#2E7D32',
-    borderColor: '#2E7D32',
-    '&:hover': {
-      borderColor: '#1B5E20',
-      bgcolor: '#E8F5E9'
-    }
-  }}
-  variant="outlined"  // Ganti ke outlined
-  disabled={!detailDialog.data || detailDialog.loading}
->
-  Edit Data
-</Button>
-    </DialogActions>
-  </Dialog>
-);
-
-  return (
-      <Box sx={{ width: '100%', minWidth: 0 }}>
-        {/* Header */}
-        <Box sx={{
-          width: '100%',
-          background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-          borderRadius: '12px',
-          mb: 4,
-          p: 3,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+     .animated-bg {
+       background: linear-gradient(45deg, #BCFB69, #26BBAC, #BCFB69);
+       background-size: 200% 200%;
+       animation: gradient 10s ease infinite;
+     }
+   `;
+   document.head.appendChild(style);
+   
+     // Main render
+     return (
+       <Box sx={{ width: '100%', minWidth: 0 }}>
+         {/* Header */}
+         <Box sx={{
+         width: '100%',
+         borderRadius: '12px',
+         mb: 4,
+         p: 3,
+         display: 'flex',
+         justifyContent: 'space-between',
+         alignItems: 'center',
+         overflow: 'hidden'
+       }}
+       className="animated-bg"
+      >
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-          Rekap Nilai Anak Magang
+            Rekap Nilai
         </Typography>
         <Button
           variant="contained"
@@ -683,6 +604,8 @@ const DetailDialog = () => (
           Export Excel
         </Button>
       </Box>
+
+
 
 
       {/* Filter Section */}
@@ -718,6 +641,10 @@ const DetailDialog = () => (
 
 
 
+
+
+
+
       {/* Table */}
       {/* Table Section */}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
@@ -749,25 +676,27 @@ const DetailDialog = () => (
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
         {data.map((score) => {
-          const totalNilai = (
-            Number(score.nilai_teamwork || 0) +
-            Number(score.nilai_komunikasi || 0) +
-            Number(score.nilai_pengambilan_keputusan || 0) +
-            Number(score.nilai_kualitas_kerja || 0) +
-            Number(score.nilai_teknologi || 0) +
-            Number(score.nilai_disiplin || 0) +
-            Number(score.nilai_tanggungjawab || 0) +
-            Number(score.nilai_kerjasama || 0) +
-            Number(score.nilai_inisiatif || 0) +
-            Number(score.nilai_kejujuran || 0) +
-            Number(score.nilai_kebersihan || 0)
-          );
-       
-          const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+  const totalNilai = (
+    Number(score.nilai_teamwork || 0) +
+    Number(score.nilai_komunikasi || 0) +
+    Number(score.nilai_pengambilan_keputusan || 0) +
+    Number(score.nilai_kualitas_kerja || 0) +
+    Number(score.nilai_teknologi || 0) +
+    Number(score.nilai_disiplin || 0) +
+    Number(score.nilai_tanggungjawab || 0) +
+    Number(score.nilai_kerjasama || 0) +
+    // Hapus nilai_inisiatif
+    Number(score.nilai_kejujuran || 0) +
+    Number(score.nilai_kebersihan || 0)
+  );
+ 
+  const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+  // Hapus perhitungan attendanceScore
+  const average = totalNilai / 10;
  
           // Hitung persentase kehadiran
           const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
-          const average = ((totalNilai / 11) + attendanceScore) / 2;
+          // const average = ((totalNilai / 11) + attendanceScore) / 2;
             return (
               <tr key={score.id_penilaian} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -789,40 +718,31 @@ const DetailDialog = () => (
                 {average.toFixed(2)}
               </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
+                <IconButton
+  onClick={() => handleDetailClick(score.id_magang)}
+  sx={{ color: 'info.main' }}
+  size="small"
+>
+  <VisibilityIcon fontSize="small" />
+</IconButton>
+
+
+
 
                   <IconButton
-
-                  <div className="flex justify-center space-x-1">
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleDetailClick(intern.id_magang)}
-                                            sx={{ color: 'info.main' }}
-                                          >
-                                            <VisibilityIcon fontSize="small" />
-                                          </IconButton>
-                  <IconButton 
-
                     onClick={() => handleEditScore(score)}
                     sx={{ color: 'info.main' }}
                     size="small"
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
-
-                  <IconButton 
+                  <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleGenerateClick(score.id_magang);
-                    }}
-
+                    onClick={() => handleGenerateClick(score.id_magang)}
                     sx={{ color: 'info.main' }}
-                  >
+                    >
                     <FileDownloadIcon fontSize="small" />
-                  </IconButton>
-
-                </div>
-
+                    </IconButton>
                 </td>
               </tr>
             );
@@ -831,6 +751,8 @@ const DetailDialog = () => (
       </table>
     </div>
  
+
+
 
 
       {/* Pagination */}
@@ -887,6 +809,139 @@ const DetailDialog = () => (
       </div>
 
 
+
+
+      <Dialog
+  open={detailDialog.open}
+  onClose={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle sx={{ pb: 1 }}>
+    <Box display="flex" alignItems="center" justifyContent="space-between">
+      <Typography variant="h6">Detail Peserta Magang</Typography>
+      <IconButton
+        onClick={() => setDetailDialog({ open: false, loading: false, data: null, error: null })}
+        size="small"
+      >
+        <CloseIcon />
+      </IconButton>
+    </Box>
+  </DialogTitle>
+ 
+  <DialogContent sx={{ pb: 2 }}>
+    {detailDialog.loading ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    ) : detailDialog.error ? (
+      <Alert severity="error">{detailDialog.error}</Alert>
+    ) : detailDialog.data && (
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Pribadi</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Nama Lengkap</Typography>
+                <Typography variant="body1">{detailDialog.data.nama}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Email</Typography>
+                <Typography variant="body1">{detailDialog.data.email || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">No. HP</Typography>
+                <Typography variant="body1">{detailDialog.data.no_hp || '-'}</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+
+
+
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Institusi</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_institusi}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {detailDialog.data.jenis_peserta === 'mahasiswa' ? 'NIM' : 'NISN'}
+                </Typography>
+                <Typography variant="body1">
+                  {detailDialog.data.detail_peserta?.nim || detailDialog.data.detail_peserta?.nisn || '-'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Jurusan</Typography>
+                <Typography variant="body1">
+                  {detailDialog.data.detail_peserta?.jurusan || '-'}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+
+
+
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Nama Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_pembimbing || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">No. Telp Pembimbing</Typography>
+                <Typography variant="body1">{detailDialog.data.telp_pembimbing || '-'}</Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Grid>
+
+
+
+
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Ruang Penempatan</Typography>
+                <Typography variant="body1">{detailDialog.data.nama_bidang}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Tanggal Mulai</Typography>
+                <Typography variant="body1">{formatDate(detailDialog.data.tanggal_masuk)}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">Tanggal Selesai</Typography>
+                <Typography variant="body1">{formatDate(detailDialog.data.tanggal_keluar)}</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+    )}
+  </DialogContent>
+
+
+
+
+  <DialogActions sx={{ px: 3, pb: 2 }}>
+  </DialogActions>
+</Dialog>
+
+
+
+
       {/* Edit Score Dialog */}
       <Dialog
       open={editDialog.open}
@@ -897,6 +952,9 @@ const DetailDialog = () => (
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
+
+
+
 
           <IconButton
             onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
@@ -911,6 +969,8 @@ const DetailDialog = () => (
           {editDialog.error && (
             <Alert severity="error" sx={{ mb: 2 }}>{editDialog.error}</Alert>
           )}
+
+
 
 
           <Grid container spacing={2}>
@@ -983,6 +1043,8 @@ const DetailDialog = () => (
             </Grid>
 
 
+
+
             {/* Scores Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
@@ -1046,6 +1108,10 @@ const DetailDialog = () => (
 
 
 
+
+
+
+
       {/* Export Dialog */}
       <Dialog
         open={exportDialog.open}
@@ -1084,6 +1150,8 @@ const DetailDialog = () => (
                 label="Export Berdasarkan Filter Tanggal"
               />
             </RadioGroup>
+
+
 
 
             {exportDialog.exportType === 'filtered' && (
@@ -1135,6 +1203,8 @@ const DetailDialog = () => (
       </Dialog>
 
 
+
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -1155,5 +1225,6 @@ const DetailDialog = () => (
 };
 
 
-export default RekapNilai;
 
+
+export default RekapNilai;

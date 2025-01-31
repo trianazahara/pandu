@@ -1,4 +1,3 @@
-//internmanagement
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -480,6 +479,14 @@ const InternManagement = () => {
     }
   };
 
+const adjustDateForTimezone = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+    .toISOString()
+    .split('T')[0];
+};
+
 
   const handleEditClick = async (id) => {
     setEditDialog(prev => ({ ...prev, open: true, loading: true }));
@@ -509,24 +516,47 @@ const InternManagement = () => {
 
 
   const handleEditSubmit = async (values) => {
-    setEditDialog(prev => ({ ...prev, loading: true }));
     try {
+      setEditDialog(prev => ({ ...prev, loading: true }));
+  
+      // Set endpoint dan method berdasarkan status
       let endpoint = `/api/intern/${editDialog.data.id_magang}`;
       let method = 'PUT';
-     
-      // Jika status diubah menjadi missing dan status sebelumnya bukan missing
+      
       if (values.status === 'missing' && editDialog.data.status !== 'missing') {
         endpoint = `/api/intern/missing/${editDialog.data.id_magang}`;
         method = 'PATCH';
       }
- 
-      // Persiapkan data yang akan dikirim
+  
+      // Persiapkan data lengkap yang akan dikirim
       const dataToSend = {
         ...values,
         id_magang: editDialog.data.id_magang,
-        jenis_peserta: editDialog.data.jenis_peserta // Pastikan jenis_peserta tetap terbawa
+        jenis_peserta: editDialog.data.jenis_peserta,
+        jenis_institusi: editDialog.data.jenis_institusi,
+        // Format tanggal untuk menghindari masalah timezone
+        tanggal_masuk: values.tanggal_masuk ? new Date(values.tanggal_masuk).toISOString().split('T')[0] : null,
+        tanggal_keluar: values.tanggal_keluar ? new Date(values.tanggal_keluar).toISOString().split('T')[0] : null,
+        detail_peserta: {
+          ...(editDialog.data.jenis_peserta === 'mahasiswa' 
+            ? {
+                nim: values.detail_peserta.nim,
+                fakultas: values.detail_peserta.fakultas,
+                jurusan: values.detail_peserta.jurusan,
+                semester: values.detail_peserta.semester
+              }
+            : {
+                nisn: values.detail_peserta.nisn,
+                jurusan: values.detail_peserta.jurusan,
+                kelas: values.detail_peserta.kelas
+              }
+          )
+        }
       };
- 
+  
+      // Log data untuk debugging
+      console.log('Data yang akan dikirim:', dataToSend);
+  
       const response = await fetch(endpoint, {
         method: method,
         headers: {
@@ -535,41 +565,45 @@ const InternManagement = () => {
         },
         body: JSON.stringify(dataToSend)
       });
- 
+  
       const responseData = await response.json();
- 
+  
+      // Cek response status
       if (!response.ok) {
         throw new Error(responseData.message || 'Gagal memperbarui data');
       }
- 
-      // Tampilkan pesan sukses yang sesuai
+  
+      // Tampilkan pesan sukses
       setSnackbar({
         open: true,
-        message: values.status === 'missing'
-          ? 'Status berhasil diubah menjadi missing'
+        message: values.status === 'missing' 
+          ? 'Status berhasil diubah menjadi missing' 
           : 'Data berhasil diperbarui',
         severity: 'success'
       });
-     
-      // Tutup dialog dan reset state
+  
+      // Reset state dialog
       setEditDialog({
         open: false,
         loading: false,
         data: null,
         error: null
       });
- 
-      // Refresh data interns
-      fetchInterns();
- 
+  
+      // Refresh data
+      await fetchInterns();
+  
     } catch (error) {
       console.error('Error updating intern:', error);
+      
+      // Set error state
       setEditDialog(prev => ({
         ...prev,
         error: error.message || 'Terjadi kesalahan saat memperbarui data',
         loading: false
       }));
- 
+  
+      // Tampilkan error notification
       setSnackbar({
         open: true,
         message: error.message || 'Terjadi kesalahan saat memperbarui data',
@@ -654,53 +688,61 @@ const AddDialog = () => (
           }}
           validationSchema={Yup.object({
             nama: Yup.string()
-              .required('Nama wajib diisi')
-              .min(3, 'Nama minimal 3 karakter'),
-            jenis_peserta: Yup.string()
-              .required('Jenis peserta wajib dipilih'),
-            nama_institusi: Yup.string()
-              .required('Nama institusi wajib diisi'),
-            jenis_institusi: Yup.string()
-              .required('Jenis institusi wajib dipilih'),
-            email: Yup.string()
-              .email('Format email tidak valid'),
-            no_hp: Yup.string()
-              .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
-              .min(10, 'Nomor HP minimal 10 digit')
-              .max(15, 'Nomor HP maksimal 15 digit'),
-            bidang_id: Yup.string()
-              .required('Bidang wajib dipilih'),
-            tanggal_masuk: Yup.date()
-              .required('Tanggal masuk wajib diisi'),
-            tanggal_keluar: Yup.date()
-              .required('Tanggal keluar wajib diisi')
-              .min(
-                Yup.ref('tanggal_masuk'),
-                'Tanggal keluar harus setelah tanggal masuk'                
-              ),
-            nama_pembimbing: Yup.string()
-              .required('Nama pembimbing wajib diisi')
-              .min(3, 'Nama pembimbing minimal 3 karakter'),
-            telp_pembimbing: Yup.string()
-              .required('No. Telp pembimbing wajib diisi')
-              .matches(/^[0-9]+$/, 'Nomor telepon hanya boleh berisi angka')
-              .min(10, 'Nomor telepon minimal 10 digit')
-              .max(15, 'Nomor telepon maksimal 15 digit'),
-            detail_peserta: Yup.object().when('jenis_peserta', {
-              is: 'mahasiswa',
-              then: () => Yup.object({
-                nim: Yup.string().required('NIM wajib diisi'),
-                fakultas: Yup.string().required('Fakultas wajib diisi'),
-                jurusan: Yup.string().required('Jurusan wajib diisi'),
-                semester: Yup.number()
-                  .typeError('Semester harus berupa angka')
-                  .min(1, 'Minimal semester 1')
-                  .max(14, 'Maksimal semester 14')
-              }),
-              otherwise: () => Yup.object({
-                nisn: Yup.string().required('NISN wajib diisi'),
-                jurusan: Yup.string().required('Jurusan wajib diisi'),
-                kelas: Yup.string().required('Kelas wajib diisi')
+        .required('Nama wajib diisi')
+        .min(3, 'Nama minimal 3 karakter'),
+    jenis_peserta: Yup.string()
+        .required('Jenis peserta wajib dipilih'),
+    nama_institusi: Yup.string()
+        .required('Nama institusi wajib diisi'),
+    jenis_institusi: Yup.string()
+        .required('Jenis institusi wajib dipilih'),
+    email: Yup.string()
+        .email('Format email tidak valid')
+        .nullable(),
+    no_hp: Yup.string()
+        .nullable()
+        .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
+        .min(10, 'Nomor HP minimal 10 digit')
+        .max(15, 'Nomor HP maksimal 15 digit'),
+    bidang_id: Yup.string()
+        .required('Ruang Penempatan wajib dipilih'),
+    tanggal_masuk: Yup.date()
+        .required('Tanggal masuk wajib diisi'),
+    tanggal_keluar: Yup.date()
+        .required('Tanggal keluar wajib diisi')
+        .min(
+            Yup.ref('tanggal_masuk'),
+            'Tanggal keluar harus setelah tanggal masuk'
+        ),
+    nama_pembimbing: Yup.string()
+        .nullable(),
+    telp_pembimbing: Yup.string()
+        .nullable()
+        .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
+        .min(10, 'Nomor telepon minimal 10 digit')
+        .max(15, 'Nomor telepon maksimal 15 digit'),
+    detail_peserta: Yup.object().when('jenis_peserta', {
+        is: 'mahasiswa',
+        then: () => Yup.object({
+            nim: Yup.string()
+                .required('NIM wajib diisi'),
+            fakultas: Yup.string()
+                .nullable(),
+            jurusan: Yup.string()
+                .required('Jurusan wajib diisi'),
+            semester: Yup.number()
+                .nullable()
+                .typeError('Semester harus berupa angka')
+                .min(1, 'Minimal semester 1')
+                .max(14, 'Maksimal semester 14')
+        }),
+        otherwise: () => Yup.object({
+            nisn: Yup.string()
+                .required('NISN wajib diisi'),
+            jurusan: Yup.string()
+                .required('Jurusan wajib diisi'),
+            kelas: Yup.string()
+                .nullable()
               })
             })
           })}
@@ -729,19 +771,31 @@ const AddDialog = () => (
 
 
                 <Grid item xs={12} md={6}>
-                  <Field
-                    name="jenis_peserta"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Jenis Peserta</InputLabel>
-                        <Select {...field} label="Jenis Peserta">
-                          <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
-                          <MenuItem value="siswa">Siswa</MenuItem>
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
+                <Field
+                  name="jenis_peserta"
+                  component={({ field, form }) => (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Jenis Peserta</InputLabel>
+                      <Select 
+                        {...field}
+                        label="Jenis Peserta"
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          field.onChange(e);
+                          // Set jenis_institusi berdasarkan jenis_peserta
+                          form.setFieldValue(
+                            'jenis_institusi',
+                            newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
+                          );
+                        }}
+                      >
+                        <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
+                        <MenuItem value="siswa">Siswa</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Grid>
 
 
                 <Grid item xs={12} md={6}>
@@ -787,19 +841,23 @@ const AddDialog = () => (
 
 
                 <Grid item xs={12} md={6}>
-                  <Field
-                    name="jenis_institusi"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Jenis Institusi</InputLabel>
-                        <Select {...field} label="Jenis Institusi">
-                          <MenuItem value="universitas">Universitas</MenuItem>
-                          <MenuItem value="sekolah">Sekolah</MenuItem>
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
+                <Field
+                  name="jenis_institusi"
+                  component={({ field }) => (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Jenis Institusi</InputLabel>
+                      <Select
+                        {...field}
+                        label="Jenis Institusi"
+                        disabled
+                      >
+                        <MenuItem value="universitas">Universitas</MenuItem>
+                        <MenuItem value="sekolah">Sekolah</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Grid>
 
 
                 <Grid item xs={12} md={6}>
@@ -868,108 +926,104 @@ const AddDialog = () => (
 
 
                 {values.jenis_peserta === 'mahasiswa' ? (
-                  // Fields for university students
-                  <>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.nim"
-                        component={FormTextField}
-                        fullWidth
-                        label="NIM"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.fakultas"
-                        component={FormTextField}
-                        fullWidth
-                        label="Fakultas"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.jurusan"
-                        component={FormTextField}
-                        fullWidth
-                        label="Jurusan"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.semester"
-                        component={FormTextField}
-                        fullWidth
-                        label="Semester"
-                        type="number"
-                        size="small"
-                      />
-                    </Grid>
-
-
-                    {/* Informasi Pembimbing - Tambahkan setelah Informasi Institusi */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Informasi Pembimbing
-                  </Typography>
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama_pembimbing"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Pembimbing"
-                    size="small"
-                  />
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="telp_pembimbing"
-                    component={FormTextField}
-                    fullWidth
-                    label="No. Telp Pembimbing"
-                    size="small"
-                  />
-                </Grid>
-                  </>
-                ) : (
+  <>
+    <Grid item xs={12} md={6}>
+      <Field
+        name="detail_peserta.nim"
+        component={FormTextField}
+        fullWidth
+        label="NIM"
+        size="small"
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <Field
+        name="detail_peserta.fakultas"
+        component={FormTextField}
+        fullWidth
+        label="Fakultas"
+        size="small"
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <Field
+        name="detail_peserta.jurusan"
+        component={FormTextField}
+        fullWidth
+        label="Jurusan"
+        size="small"
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <Field
+        name="detail_peserta.semester"
+        component={FormTextField}
+        fullWidth
+        label="Semester" 
+        type="number"
+        size="small"
+      />
+    </Grid>
+  </>
+) : (
                   // Fields for high school students
                   <>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.nisn"
-                        component={FormTextField}
-                        fullWidth
-                        label="NISN"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.jurusan"
-                        component={FormTextField}
-                        fullWidth
-                        label="Jurusan"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.kelas"
-                        component={FormTextField}
-                        fullWidth
-                        label="Kelas"
-                        size="small"
-                      />
-                    </Grid>
-                  </>
-                )}
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="detail_peserta.nisn"
+                      component={FormTextField}
+                      fullWidth
+                      label="NISN"
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="detail_peserta.jurusan"
+                      component={FormTextField}
+                      fullWidth
+                      label="Jurusan"
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="detail_peserta.kelas"
+                      component={FormTextField}
+                      fullWidth
+                      label="Kelas"
+                      size="small"
+                    />
+                  </Grid>
+                </>
+              )}
+              
+              {/* Informasi Pembimbing - Pindahkan keluar dari conditional rendering */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                  Informasi Pembimbing  
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Field
+                  name="nama_pembimbing"
+                  component={FormTextField}
+                  fullWidth
+                  label="Nama Pembimbing"
+                  size="small"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Field
+                  name="telp_pembimbing"
+                  component={FormTextField}
+                  fullWidth
+                  label="No. Telp Pembimbing"
+                  size="small"
+                />
+              </Grid>
               </Grid>
 
 
@@ -1151,7 +1205,7 @@ const AddDialog = () => (
         bgcolor: '#E8F5E9'
       }
     }}
-    variant="outlined"  // Ganti ke outlined
+    variant="outlined" 
     disabled={!detailDialog.data || detailDialog.loading}
   >
     Edit Data
@@ -1195,9 +1249,10 @@ const EditDialog = () => (
             email: editDialog.data.email || '',
             no_hp: editDialog.data.no_hp || '',
             nama_institusi: editDialog.data.nama_institusi || '',
+            jenis_institusi: editDialog.data.jenis_institusi || '',
             bidang_id: editDialog.data.id_bidang || '',
-            tanggal_masuk: editDialog.data.tanggal_masuk?.split('T')[0] || '',
-            tanggal_keluar: editDialog.data.tanggal_keluar?.split('T')[0] || '',
+            tanggal_masuk: adjustDateForTimezone(editDialog.data.tanggal_masuk),
+            tanggal_keluar: adjustDateForTimezone(editDialog.data.tanggal_keluar),
             nama_pembimbing: editDialog.data.nama_pembimbing || '',
             telp_pembimbing: editDialog.data.telp_pembimbing || '',
             status: editDialog.data.status || 'not_yet', // Tambahkan initial value untuk status
@@ -1224,6 +1279,8 @@ const EditDialog = () => (
               .min(3, 'Nama minimal 3 karakter'),
             email: Yup.string()
               .email('Format email tidak valid'),
+            jenis_institusi: Yup.string()
+              .required('Jenis institusi wajib dipilih'),
             no_hp: Yup.string()
               .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
               .min(10, 'Nomor HP minimal 10 digit')
@@ -1565,6 +1622,7 @@ const EditDialog = () => (
     </DialogContent>
   </Dialog>
 );
+
 const handleSelectIntern = (internId) => {
   setSelectedInterns(prev => {
     if (prev.includes(internId)) {
@@ -1582,22 +1640,46 @@ const handleSelectIntern = (internId) => {
     } else {
       setSelectedInterns([]);
     }
-  }
+  };
   
+  const style = document.createElement('style');
+style.textContent = `
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .animated-bg {
+    background: linear-gradient(45deg, #BCFB69, #26BBAC, #BCFB69);
+    background-size: 200% 200%;
+    animation: gradient 10s ease infinite;
+  }
+`;
+document.head.appendChild(style);
+
   // Main render
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
       <Box sx={{
-        width: '100%',
-        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-        borderRadius: '12px',
-        mb: 4,
-        p: 3,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+      width: '100%',
+      borderRadius: '12px',
+      mb: 4,
+      p: 3,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      overflow: 'hidden'
+    }}
+    className="animated-bg"
+  >
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Manajemen Data Anak Magang
         </Typography>

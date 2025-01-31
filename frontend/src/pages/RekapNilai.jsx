@@ -597,9 +597,6 @@ const ExportDialog = () => (
           />
         </RadioGroup>
 
-
-
-
         {exportDialog.exportType === 'filtered' && (
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -1132,13 +1129,12 @@ const ExportDialog = () => (
                 'Tanggal keluar harus setelah tanggal masuk'
               ),
             nama_pembimbing: Yup.string()
-              .required('Nama pembimbing wajib diisi')
-              .min(3, 'Nama pembimbing minimal 3 karakter'),
-            telp_pembimbing: Yup.string()
-              .required('No. Telp pembimbing wajib diisi')
-              .matches(/^[0-9]+$/, 'Nomor telepon hanya boleh berisi angka')
-              .min(10, 'Nomor telepon minimal 10 digit')
-              .max(15, 'Nomor telepon maksimal 15 digit'),
+                          .nullable(),
+                        telp_pembimbing: Yup.string()
+                          .nullable()
+                          .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
+                          .min(10, 'Nomor telepon minimal 10 digit')
+                          .max(15, 'Nomor telepon maksimal 15 digit'),
             status: Yup.string()
               .required('Status wajib dipilih'),
             detail_peserta: Yup.object().shape(

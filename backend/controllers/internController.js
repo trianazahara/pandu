@@ -451,154 +451,170 @@ getAll: async (req, res) => {
 
     // Modifikasi pada fungsi add
     add : async (req, res) => {
-    const conn = await pool.getConnection();
-    try {
-        if (!req.user || !req.user.userId) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Unauthorized: User authentication required'
-            });
-        }
-
-        await conn.beginTransaction();
-        const created_by = req.user.userId;
-
-        const {
-            nama,
-            jenis_peserta,
-            nama_institusi,
-            jenis_institusi,
-            email,
-            no_hp,
-            bidang_id,
-            tanggal_masuk,
-            tanggal_keluar,
-            detail_peserta,
-            nama_pembimbing,
-            telp_pembimbing
-        } = req.body;
-
-        // Validasi field yang wajib diisi
-        const requiredFields = {
-            nama: 'Nama',
-            jenis_peserta: 'Jenis peserta',
-            nama_institusi: 'Nama institusi',
-            jenis_institusi: 'Jenis institusi',
-            bidang_id: 'Ruang penempatan',
-            tanggal_masuk: 'Tanggal masuk',
-            tanggal_keluar: 'Tanggal keluar'
-        };
-
-        // Validasi detail peserta (NIM/NISN dan jurusan wajib)
-        if (!detail_peserta) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Detail peserta wajib diisi'
-            });
-        }
-
-        if (jenis_peserta === 'mahasiswa') {
-            if (!detail_peserta.nim || !detail_peserta.jurusan) {
-                return res.status(400).json({
+        const conn = await pool.getConnection();
+        try {
+            if (!req.user || !req.user.userId) {
+                return res.status(401).json({
                     status: 'error',
-                    message: 'NIM dan jurusan wajib diisi untuk mahasiswa'
+                    message: 'Unauthorized: User authentication required'
                 });
             }
-        } else if (jenis_peserta === 'siswa') {
-            if (!detail_peserta.nisn || !detail_peserta.jurusan) {
-
-                return res.status(400).json({
-                    status: 'error',
-                    message: 'NISN dan jurusan wajib diisi untuk siswa'
-                });
-            }
-        }
-
-        // Status determination remains the same
-        const status = determineStatus(tanggal_masuk, tanggal_keluar);
-
-        // Generate ID dan insert ke tabel peserta_magang
-        const id_magang = uuidv4();
-        const pesertaMagangQuery = `
-            INSERT INTO peserta_magang (
-                id_magang, nama, jenis_peserta, nama_institusi,
-                jenis_institusi, email, no_hp, id_bidang,
-                tanggal_masuk, tanggal_keluar, status, 
-                nama_pembimbing, telp_pembimbing,           
-                created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `;
-
-        const pesertaMagangValues = [
-            id_magang, nama, jenis_peserta, nama_institusi,
-            jenis_institusi, email || null, no_hp || null, bidang_id,
-            tanggal_masuk, tanggal_keluar, status,
-            nama_pembimbing || null, telp_pembimbing || null,              
-            created_by
-        ];
-
-        await conn.execute(pesertaMagangQuery, pesertaMagangValues);
-
-        // Insert detail peserta
-        if (jenis_peserta === 'mahasiswa') {
-            const { nim, fakultas, jurusan, semester } = detail_peserta;
-            await conn.execute(`
-                INSERT INTO data_mahasiswa (
-                    id_mahasiswa, id_magang, nim, fakultas, jurusan, semester, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `, [uuidv4(), id_magang, nim, fakultas || null, jurusan, semester || null]);
-        } else if (jenis_peserta === 'siswa') {
-            const { nisn, jurusan, kelas } = detail_peserta;
-            await conn.execute(`
-                INSERT INTO data_siswa (
-                    id_siswa, id_magang, nisn, jurusan, kelas, created_at
-                ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `, [uuidv4(), id_magang, nisn, jurusan, kelas || null]);
-        }
-
-        // Create notification and commit
-        await createInternNotification(conn, {
-            userId: req.user.userId,
-            internName: nama,
-            action: 'menambah'
-        });
-
-        await conn.commit();
-
-        res.status(201).json({
-            status: 'success',
-            message: 'Data peserta magang berhasil ditambahkan',
-            data: {
-                id_magang,
+    
+    
+            await conn.beginTransaction();
+            const created_by = req.user.userId;
+    
+    
+            const {
                 nama,
                 jenis_peserta,
                 nama_institusi,
-                status,
-                created_by,
-                created_at: new Date().toISOString()
+                jenis_institusi,
+                email,
+                no_hp,
+                bidang_id,
+                tanggal_masuk,
+                tanggal_keluar,
+                detail_peserta,
+                nama_pembimbing,
+                telp_pembimbing
+            } = req.body;
+    
+    
+            // Validasi field yang wajib diisi
+            const requiredFields = {
+                nama: 'Nama',
+                jenis_peserta: 'Jenis peserta',
+                nama_institusi: 'Nama institusi',
+                jenis_institusi: 'Jenis institusi',
+                bidang_id: 'Ruang penempatan',
+                tanggal_masuk: 'Tanggal masuk',
+                tanggal_keluar: 'Tanggal keluar'
+            };
+    
+    
+            // Validasi detail peserta (NIM/NISN dan jurusan wajib)
+            if (!detail_peserta) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Detail peserta wajib diisi'
+                });
             }
-        });
-
-    } catch (error) {
-        await conn.rollback();
-        console.error('Error adding intern:', error);
-
-        if (error.code === 'ER_DUP_ENTRY') {
-            res.status(400).json({
-                status: 'error',
-                message: 'Data sudah ada dalam sistem'
+    
+    
+            if (jenis_peserta === 'mahasiswa') {
+                if (!detail_peserta.nim || !detail_peserta.jurusan) {
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'NIM dan jurusan wajib diisi untuk mahasiswa'
+                    });
+                }
+            } else if (jenis_peserta === 'siswa') {
+                if (!detail_peserta.nisn || !detail_peserta.jurusan) {
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'NISN dan jurusan wajib diisi untuk siswa'
+                    });
+                }
+            }
+    
+    
+            // Status determination remains the same
+            const status = determineStatus(tanggal_masuk, tanggal_keluar);
+    
+    
+            // Generate ID dan insert ke tabel peserta_magang
+            const id_magang = uuidv4();
+            const pesertaMagangQuery = `
+                INSERT INTO peserta_magang (
+                    id_magang, nama, jenis_peserta, nama_institusi,
+                    jenis_institusi, email, no_hp, id_bidang,
+                    tanggal_masuk, tanggal_keluar, status,
+                    nama_pembimbing, telp_pembimbing,          
+                    created_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `;
+    
+    
+            const pesertaMagangValues = [
+                id_magang, nama, jenis_peserta, nama_institusi,
+                jenis_institusi, email || null, no_hp || null, bidang_id,
+                tanggal_masuk, tanggal_keluar, status,
+                nama_pembimbing || null, telp_pembimbing || null,              
+                created_by
+            ];
+    
+    
+            await conn.execute(pesertaMagangQuery, pesertaMagangValues);
+    
+    
+            // Insert detail peserta
+            if (jenis_peserta === 'mahasiswa') {
+                const { nim, fakultas, jurusan, semester } = detail_peserta;
+                await conn.execute(`
+                    INSERT INTO data_mahasiswa (
+                        id_mahasiswa, id_magang, nim, fakultas, jurusan, semester, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `, [uuidv4(), id_magang, nim, fakultas || null, jurusan, semester || null]);
+            } else if (jenis_peserta === 'siswa') {
+                const { nisn, jurusan, kelas } = detail_peserta;
+                await conn.execute(`
+                    INSERT INTO data_siswa (
+                        id_siswa, id_magang, nisn, jurusan, kelas, created_at
+                    ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `, [uuidv4(), id_magang, nisn, jurusan, kelas || null]);
+            }
+    
+    
+            // Create notification and commit
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                internName: nama,
+                action: 'menambah'
             });
-        } else {
-            res.status(500).json({
-                status: 'error',
-                message: 'Terjadi kesalahan server',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    
+    
+            await conn.commit();
+    
+    
+            res.status(201).json({
+                status: 'success',
+                message: 'Data peserta magang berhasil ditambahkan',
+                data: {
+                    id_magang,
+                    nama,
+                    jenis_peserta,
+                    nama_institusi,
+                    status,
+                    created_by,
+                    created_at: new Date().toISOString()
+                }
             });
+    
+    
+        } catch (error) {
+            await conn.rollback();
+            console.error('Error adding intern:', error);
+    
+    
+            if (error.code === 'ER_DUP_ENTRY') {
+                res.status(400).json({
+                    status: 'error',
+                    message: 'Data sudah ada dalam sistem'
+                });
+            } else {
+                res.status(500).json({
+                    status: 'error',
+                    message: 'Terjadi kesalahan server',
+                    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                });
+            }
+        } finally {
+            if (conn) conn.release();
         }
-    } finally {
-        if (conn) conn.release();
-    }
-},
+    },
+    
+    
   
     getDetail : async (req, res) => {
         try {

@@ -140,25 +140,24 @@ const assessmentController = {
             }
             await conn.execute(`
                 INSERT INTO penilaian (
-        id_penilaian,
-        id_magang,
-        id_users,
-        nilai_teamwork,
-        nilai_komunikasi,
-        nilai_pengambilan_keputusan,
-        nilai_kualitas_kerja,
-        nilai_teknologi,
-        nilai_disiplin,
-        nilai_tanggungjawab,
-        nilai_kerjasama,
-       
-        nilai_kejujuran,
-        nilai_kebersihan,
-        jumlah_hadir,        
-        created_by,
-        created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, [
+                id_penilaian,
+                id_magang,
+                id_users,
+                nilai_teamwork,
+                nilai_komunikasi,
+                nilai_pengambilan_keputusan,
+                nilai_kualitas_kerja,
+                nilai_teknologi,
+                nilai_disiplin,
+                nilai_tanggungjawab,
+                nilai_kerjasama,
+                nilai_kejujuran,
+                nilai_kebersihan,
+                jumlah_hadir,        
+                created_by,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `, [
         id_penilaian,
         id_magang,
         req.user.userId,
@@ -170,7 +169,6 @@ const assessmentController = {
         nilai_disiplin || 0,
         nilai_tanggungjawab || 0,
         nilai_kerjasama || 0,
-        // nilai_inisiatif || 0,
         nilai_kejujuran || 0,
         nilai_kebersihan || 0,
         req.body.jumlah_hadir || 0,  // Tambahkan ini

@@ -221,18 +221,21 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   }
 };
 
+
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
       const response = await axios.get(`/api/intern/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+
  
       if (response.data.status === 'success') {
         setDetailDialog(prev => ({
           ...prev,
           data: response.data.data,
           loading: false
+
         }));
       } else {
         throw new Error(response.data.message || 'Failed to fetch detail data');
@@ -246,7 +249,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       }));
     }
   };
-
 
 
 
@@ -402,8 +404,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
     });
   };
- 
-
 
 
 
@@ -1404,8 +1404,6 @@ const ExportDialog = () => (
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
-
-
 
 
           <IconButton

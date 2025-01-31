@@ -11,7 +11,6 @@ const convertAsync = promisify(libre.convert);
 const pool = require('../config/database');
 libre.convertAsync = require('util').promisify(libre.convert);
 
-
 // Utility function untuk menghitung rata-rata nilai
 const calculateAverageScore = (nilaiData) => {
     const nilaiFields = [
@@ -24,6 +23,103 @@ const calculateAverageScore = (nilaiData) => {
     const values = nilaiFields.map(field => parseFloat(nilaiData[field] || 0));
     return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
 };
+
+
+
+
+//Tr
+// const calculateTotalScore = (nilaiData) => {
+//     const nilaiFields = [
+//         'nilai_teamwork', 'nilai_komunikasi', 'nilai_pengambilan_keputusan',
+//         'nilai_kualitas_kerja', 'nilai_teknologi', 'nilai_disiplin',
+//         'nilai_tanggungjawab', 'nilai_kerjasama',
+//         'nilai_kejujuran', 'nilai_kebersihan'
+//     ];
+   
+//     return nilaiFields.map(field => parseFloat(nilaiData[field] || 0))
+//                      .reduce((a, b) => a + b, 0)
+//                      .toFixed(2);
+// };
+
+
+// Fungsi untuk menentukan akreditasi berdasarkan rata-rata
+const getAkreditasi = (rataRata) => {
+    const nilai = parseFloat(rataRata);
+    if (nilai > 90) return "Amat Baik";
+    if (nilai > 80) return "Baik";
+    if (nilai > 70) return "Cukup";
+    if (nilai > 60) return "Sedang";
+    return "Kurang";
+};
+
+
+
+
+// Fungsi untuk mengubah angka menjadi teks
+// const angkaKeTeks = (angka) => {
+//     const satuanTeks = [
+//         "", "Satu", "Dua", "Tiga", "Empat", "Lima",
+//         "Enam", "Tujuh", "Delapan", "Sembilan"
+//     ];
+   
+//     const puluhan = Math.floor(angka);
+//     const desimal = Math.round((angka - puluhan) * 100);
+   
+//     if (puluhan === 0) return "Nol";
+   
+//     let hasil = "";
+   
+//     // Handle thousands
+//     if (puluhan >= 1000) {
+//         const ribu = Math.floor(puluhan / 1000);
+//         if (ribu === 1) hasil += "Seribu ";
+//         else hasil += angkaKeTeks(ribu) + " Ribu ";
+//         angka = puluhan % 1000;
+//     }
+   
+//     // Handle hundreds
+//     if (puluhan >= 100) {
+//         const ratus = Math.floor((puluhan % 1000) / 100);
+//         if (ratus === 1) hasil += "Seratus ";
+//         else if (ratus > 0) hasil += satuanTeks[ratus] + " Ratus ";
+//         angka = puluhan % 100;
+//     }
+   
+//     // Handle tens and ones
+//     if (angka >= 20) {
+//         const sepuluh = Math.floor(angka / 10);
+//         hasil += satuanTeks[sepuluh] + " Puluh ";
+//         angka = angka % 10;
+//         if (angka > 0) hasil += satuanTeks[angka];
+//     } else if (angka >= 10) {
+//         if (angka === 10) hasil += "Sepuluh";
+//         else if (angka === 11) hasil += "Sebelas";
+//         else hasil += satuanTeks[angka - 10] + " Belas";
+//     } else if (angka > 0) {
+//         hasil += satuanTeks[angka];
+//     }
+   
+//     if (desimal > 0) {
+//         hasil += ` Koma ${desimal}`;
+//     }
+   
+//     return hasil.trim();
+// };
+
+
+
+
+
+
+// // Format tanggal ke dd/mm/yyyy
+// const formatTanggal = (tanggal) => {
+//     const date = new Date(tanggal);
+//     return date.toLocaleDateString('id-ID', {
+//         day: '2-digit',
+//         month: '2-digit',
+//         year: 'numeric'
+//     }).replace(/\./g, '/');
+// };
 
 
 
@@ -43,21 +139,15 @@ const calculateTotalScore = (nilaiData) => {
 };
 
 
-
-
-
-
-
-
 // Fungsi untuk menentukan akreditasi berdasarkan rata-rata
-const getAkreditasi = (rataRata) => {
-    const nilai = parseFloat(rataRata);
-    if (nilai > 90) return "Amat Baik";
-    if (nilai > 80) return "Baik";
-    if (nilai > 70) return "Cukup";
-    if (nilai > 60) return "Sedang";
-    return "Kurang";
-};
+// const getAkreditasi = (rataRata) => {
+//     const nilai = parseFloat(rataRata);
+//     if (nilai > 90) return "Amat Baik";
+//     if (nilai > 80) return "Baik";
+//     if (nilai > 70) return "Cukup";
+//     if (nilai > 60) return "Sedang";
+//     return "Kurang";
+// };
 
 
 
@@ -286,6 +376,39 @@ const documentController = {
         }
     },
 
+    async previewDocument(req, res) {
+        try {
+            const id = req.params.id;
+            const [templates] = await pool.execute(
+                'SELECT * FROM dokumen_template WHERE id_dokumen = ? AND active = 1',
+                [id]
+            );
+    
+            if (templates.length === 0) {
+                return res.status(404).json({ success: false, message: 'Template tidak ditemukan' });
+            }
+    
+            const filePath = templates[0].file_path;
+            if (!fsSync.existsSync(filePath)) {
+                return res.status(404).json({ success: false, message: 'File tidak ditemukan' });
+            }
+    
+            // Convert DOCX to PDF
+            const inputBuffer = await fs.readFile(filePath);
+            const outputBuffer = await convertAsync(inputBuffer, '.pdf', undefined);
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.send(outputBuffer);
+    
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Gagal memuat preview dokumen',
+                error: error.message
+            });
+        }
+    },
 
     async previewDocument(req, res) {
         try {
@@ -370,6 +493,7 @@ const documentController = {
                 });
             }
    
+
             // 1. Ambil template
             const [templates] = await pool.execute(
                 'SELECT * FROM dokumen_template WHERE active = 1 ORDER BY created_at DESC LIMIT 1'
@@ -526,13 +650,6 @@ const documentController = {
                 [id_magang]
             );
 
-
-
-
-
-
-
-
             if (!peserta[0]?.sertifikat_path) {
                 return res.status(404).json({
                     success: false,
@@ -540,22 +657,8 @@ const documentController = {
                 });
             }
 
-
-
-
-
-
-
-
             const filePath = path.join(__dirname, '..', 'public', peserta[0].sertifikat_path.replace(/^\//, ''));
             res.download(filePath);
-
-
-
-
-
-
-
 
         } catch (error) {
             console.error('Error downloading certificate:', error);
@@ -580,12 +683,6 @@ const documentController = {
             });
 
 
-
-
-
-
-
-
         } catch (error) {
             console.error('Error generating receipt:', error);
             res.status(500).json({
@@ -597,9 +694,6 @@ const documentController = {
     }
 };
 
-
-
-
 // Helper function untuk extract text dari PDF
 async function extractTextFromPDF(pdfPath) {
     // Menggunakan pdf-parse package
@@ -609,7 +703,5 @@ async function extractTextFromPDF(pdfPath) {
     return data.text;
 }
 
-
-
-
 module.exports = documentController;
+

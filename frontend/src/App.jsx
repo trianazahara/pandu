@@ -19,6 +19,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Reports from './pages/Reports';
 import Login from './pages/Login'; 
+import ForgotPassword from './pages/ForgotPassword';
 import AdminManagement from './pages/AdminManagement';
 import RiwayatData from './pages/RiwayatData';
 import RekapNilai from './pages/RekapNilai';
@@ -81,6 +82,7 @@ const App = () => {
                     <Routes>
                         {/* Rute publik */}
                         <Route path="/login" element={<Login />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
 
                          <Route path="/intern/add" element={
                             <ProtectedRoute>

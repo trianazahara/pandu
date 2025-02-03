@@ -262,6 +262,41 @@ const InternManagement = () => {
   };
  
 
+  const [mentors, setMentors] = useState([]);
+const [mentorsLoading, setMentorsLoading] = useState(true);
+const [mentorsError, setMentorsError] = useState(null);
+
+// Add this new fetch function
+const fetchMentors = async () => {
+  try {
+    setMentorsLoading(true);
+    setMentorsError(null);
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch('/api/intern/mentors', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch mentors data');
+    }
+
+    const result = await response.json();
+    if (result.status === 'success') {
+      setMentors(result.data);
+    } else {
+      throw new Error(result.message || 'Failed to fetch mentors data');
+    }
+  } catch (error) {
+    console.error('Error fetching mentors:', error);
+    setMentorsError('Gagal mengambil data mentor');
+  } finally {
+    setMentorsLoading(false);
+  }
+};
+
 
   // Fetch functions
   const fetchBidangList = async () => {
@@ -634,6 +669,7 @@ const adjustDateForTimezone = (dateString) => {
 
   useEffect(() => {
     fetchBidangList();
+    fetchMentors();
   }, []);
 
 
@@ -677,6 +713,7 @@ const AddDialog = () => (
             tanggal_keluar: '',
             nama_pembimbing: '',  // tambahan
             telp_pembimbing: '',  // tambahan
+            mentor_id: '', 
             detail_peserta: {
               nim: '',
               nisn: '',
@@ -877,6 +914,30 @@ const AddDialog = () => (
                         {form.touched.bidang_id && form.errors.bidang_id && (
                           <FormHelperText>{form.errors.bidang_id}</FormHelperText>
                         )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="mentor_id"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Mentor</InputLabel>
+                        <Select
+                          {...field}
+                          label="Mentor"
+                        >
+                          <MenuItem value="">
+                            <em>Tidak Ada Mentor</em>
+                          </MenuItem>
+                          {mentors.map(mentor => (
+                            <MenuItem key={mentor.id_users} value={mentor.id_users}>
+                              {mentor.nama} {mentor.nip ? `(${mentor.nip})` : ''}
+                            </MenuItem>
+                          ))}
+                        </Select>
                       </FormControl>
                     )}
                   />
@@ -1269,6 +1330,7 @@ const EditDialog = () => (
             nama_pembimbing: editDialog.data.nama_pembimbing || '',
             telp_pembimbing: editDialog.data.telp_pembimbing || '',
             status: editDialog.data.status || 'not_yet', // Tambahkan initial value untuk status
+            mentor_id: editDialog.data.mentor_id || '',
             detail_peserta: {
               ...(editDialog.data.jenis_peserta === 'mahasiswa'
                 ? {
@@ -1473,6 +1535,31 @@ const EditDialog = () => (
                         {form.touched.bidang_id && form.errors.bidang_id && (
                           <FormHelperText>{form.errors.bidang_id}</FormHelperText>
                         )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="mentor_id"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Mentor</InputLabel>
+                        <Select
+                          {...field}
+                          label="Mentor"
+                        >
+                          <MenuItem value="">
+                            <em>Tidak Ada Mentor</em>
+                          </MenuItem>
+                          {mentors.map(mentor => (
+                            <MenuItem key={mentor.id_users} value={mentor.id_users}>
+                              {mentor.nama} {mentor.nip ? `(${mentor.nip})` : ''}
+                            </MenuItem>
+                          ))}
+                        </Select>
                       </FormControl>
                     )}
                   />
@@ -1721,7 +1808,7 @@ document.head.appendChild(style);
     className="animated-bg"
   >
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-          Manajemen Data Anak Magang
+          Manajemen Data Peserta Magang
         </Typography>
         <Button
           variant="contained"
@@ -1735,7 +1822,7 @@ document.head.appendChild(style);
             py: 1.5,
             borderRadius: '8px',
           }}>
-          TAMBAH ANAK MAGANG
+          TAMBAH PESERTA MAGANG
         </Button>
       </Box>
 
@@ -1824,6 +1911,9 @@ document.head.appendChild(style);
                 <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mentor
+                </th>
                 <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Action
                 </th>
@@ -1853,10 +1943,25 @@ document.head.appendChild(style);
                       />
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {intern.nama}
-                      </div>
-                    </td>
+  <div className="flex items-center">
+    <div className="text-sm font-medium text-gray-900 truncate">
+      {intern.nama}
+    </div>
+    {intern.is_incomplete && (
+      <Tooltip title="Data belum lengkap" arrow>
+        <WarningIcon 
+          fontSize="small" 
+          sx={{ 
+            ml: 1, 
+            color: '#EF4444', // warna merah
+            width: 18,
+            height: 18
+          }} 
+        />
+      </Tooltip>
+    )}
+  </div>
+</td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500 truncate">
                         {intern.email}
@@ -1877,6 +1982,11 @@ document.head.appendChild(style);
                       <span className={getStatusStyle(intern.status)}>
                         {getStatusLabel(intern.status)}
                       </span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {intern.mentor_nama || '-'}
+                      </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">
                       <div className="flex justify-center space-x-1">

@@ -3,21 +3,19 @@ const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 
-const createInternNotification = async (conn, {userId, judul, pesan}) => {
+const createInternNotification = async (conn, {userId, internName, action}) => {
     try {
+        // 1. Ambil data user yang melakukan aksi
         const [userData] = await conn.execute(
             'SELECT username FROM users WHERE id_users = ?',
             [userId]
         );
-        
-        if (!userData || userData.length === 0) {
-            console.error('User tidak ditemukan untuk ID:', userId);
-            return;
-        }
-
-        const username = userData[0].username;
-        
-        // Buat query dengan username yang sudah diambil
+        const username = userData[0]?.username || 'Unknown User';
+       
+        // 2. Ambil semua user yang terdaftar
+        const [allUsers] = await conn.execute('SELECT id_users FROM users');
+       
+        // 3. Siapkan query untuk insert
         const query = `
             INSERT INTO notifikasi (
                 id_notifikasi,
@@ -28,19 +26,23 @@ const createInternNotification = async (conn, {userId, judul, pesan}) => {
                 created_at
             ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
-
-        const values = [
-            uuidv4(),
-            userId,
-            judul,
-            pesan.replace('{username}', username), // Gunakan placeholder yang jelas
-            0
-        ];
-
-        await conn.execute(query, values);
+       
+        // 4. Insert notifikasi untuk setiap user
+        for (const user of allUsers) {
+            const values = [
+                uuidv4(),
+                user.id_users,
+                'Aktivitas Penilaian',
+                `${username} telah ${action} nilai untuk peserta magang: ${internName}`,
+                0
+            ];
+           
+            await conn.execute(query, values);
+        }
+       
     } catch (error) {
         console.error('Error creating notification:', error);
-        throw error; // Re-throw error agar bisa ditangkap di controller
+        throw error;
     }
 };
 
@@ -190,13 +192,11 @@ const assessmentController = {
                 [req.user.userId]
             );
         
-            if (userData && userData.length > 0) {
-                await createInternNotification(conn, {
-                    userId: req.user.userId,
-                    judul: 'Penilaian Baru',
-                    pesan: '{username} telah menambahkan penilaian untuk peserta magang: ' + pesertaExists[0].nama
-                });
-            }
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                internName: pesertaExists[0].nama,
+                action: 'menambahkan'
+            });
 
             // 8. Commit transaction
             await conn.commit();
@@ -435,8 +435,8 @@ const assessmentController = {
             // Create notification after successful update
             await createInternNotification(conn, {
                 userId: req.user.userId,
-                judul: 'Pembaruan Nilai',
-                pesan: '{username} telah memperbarui nilai untuk peserta magang: ' + internData[0].nama
+                internName: internData[0].nama,
+                action: 'memperbarui'
             });
     
             await conn.commit();

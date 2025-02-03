@@ -1,3 +1,4 @@
+// backend/models/Intern.js
 const pool = require('../config/database');
 
 class Intern {
@@ -6,6 +7,8 @@ class Intern {
             SELECT 
                 p.*,
                 b.nama_bidang,
+                u.nama as mentor_nama,
+                u.nip as mentor_nip,
                 CASE 
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
                     ELSE s.nisn
@@ -17,11 +20,20 @@ class Intern {
                 CASE 
                     WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
                     ELSE s.jurusan
-                END as jurusan
+                END as jurusan,
+                CASE
+                    WHEN p.nama IS NULL OR p.nama = '' OR 
+                         p.nama_institusi IS NULL OR p.nama_institusi = '' OR
+                         p.email IS NULL OR p.email = '' OR
+                         p.no_hp IS NULL OR p.no_hp = ''
+                    THEN true
+                    ELSE false
+                END as is_incomplete
             FROM peserta_magang p
             LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
             LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
+            LEFT JOIN users u ON p.mentor_id = u.id_users
             WHERE 1=1
         `;
 
@@ -80,6 +92,9 @@ class Intern {
             SELECT 
                 p.*,
                 b.nama_bidang,
+                u.nama as mentor_nama,
+                u.nip as mentor_nip,
+                u.email as mentor_email,
                 CASE 
                     WHEN p.jenis_peserta = 'mahasiswa' THEN (
                         SELECT JSON_OBJECT(
@@ -101,6 +116,7 @@ class Intern {
             LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
             LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
             LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
+            LEFT JOIN users u ON p.mentor_id = u.id_users
             WHERE p.id_magang = ?
         `, [id]);
 

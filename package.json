@@ -3,11 +3,15 @@
     "@mui/x-date-pickers": "^7.23.6",
     "@pdftron/pdfnet-node": "^11.2.0",
     "@react-pdf/renderer": "^4.1.6",
+    "bcryptjs": "^2.4.3",
     "date-fns": "^2.29.3",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.471.0",
     "mammoth": "^1.9.0",
     "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0",
     "uuid": "^11.0.5",
     "ws": "^8.18.0"
   }

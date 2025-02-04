@@ -27,12 +27,12 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
 
 const createInternNotification = async (conn, {userId, internName, action = 'menambah'}) => {
     try {
-        // 1. Ambil data user yang melakukan aksi
+        // 1. Ambil data user yang melakukan aksi (ubah dari username ke nama)
         const [userData] = await conn.execute(
-            'SELECT username FROM users WHERE id_users = ?',
+            'SELECT nama FROM users WHERE id_users = ?',  // Ubah username menjadi nama
             [userId]
         );
-        const username = userData[0]?.username || 'Unknown User';
+        const nama = userData[0]?.nama || 'Unknown User';  // Gunakan nama alih-alih username
        
         // 2. Ambil semua user yang terdaftar
         const [allUsers] = await conn.execute('SELECT id_users FROM users');
@@ -55,7 +55,7 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
                 uuidv4(),
                 user.id_users,
                 'Aktivitas Peserta Magang',
-                `${username} telah ${action} data peserta magang: ${internName}`,
+                `${nama} telah ${action} data peserta magang: ${internName}`,  // Gunakan nama di sini
                 0
             ];
            
@@ -67,6 +67,7 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
         throw error;
     }
 };
+
 // Fungsi untuk mengupdate status peserta magang
 const updateInternStatuses = async (conn) => {
     const query = `
@@ -140,141 +141,158 @@ setMissingStatus: async (req, res) => {
 },
 
 
-    getDetailedStats: async (req, res) => {
-        const conn = await pool.getConnection();
-        try {
-            // Update status terlebih dahulu
-            await updateInternStatuses(conn);
-   
-            // 1. Dapatkan statistik dasar - Perbaikan untuk menghitung aktif + almost
-            const [basicStats] = await conn.execute(`
-                SELECT
-                    COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
-                    COUNT(CASE WHEN status = 'selesai' THEN 1 END) as completed_count,
-                    COUNT(CASE WHEN status = 'almost' THEN 1 END) as completing_soon_count,
-                    COUNT(CASE WHEN status = 'missing' THEN 1 END) as missing_count,
-                    COUNT(*) as total_count
-                FROM peserta_magang
-            `);
-   
-            // 2. Dapatkan statistik berdasarkan jenis peserta untuk yang aktif + almost
-            const [educationStats] = await conn.execute(`
-                SELECT
-                    jenis_peserta,
-                    COUNT(*) as count
-                FROM peserta_magang
-                WHERE status IN ('aktif', 'almost')
-                GROUP BY jenis_peserta
-            `);
-   
-            // 3. Dapatkan statistik berdasarkan bidang untuk yang aktif + almost
-            const [departmentStats] = await conn.execute(`
-                SELECT
-                    b.nama_bidang,
-                    COUNT(*) as count
-                FROM peserta_magang p
-                JOIN bidang b ON p.id_bidang = b.id_bidang
-                WHERE p.status IN ('aktif', 'almost')
-                GROUP BY b.id_bidang, b.nama_bidang
-            `);
-   
-            // 4. Dapatkan data peserta yang akan selesai dalam 7 hari (status almost)
-            const [completingSoon] = await conn.execute(`
-                SELECT
-                    p.nama,
-                    p.nama_institusi,
-                    b.nama_bidang,
-                    p.tanggal_keluar,
-                    p.id_magang
-                FROM peserta_magang p
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                WHERE p.status = 'almost'
-                ORDER BY p.tanggal_keluar ASC
-            `);
-   
-            // Format response
-            const response = {
-                activeInterns: {
-                    total: basicStats[0].active_count, // Sekarang termasuk aktif + almost
-                    students: {
-                        siswa: educationStats.find(stat => stat.jenis_peserta === 'siswa')?.count || 0,
-                        mahasiswa: educationStats.find(stat => stat.jenis_peserta === 'mahasiswa')?.count || 0
-                    },
-                    byDepartment: departmentStats.reduce((acc, curr) => {
-                        acc[curr.nama_bidang.toLowerCase()] = curr.count;
-                        return acc;
-                    }, {})
-                },
-                completedInterns: basicStats[0].completed_count,
-                totalInterns: basicStats[0].total_count,
-                completingSoon: {
-                    count: basicStats[0].completing_soon_count,
-                    interns: completingSoon
-                }
-            };
-   
-            res.json(response);
-   
-        } catch (error) {
-            console.error('Error getting detailed stats:', error);
-            res.status(500).json({
-                status: 'error',
-                message: 'Terjadi kesalahan server saat mengambil statistik detail'
-            });
-        } finally {
-            conn.release();
+getDetailedStats: async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        // Update status terlebih dahulu
+        await updateInternStatuses(conn);
+
+        // Base query parts
+        let baseWhere = 'WHERE 1=1';
+        const params = [];
+
+        // Add mentor filter for admin role
+        if (req.user.role === 'admin') {
+            baseWhere += ' AND p.mentor_id = ?';
+            params.push(req.user.userId);
         }
-    },
+
+        // 1. Get basic stats with role-based filtering
+        const [basicStats] = await conn.execute(`
+            SELECT
+                COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
+                COUNT(CASE WHEN status = 'selesai' THEN 1 END) as completed_count,
+                COUNT(CASE WHEN status = 'almost' THEN 1 END) as completing_soon_count,
+                COUNT(CASE WHEN status = 'missing' THEN 1 END) as missing_count,
+                COUNT(*) as total_count
+            FROM peserta_magang p
+            ${baseWhere}
+        `, params);
+
+        // 2. Get education stats with role-based filtering
+        const [educationStats] = await conn.execute(`
+            SELECT
+                jenis_peserta,
+                COUNT(*) as count
+            FROM peserta_magang p
+            ${baseWhere}
+            AND status IN ('aktif', 'almost')
+            GROUP BY jenis_peserta
+        `, params);
+
+        // 3. Get department stats with role-based filtering
+        const [departmentStats] = await conn.execute(`
+            SELECT
+                b.nama_bidang,
+                COUNT(*) as count
+            FROM peserta_magang p
+            JOIN bidang b ON p.id_bidang = b.id_bidang
+            ${baseWhere}
+            AND p.status IN ('aktif', 'almost')
+            GROUP BY b.id_bidang, b.nama_bidang
+        `, params);
+
+        // 4. Get completing soon data with role-based filtering
+        const [completingSoon] = await conn.execute(`
+            SELECT
+                p.nama,
+                p.nama_institusi,
+                b.nama_bidang,
+                p.tanggal_keluar,
+                p.id_magang
+            FROM peserta_magang p
+            LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+            ${baseWhere}
+            AND p.status = 'almost'
+            ORDER BY p.tanggal_keluar ASC
+        `, params);
+
+        // Format response
+        const response = {
+            activeInterns: {
+                total: basicStats[0].active_count,
+                students: {
+                    siswa: educationStats.find(stat => stat.jenis_peserta === 'siswa')?.count || 0,
+                    mahasiswa: educationStats.find(stat => stat.jenis_peserta === 'mahasiswa')?.count || 0
+                },
+                byDepartment: departmentStats.reduce((acc, curr) => {
+                    acc[curr.nama_bidang.toLowerCase()] = curr.count;
+                    return acc;
+                }, {})
+            },
+            completedInterns: basicStats[0].completed_count,
+            totalInterns: basicStats[0].total_count,
+            completingSoon: {
+                count: basicStats[0].completing_soon_count,
+                interns: completingSoon
+            }
+        };
+
+        res.json(response);
+
+    } catch (error) {
+        console.error('Error getting detailed stats:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Terjadi kesalahan server saat mengambil statistik detail'
+        });
+    } finally {
+        conn.release();
+    }
+},
     // Modifikasi fungsi getAll di internController.js
 getAll: async (req, res) => {
     try {
         const {
-            page = 1,
-            limit = 10,
-            status,
-            bidang,
-            search,
-            excludeStatus
+          page = 1,
+          limit = 10,
+          status,
+          bidang,
+          search,
+          excludeStatus
         } = req.query;
-
-
+    
         const offset = (page - 1) * limit;
         let query = `
-            SELECT
-                p.id_magang,
-                p.nama,
-                p.jenis_peserta,
-                p.nama_institusi,
-                p.jenis_institusi,
-                p.email,
-                p.no_hp,
-                p.tanggal_masuk,
-                p.tanggal_keluar,
-                p.status,
-                p.nama_pembimbing,
-                p.telp_pembimbing,
-                b.nama_bidang,
-                CASE
-                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                    ELSE s.nisn
-                END as nomor_induk,
-                CASE
-                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.fakultas
-                    ELSE s.kelas
-                END as detail_pendidikan,
-                CASE
-                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.jurusan
-                    ELSE s.jurusan
-                END as jurusan
-            FROM peserta_magang p
-            LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-            LEFT JOIN data_mahasiswa m ON p.id_magang = m.id_magang
-            LEFT JOIN data_siswa s ON p.id_magang = s.id_magang
-            WHERE 1=1
+          SELECT
+            p.*,
+            b.nama_bidang,
+            CASE 
+              WHEN p.email IS NULL 
+              OR p.no_hp IS NULL
+              OR p.nama_pembimbing IS NULL
+              OR p.telp_pembimbing IS NULL
+              OR (
+                CASE 
+                  WHEN p.jenis_peserta = 'mahasiswa' THEN 
+                    EXISTS(
+                      SELECT 1 FROM data_mahasiswa m 
+                      WHERE m.id_magang = p.id_magang 
+                      AND (m.fakultas IS NULL OR m.semester IS NULL)
+                    )
+                  ELSE 
+                    EXISTS(
+                      SELECT 1 FROM data_siswa s 
+                      WHERE s.id_magang = p.id_magang 
+                      AND s.kelas IS NULL
+                    )
+                END
+              )
+              THEN true 
+              ELSE false 
+            END as has_incomplete_data
+          FROM peserta_magang p
+          LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+          WHERE 1=1
         `;
-
-
+    
         const params = [];
+    
+        // Add mentor filter for admin role
+        if (req.user.role === 'admin') {
+          query += ` AND p.mentor_id = ?`;
+          params.push(req.user.userId);
+        }
 
 
         // Handle excludeStatus (untuk menyembunyikan status missing dan selesai)
@@ -347,107 +365,109 @@ getAll: async (req, res) => {
     }
 },
 
+getMentors: async (req, res) => {
+    try {
+      let query;
+      const params = [];
+  
+      if (req.user.role === 'superadmin') {
+        // Superadmin bisa lihat semua mentor
+        query = `SELECT id_users, nama FROM users WHERE role = 'admin' AND is_active = 1`;
+      } else {
+        // Admin hanya bisa lihat dirinya sendiri
+        query = `SELECT id_users, nama FROM users WHERE id_users = ? AND is_active = 1`;
+        params.push(req.user.userId);
+      }
+  
+      const [mentors] = await pool.execute(query, params);
+      res.json(mentors);
+    } catch (error) {
+      console.error('Error getting mentors:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  },
 
-    checkAvailability: async (req, res) => {
-        try {
-            res.setHeader('Content-Type', 'application/json');
-            const inputDate = req.query.date;
-            if (!inputDate) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Parameter tanggal diperlukan'
-                });
-            }
-   
-            const formattedDate = inputDate;
-            const SLOT_LIMIT = 50;
-   
-            // Query untuk peserta yang benar-benar aktif (tidak termasuk yang almost)
-            const [activeInterns] = await pool.execute(`
-                SELECT COUNT(*) as count
-                FROM peserta_magang
-                WHERE status = 'aktif'
-                AND ? BETWEEN tanggal_masuk AND tanggal_keluar
-            `, [formattedDate]);
-   
-            // Query untuk peserta yang akan datang
-            const [upcomingInterns] = await pool.execute(`
-                SELECT COUNT(*) as count
-                FROM peserta_magang
-                WHERE status = 'not_yet'
-                AND tanggal_masuk <= ?
-            `, [formattedDate]);
-   
-            // Query untuk peserta yang akan selesai dalam 7 hari
-            const [leavingInterns] = await pool.execute(`
-                SELECT
-                    p.id_magang,
-                    p.nama,
-                    DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
-                    b.nama_bidang
-                FROM peserta_magang p
-                LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
-                WHERE p.status = 'almost'
-                AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
-                ORDER BY p.tanggal_keluar ASC
-            `, [formattedDate, formattedDate]);
-   
-            // Hitung total yang aktif (tidak termasuk yang almost)
-            const totalOccupied = parseInt(activeInterns[0].count) + parseInt(upcomingInterns[0].count);
-            const availableSlots = SLOT_LIMIT - totalOccupied;
-   
-            // Tambahkan slot yang akan tersedia dari peserta yang hampir selesai
-            const soonAvailableSlots = leavingInterns.length;
-            const totalAvailableSlots = availableSlots - soonAvailableSlots;
-   
-            // Tentukan apakah ada slot tersedia
-            const isAvailable = totalAvailableSlots > 0;
-   
-            // Siapkan pesan yang lebih informatif
-            let message = '';
-            if (isAvailable) {
-                if (availableSlots > 0) {
-                    if (soonAvailableSlots > 0) {
-                        message = `Tersedia ${totalAvailableSlots} slot langsung dengan ${soonAvailableSlots} slot tambahan dari peserta yang akan selesai dalam 7 hari ke depan (total ${availableSlots} dari ${SLOT_LIMIT} slot)`;
-                    } else {
-                        message = `Tersedia ${availableSlots} slot dari total ${SLOT_LIMIT} slot`;
-                    }
-                } else {
-                    message = `Akan tersedia ${soonAvailableSlots} slot dari peserta yang akan selesai dalam 7 hari ke depan`;
-                }
-            } else {
-                message = 'Saat ini semua slot telah terisi dan tidak ada peserta yang akan selesai dalam waktu dekat';
-            }
-   
-            // Kirim response
-            return res.status(200).json({
-                success: true,
-                available: isAvailable,
-                availableSlots: Math.max(availableSlots, 0),
-                soonAvailableSlots,
-                totalAvailableSlots: Math.max(totalAvailableSlots, 0),
-                totalOccupied,
-                leavingInterns,
-                leavingCount: leavingInterns.length,
-                message,
-                date: formattedDate
-            });
-   
-        } catch (error) {
-            console.error('Error pada pengecekan ketersediaan:', error);
-            return res.status(500).json({
+  checkAvailability: async (req, res) => {
+    try {
+        res.setHeader('Content-Type', 'application/json');
+        const inputDate = req.query.date;
+        if (!inputDate) {
+            return res.status(400).json({
                 success: false,
-                message: 'Terjadi kesalahan saat mengecek ketersediaan',
-                error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+                message: 'Parameter tanggal diperlukan'
             });
         }
-    },
-   
-    // Fungsi untuk validasi format tanggal
-    isValidDate : (dateString) => {
-        const date = new Date(dateString);
-        return date instanceof Date && !isNaN(date);
-    },
+
+        const formattedDate = inputDate;
+        const SLOT_LIMIT = 50;
+
+        // Query untuk peserta yang benar-benar aktif (tidak termasuk yang almost)
+        const [activeInterns] = await pool.execute(`
+            SELECT COUNT(*) as count
+            FROM peserta_magang
+            WHERE status = 'aktif'
+            AND ? BETWEEN tanggal_masuk AND tanggal_keluar
+        `, [formattedDate]);
+
+        // Query untuk peserta yang akan datang
+        const [upcomingInterns] = await pool.execute(`
+            SELECT COUNT(*) as count
+            FROM peserta_magang
+            WHERE status = 'not_yet'
+            AND tanggal_masuk <= ?
+        `, [formattedDate]);
+
+        // Query untuk peserta yang akan selesai dalam 7 hari
+        const [leavingInterns] = await pool.execute(`
+            SELECT
+                p.id_magang,
+                p.nama,
+                DATE_FORMAT(p.tanggal_keluar, '%Y-%m-%d') as tanggal_keluar,
+                b.nama_bidang
+            FROM peserta_magang p
+            LEFT JOIN bidang b ON p.id_bidang = b.id_bidang
+            WHERE p.status = 'almost'
+            AND p.tanggal_keluar BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY)
+            ORDER BY p.tanggal_keluar ASC
+        `, [formattedDate, formattedDate]);
+
+        // Hitung total yang aktif dan yang akan datang
+        const totalActive = parseInt(activeInterns[0].count);
+        const totalUpcoming = parseInt(upcomingInterns[0].count);
+        const totalOccupied = totalActive + totalUpcoming;
+
+        // Siapkan pesan
+        let message = '';
+        if (totalOccupied >= SLOT_LIMIT) {
+            message = `Saat ini terisi: ${totalOccupied} dari ${SLOT_LIMIT} slot`;
+        } else {
+            const availableSlots = SLOT_LIMIT - totalOccupied;
+            message = `Tersedia ${availableSlots} slot dari total ${SLOT_LIMIT} slot`;
+        }
+
+        // Kirim response
+        return res.status(200).json({
+            success: true,
+            available: totalOccupied < SLOT_LIMIT,
+            totalOccupied,
+            currentActive: totalActive,
+            upcomingInterns: totalUpcoming,
+            message,
+            date: formattedDate
+        });
+
+    } catch (error) {
+        console.error('Error pada pengecekan ketersediaan:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Terjadi kesalahan saat mengecek ketersediaan',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+},
+
+
+
 
     // Modifikasi pada fungsi add
     add : async (req, res) => {
@@ -530,9 +550,9 @@ getAll: async (req, res) => {
                     id_magang, nama, jenis_peserta, nama_institusi,
                     jenis_institusi, email, no_hp, id_bidang,
                     tanggal_masuk, tanggal_keluar, status,
-                    nama_pembimbing, telp_pembimbing,          
+                    nama_pembimbing, telp_pembimbing, mentor_id,          
                     created_by, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             `;
     
     
@@ -540,7 +560,8 @@ getAll: async (req, res) => {
                 id_magang, nama, jenis_peserta, nama_institusi,
                 jenis_institusi, email || null, no_hp || null, bidang_id,
                 tanggal_masuk, tanggal_keluar, status,
-                nama_pembimbing || null, telp_pembimbing || null,              
+                nama_pembimbing || null, telp_pembimbing || null,
+                req.body.mentor_id || null,              
                 created_by
             ];
     
@@ -624,8 +645,9 @@ getAll: async (req, res) => {
                 SELECT
                     p.*,
                     b.nama_bidang,
-                    p.nama_pembimbing,    /* menggunakan comment style SQL yang benar */
-                    p.telp_pembimbing,    /* menggunakan comment style SQL yang benar */
+                    p.nama_pembimbing,    
+                    p.telp_pembimbing,
+                    p.mentor_id,   
                     CASE
                         WHEN p.jenis_peserta = 'mahasiswa' THEN (
                             SELECT JSON_OBJECT(
@@ -774,6 +796,7 @@ getAll: async (req, res) => {
                     status = ?,
                     nama_pembimbing = ?,
                     telp_pembimbing = ?,
+                    mentor_id = ?,
                     updated_by = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id_magang = ?
@@ -792,6 +815,7 @@ getAll: async (req, res) => {
                 newStatus,
                 nama_pembimbing,
                 telp_pembimbing,
+                req.body.mentor_id || null,
                 updated_by,
                 id
             ];
@@ -1057,15 +1081,18 @@ getAll: async (req, res) => {
     
             const offset = (page - 1) * limit;
             const statusArray = status.split(','); 
-    
             const statusPlaceholders = statusArray.map(() => '?').join(',');
+    
+            // Inisialisasi params di awal
+            const params = [...statusArray];
+            const countParams = [...statusArray];
     
             // Modified query to include has_scores field
             let query = `
                 SELECT 
                     pm.id_magang, 
                     pm.nama, 
-                    pm.email, 
+                    pm.nama_institusi, 
                     b.nama_bidang, 
                     pm.status, 
                     pm.tanggal_masuk, 
@@ -1087,8 +1114,13 @@ getAll: async (req, res) => {
                 WHERE pm.status IN (${statusPlaceholders})
             `;
     
-            const params = [...statusArray];
-            const countParams = [...statusArray];
+            // Add mentor_id filter for admin role
+            if (req.user.role === 'admin') {
+                query += ` AND pm.mentor_id = ?`;
+                countQuery += ` AND pm.mentor_id = ?`;
+                params.push(req.user.userId);
+                countParams.push(req.user.userId);
+            }
     
             // Add filter for bidang
             if (bidang) {
@@ -1097,7 +1129,7 @@ getAll: async (req, res) => {
                 params.push(bidang);
                 countParams.push(bidang);
             }
-
+    
             // Add search filter
             if (search) {
                 query += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;

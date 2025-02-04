@@ -191,15 +191,27 @@ const RiwayatData = () => {
 
   const fetchData = async () => {
     try {
+      const token = localStorage.getItem('token');
+      // Decode token untuk mendapatkan role
+      const decodedToken = JSON.parse(atob(token.split('.')[1]));
+      const userRole = decodedToken.role;
+  
+      const params = {
+        page: pagination.page + 1,
+        limit: pagination.limit,
+        bidang,
+        search,
+        status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
+      };
+  
+      // Jika role adalah admin, tambahkan mentor_id ke params
+      if (userRole === 'admin') {
+        params.mentor_id = decodedToken.userId;
+      }
+  
       const response = await axios.get('/api/intern/riwayat-data', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        params: {
-          page: pagination.page + 1,
-          limit: pagination.limit,
-          bidang,
-          search,
-          status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
-        }
+        headers: { Authorization: `Bearer ${token}` },
+        params
       });
       console.log('Response data:', response.data);
       setData(response.data.data);
@@ -422,7 +434,7 @@ const RiwayatData = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institusi</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
@@ -446,7 +458,7 @@ const RiwayatData = () => {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {intern.email}
+                  {intern.nama_institusi}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {intern.nama_bidang}

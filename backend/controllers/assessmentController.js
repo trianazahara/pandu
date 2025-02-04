@@ -258,6 +258,11 @@ const assessmentController = {
                 WHERE 1=1
             `;
     
+            if (req.user.role === 'admin') {
+                query += ` AND pm.mentor_id = ?`;
+                params.push(req.user.userId);
+              }
+              
             if (bidang && bidang !== '') {
                 query += ` AND pm.id_bidang = ?`;  // Ubah dari b.nama_bidang menjadi pm.id_bidang
                 params.push(bidang);

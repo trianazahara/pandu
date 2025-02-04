@@ -6,6 +6,7 @@ const pool = require('../config/database');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const adminController = require('../controllers/adminController');
+const internController = require('../controllers/internController');
 
 router.use(authMiddleware);
 router.use(requireRole(['superadmin']));
@@ -21,5 +22,9 @@ router.patch('/:id', adminController.editAdmin);
 
 // Delete admin
 router.delete('/:id', adminController.deleteAdmin);
+
+// backend/routes/users.js
+router.get('/mentors', authMiddleware, internController.getMentors);
+
 
 module.exports = router;

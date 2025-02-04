@@ -537,7 +537,7 @@ getMentors: async (req, res) => {
                 jenis_peserta: 'Jenis peserta',
                 nama_institusi: 'Nama institusi',
                 jenis_institusi: 'Jenis institusi',
-                bidang_id: 'Ruang penempatan',
+                // bidang_id: 'Ruang penempatan',
                 tanggal_masuk: 'Tanggal masuk',
                 tanggal_keluar: 'Tanggal keluar'
             };
@@ -576,24 +576,23 @@ getMentors: async (req, res) => {
             // Generate ID dan insert ke tabel peserta_magang
             const id_magang = uuidv4();
             const pesertaMagangQuery = `
-                INSERT INTO peserta_magang (
-                    id_magang, nama, jenis_peserta, nama_institusi,
-                    jenis_institusi, email, no_hp, id_bidang,
-                    tanggal_masuk, tanggal_keluar, status,
-                    nama_pembimbing, telp_pembimbing, mentor_id,          
-                    created_by, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `;
-    
-    
-            const pesertaMagangValues = [
+            INSERT INTO peserta_magang (
                 id_magang, nama, jenis_peserta, nama_institusi,
-                jenis_institusi, email || null, no_hp || null, bidang_id,
+                jenis_institusi, email, no_hp, id_bidang,
                 tanggal_masuk, tanggal_keluar, status,
-                nama_pembimbing || null, telp_pembimbing || null,
-                req.body.mentor_id || null,              
-                created_by
-            ];
+                nama_pembimbing, telp_pembimbing, mentor_id,          
+                created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+    
+        const pesertaMagangValues = [
+            id_magang, nama, jenis_peserta, nama_institusi,
+            jenis_institusi, email || null, no_hp || null, bidang_id || null,  // Tambahkan || null di sini
+            tanggal_masuk, tanggal_keluar, status,
+            nama_pembimbing || null, telp_pembimbing || null,
+            req.body.mentor_id || null,              
+            created_by
+        ];
     
     
             await conn.execute(pesertaMagangQuery, pesertaMagangValues);
@@ -742,6 +741,7 @@ getMentors: async (req, res) => {
             conn.release();
         }
     },
+    
     update : async (req, res) => {
         let conn = null;
         try {
@@ -778,7 +778,7 @@ getMentors: async (req, res) => {
             } = req.body;
 
             // 1. Validasi data yang diperlukan
-            if (!id || !nama || !nama_institusi || !bidang_id || !tanggal_masuk || !tanggal_keluar) {
+            if (!id || !nama || !nama_institusi || !tanggal_masuk || !tanggal_keluar) {
                 throw new Error('Data wajib tidak lengkap');
             }
 
@@ -801,13 +801,15 @@ getMentors: async (req, res) => {
             }
 
             // 3. Validasi bidang
-            const [bidangExists] = await conn.execute(
-                'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
-                [bidang_id]
-            );
-
-            if (bidangExists.length === 0) {
-                throw new Error('Bidang yang dipilih tidak valid');
+            if (bidang_id && bidang_id.trim() !== '') {
+                const [bidangExists] = await conn.execute(
+                    'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
+                    [bidang_id]
+                );
+            
+                if (bidangExists.length === 0) {
+                    throw new Error('Bidang yang dipilih tidak valid');
+                }
             }
             const newStatus = determineStatus(tanggal_masuk, tanggal_keluar);
             // 4. Update tabel peserta_magang
@@ -839,7 +841,7 @@ getMentors: async (req, res) => {
                 jenis_institusi,
                 email,
                 no_hp,
-                bidang_id,
+                bidang_id || null,
                 tanggal_masuk,
                 tanggal_keluar,
                 newStatus,

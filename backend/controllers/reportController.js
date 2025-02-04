@@ -235,8 +235,9 @@ const calculateWorkingDays = (startDate, endDate) => {
 
             const pdfBytes = await pdfDoc.save();
             
+            const fileName = `sertifikat_${data.nama.replace(/\s+/g, '_')}.pdf`;
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename=sertifikat.pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
             res.send(Buffer.from(pdfBytes));
         } catch (error) {
             console.error('Error generating certificate:', error);

@@ -7,10 +7,10 @@ const createInternNotification = async (conn, {userId, internName, action}) => {
     try {
         // 1. Ambil data user yang melakukan aksi
         const [userData] = await conn.execute(
-            'SELECT username FROM users WHERE id_users = ?',
+            'SELECT nama FROM users WHERE id_users = ?',
             [userId]
         );
-        const username = userData[0]?.username || 'Unknown User';
+        const nama = userData[0]?.nama || 'Unknown User';
        
         // 2. Ambil semua user yang terdaftar
         const [allUsers] = await conn.execute('SELECT id_users FROM users');
@@ -33,7 +33,7 @@ const createInternNotification = async (conn, {userId, internName, action}) => {
                 uuidv4(),
                 user.id_users,
                 'Aktivitas Penilaian',
-                `${username} telah ${action} nilai untuk peserta magang: ${internName}`,
+                `${nama} telah ${action} nilai untuk peserta magang: ${internName}`,
                 0
             ];
            

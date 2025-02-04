@@ -140,6 +140,36 @@ setMissingStatus: async (req, res) => {
     }
 },
 
+getMentors: async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        const [mentors] = await conn.execute(`
+            SELECT 
+                id_users, 
+                username, 
+                nama, 
+                nip, 
+                email
+            FROM users 
+            WHERE role = 'admin'
+            ORDER BY nama
+        `);
+
+        res.json({
+            status: 'success',
+            data: mentors
+        });
+    } catch (error) {
+        console.error('Error mengambil data mentor:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Terjadi kesalahan server saat mengambil data mentor'
+        });
+    } finally {
+        conn.release();
+    }
+},
+
 
 getDetailedStats: async (req, res) => {
     const conn = await pool.getConnection();
@@ -917,67 +947,76 @@ getMentors: async (req, res) => {
             }
         }
     },
-        delete: async (req, res) => {
-            const conn = await pool.getConnection();
-            try {
-                await conn.beginTransaction();
-               
-                const { id } = req.params;
-               
-                // Cek apakah data magang ada
-                const [existingIntern] = await conn.execute(
-                    'SELECT jenis_peserta FROM peserta_magang WHERE id_magang = ?',
-                    [id]
-                );
-       
-                if (existingIntern.length === 0) {
-                    await conn.rollback();
-                    return res.status(404).json({
-                        status: 'error',
-                        message: 'Data peserta magang tidak ditemukan'
-                    });
-                }
-       
-                // Hapus data terkait berdasarkan jenis_peserta
-                if (existingIntern[0].jenis_peserta === 'mahasiswa') {
-                    await conn.execute(
-                        'DELETE FROM data_mahasiswa WHERE id_magang = ?',
-                        [id]
-                    );
-                } else if (existingIntern[0].jenis_peserta === 'siswa') {
-                    await conn.execute(
-                        'DELETE FROM data_siswa WHERE id_magang = ?',
-                        [id]
-                    );
-                }
-       
-                // Hapus data utama dari tabel peserta_magang
-                const [deleteResult] = await conn.execute(
-                    'DELETE FROM peserta_magang WHERE id_magang = ?',
-                    [id]
-                );
-       
-                if (deleteResult.affectedRows === 0) {
-                    throw new Error('Gagal menghapus data peserta magang');
-                }
-       
-                await conn.commit();
-                res.json({
-                    status: 'success',
-                    message: 'Data peserta magang berhasil dihapus'
-                });
-       
-            } catch (error) {
+    delete: async (req, res) => {
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            
+            const { id } = req.params;
+            
+            // Ambil data peserta sebelum dihapus untuk notifikasi
+            const [internData] = await conn.execute(
+                'SELECT nama, jenis_peserta FROM peserta_magang WHERE id_magang = ?',
+                [id]
+            );
+    
+            if (internData.length === 0) {
                 await conn.rollback();
-                console.error('Error deleting intern:', error);
-                res.status(500).json({
+                return res.status(404).json({
                     status: 'error',
-                    message: error.message || 'Terjadi kesalahan server'
+                    message: 'Data peserta magang tidak ditemukan'
                 });
-            } finally {
-                conn.release();
             }
-        },
+    
+            const internName = internData[0].nama;
+    
+            // Hapus data terkait berdasarkan jenis_peserta
+            if (internData[0].jenis_peserta === 'mahasiswa') {
+                await conn.execute(
+                    'DELETE FROM data_mahasiswa WHERE id_magang = ?',
+                    [id]
+                );
+            } else if (internData[0].jenis_peserta === 'siswa') {
+                await conn.execute(
+                    'DELETE FROM data_siswa WHERE id_magang = ?',
+                    [id]
+                );
+            }
+    
+            // Hapus data utama dari tabel peserta_magang
+            const [deleteResult] = await conn.execute(
+                'DELETE FROM peserta_magang WHERE id_magang = ?',
+                [id]
+            );
+    
+            if (deleteResult.affectedRows === 0) {
+                throw new Error('Gagal menghapus data peserta magang');
+            }
+    
+            // Buat notifikasi setelah berhasil menghapus
+            await createInternNotification(conn, {
+                userId: req.user.userId,
+                internName: internName,
+                action: 'menghapus'
+            });
+    
+            await conn.commit();
+            res.json({
+                status: 'success',
+                message: 'Data peserta magang berhasil dihapus'
+            });
+    
+        } catch (error) {
+            await conn.rollback();
+            console.error('Error deleting intern:', error);
+            res.status(500).json({
+                status: 'error',
+                message: error.message || 'Terjadi kesalahan server'
+            });
+        } finally {
+            conn.release();
+        }
+    },
      // Modify getStats to use new status logic
     //  getStats: async (req, res) => {
     //     const conn = await pool.getConnection();

@@ -84,7 +84,7 @@ const Dashboard = () => {
                         group-hover:z-10">
                         <div className="flex justify-between items-start">
                             <div className="transform transition-all duration-500 group-hover:translate-x-2">
-                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Anak Magang Aktif</p>
+                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Peserta Magang Aktif</p>
                                 <h3 className="text-4xl font-bold text-emerald-500">{stats.activeInterns.total}</h3>
                             </div>
                             <div className="bg-emerald-100 p-3 rounded-lg transform transition-all duration-500
@@ -104,7 +104,7 @@ const Dashboard = () => {
                         group-hover:z-10">
                         <div className="flex justify-between items-start">
                             <div className="transform transition-all duration-500 group-hover:translate-x-2">
-                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Anak Magang Selesai</p>
+                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Peserta Magang Selesai</p>
                                 <h3 className="text-4xl font-bold text-emerald-500">{stats.completedInterns}</h3>
                             </div>
                             <div className="bg-rose-100 p-3 rounded-lg transform transition-all duration-500
@@ -124,7 +124,7 @@ const Dashboard = () => {
                         group-hover:z-10">
                         <div className="flex justify-between items-start">
                             <div className="transform transition-all duration-500 group-hover:translate-x-2">
-                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Anak Magang</p>
+                                <p className="text-emerald-500 text-lg font-medium mb-2">Total Peserta Magang</p>
                                 <h3 className="text-4xl font-bold text-emerald-500">{stats.totalInterns}</h3>
                             </div>
                             <div className="bg-amber-100 p-3 rounded-lg transform transition-all duration-500
@@ -146,7 +146,7 @@ const Dashboard = () => {
                         animate-slideRight delay-300 hover:shadow-xl hover:shadow-blue-200/50">
                         <div className="flex justify-between items-start mb-4">
                             <p className="text-emerald-500 text-xl font-medium transform transition-all duration-500
-                                group-hover:translate-x-2">Anak Magang Aktif Berdasarkan Jenis</p>
+                                group-hover:translate-x-2">Peserta Magang Aktif Berdasarkan Jenis</p>
                             <div className="bg-blue-100 p-3 rounded-lg transform transition-all duration-500
                                 group-hover:rotate-12 group-hover:scale-110">
                                 <GraduationCap className="w-6 h-6 text-blue-500" />
@@ -175,7 +175,7 @@ const Dashboard = () => {
                         animate-slideLeft delay-300 hover:shadow-xl hover:shadow-purple-200/50">
                         <div className="flex justify-between items-start mb-4">
                             <p className="text-emerald-500 text-xl font-medium transform transition-all duration-500
-                                group-hover:translate-x-2">Anak Magang Aktif Per Bidang</p>
+                                group-hover:translate-x-2">Peserta Magang Aktif Per Bidang</p>
                             <div className="bg-purple-100 p-3 rounded-lg transform transition-all duration-500
                                 group-hover:rotate-12 group-hover:scale-110">
                                 <Briefcase className="w-6 h-6 text-purple-500" />
@@ -199,7 +199,7 @@ const Dashboard = () => {
             <div className="mt-8 animate-slideUp delay-400">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">
-                        Anak Magang yang Akan Selesai dalam 7 Hari
+                        Peserta Magang yang Akan Selesai dalam 7 Hari
                     </h2>
                     <div className="bg-yellow-100 px-3 py-1 rounded-lg transform transition-all duration-300
                         hover:scale-105">
@@ -239,7 +239,7 @@ const Dashboard = () => {
                         </div>
                     ) : (
                         <div className="text-center py-4 text-gray-500">
-                            Tidak ada anak magang yang akan selesai dalam 7 hari ke depan
+                            Tidak ada Peserta magang yang akan selesai dalam 7 hari ke depan
                         </div>
                     )}
                 </div>

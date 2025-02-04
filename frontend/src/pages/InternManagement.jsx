@@ -1897,7 +1897,7 @@ document.head.appendChild(style);
                   Nama
                 </th>
                 <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
+                  Institusi
                 </th>
                 <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ruang Penempatan
@@ -1964,7 +1964,7 @@ document.head.appendChild(style);
 </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500 truncate">
-                        {intern.email}
+                        {intern.nama_institusi}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">

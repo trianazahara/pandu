@@ -356,7 +356,7 @@ const RiwayatData = () => {
         p: 3
       }}>
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-          Riwayat Data Peserta Magang
+          Riwayat Data Anak Magang
         </Typography>
       </Box>
 

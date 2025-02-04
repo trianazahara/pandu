@@ -90,6 +90,12 @@ const InternManagement = () => {
     loading: false,
     nama: ''
   });
+  const [missingDialog, setMissingDialog] = useState({
+    open: false,
+    internId: null,
+    loading: false,
+    nama: ''
+  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -272,40 +278,10 @@ const InternManagement = () => {
   };
  
 
-  const [mentors, setMentors] = useState([]);
-const [mentorsLoading, setMentorsLoading] = useState(true);
-const [mentorsError, setMentorsError] = useState(null);
+//   const [mentors, setMentors] = useState([]);
+// const [mentorsLoading, setMentorsLoading] = useState(true);
+// const [mentorsError, setMentorsError] = useState(null);
 
-// Add this new fetch function
-const fetchMentors = async () => {
-  try {
-    setMentorsLoading(true);
-    setMentorsError(null);
-    const token = localStorage.getItem('token');
-    
-    const response = await fetch('/api/intern/mentors', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch mentors data');
-    }
-
-    const result = await response.json();
-    if (result.status === 'success') {
-      setMentors(result.data);
-    } else {
-      throw new Error(result.message || 'Failed to fetch mentors data');
-    }
-  } catch (error) {
-    console.error('Error fetching mentors:', error);
-    setMentorsError('Gagal mengambil data mentor');
-  } finally {
-    setMentorsLoading(false);
-  }
-};
 
 
   // Fetch functions
@@ -510,6 +486,15 @@ const fetchMentors = async () => {
     }
   };
 
+  const handleMissingClick = (internId, nama) => {
+    setMissingDialog({
+      open: true,
+      internId,
+      loading: false,
+      nama
+    });
+  };
+
   const handleFilter = (key, value) => {
     setFilters(prevFilters => {
       if (key === 'status') {
@@ -708,7 +693,7 @@ const adjustDateForTimezone = (dateString) => {
 
   useEffect(() => {
     fetchBidangList();
-    fetchMentors();
+    // fetchMentors();
   }, []);
 
 
@@ -781,7 +766,7 @@ const AddDialog = () => (
         .min(10, 'Nomor HP minimal 10 digit')
         .max(15, 'Nomor HP maksimal 15 digit'),
     bidang_id: Yup.string()
-        .required('Ruang Penempatan wajib dipilih'),
+         .nullable(),
     tanggal_masuk: Yup.date()
         .required('Tanggal masuk wajib diisi'),
     tanggal_keluar: Yup.date()
@@ -872,6 +857,8 @@ const AddDialog = () => (
                     fullWidth
                     label="Nama Lengkap"
                     size="small"
+
+                    required={true}
                   />
                 </Grid>
 
@@ -899,7 +886,11 @@ const AddDialog = () => (
                         <MenuItem value="siswa">Siswa</MenuItem>
                       </Select>
                     </FormControl>
+                    
                   )}
+                required={true}
+                    
+                  
                 />
               </Grid>
 
@@ -942,6 +933,8 @@ const AddDialog = () => (
                     fullWidth
                     label="Nama Institusi"
                     size="small"
+
+                    required={true}
                   />
                 </Grid>
 
@@ -988,29 +981,7 @@ const AddDialog = () => (
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="mentor_id"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Mentor</InputLabel>
-                        <Select
-                          {...field}
-                          label="Mentor"
-                        >
-                          <MenuItem value="">
-                            <em>Tidak Ada Mentor</em>
-                          </MenuItem>
-                          {mentors.map(mentor => (
-                            <MenuItem key={mentor.id_users} value={mentor.id_users}>
-                              {mentor.nama} {mentor.nip ? `(${mentor.nip})` : ''}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
+               
 
 
                 {/* Internship Period */}
@@ -1030,6 +1001,8 @@ const AddDialog = () => (
                     type="date"
                     size="small"
                     InputLabelProps={{ shrink: true }}
+
+                    required={true}
                   />
                 </Grid>
 
@@ -1043,6 +1016,8 @@ const AddDialog = () => (
                     type="date"
                     size="small"
                     InputLabelProps={{ shrink: true }}
+
+                    required={true}
                   />
                 </Grid>
 
@@ -1475,7 +1450,7 @@ const AddDialog = () => (
             nama_institusi: Yup.string()
               .required('Nama institusi wajib diisi'),
             bidang_id: Yup.string()
-              .required('Ruang Penempatan wajib dipilih'),
+              .nullable(),
             tanggal_masuk: Yup.date()
               .required('Tanggal masuk wajib diisi'),
             tanggal_keluar: Yup.date()
@@ -1484,8 +1459,8 @@ const AddDialog = () => (
                 Yup.ref('tanggal_masuk'),
                 'Tanggal keluar harus setelah tanggal masuk'
               ),
-            status: Yup.string()
-              .required('Status wajib dipilih'),
+            // status: Yup.string()
+            //   .required('Status wajib dipilih'),
           
             // Field Opsional
             email: Yup.string()
@@ -1647,7 +1622,7 @@ const AddDialog = () => (
                 </Grid>
 
 
-                <Grid item xs={12} md={6}>
+                {/* <Grid item xs={12} md={6}>
                   <Field
                     name="mentor_id"
                     component={({ field, form }) => (
@@ -1669,7 +1644,7 @@ const AddDialog = () => (
                       </FormControl>
                     )}
                   />
-                </Grid>
+                </Grid> */}
 
 
                 {/* Detail Peserta */}
@@ -2132,7 +2107,7 @@ document.head.appendChild(style);
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
-                        {intern.mentor_nama || '-'}
+                        {mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-center">
@@ -2155,7 +2130,7 @@ document.head.appendChild(style);
       <Tooltip title="Set as Missing">
         <IconButton
           size="small"
-          onClick={() => handleSetMissing(intern.id_magang, intern.nama)}
+          onClick={() => handleMissingClick(intern.id_magang, intern.nama)}
           sx={{ 
             color: 'grey.500',
             '&:hover': {
@@ -2304,6 +2279,39 @@ document.head.appendChild(style);
       availabilityData={availabilityDialog.data}
       isSubmitting={addDialog.loading}
     />
+
+    {/* Missing Confirmation Dialog */}
+    <Dialog
+      open={missingDialog.open}
+      onClose={() => setMissingDialog({ open: false, internId: null, loading: false, nama: '' })}
+    >
+      <DialogTitle>Konfirmasi Status Missing</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Apakah Anda yakin ingin mengubah status "{missingDialog.nama}" menjadi missing?
+          Tindakan ini akan menandai peserta magang sebagai tidak aktif/menghilang.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={() => setMissingDialog({ open: false, internId: null, loading: false, nama: '' })}
+          disabled={missingDialog.loading}
+        >
+          Batal
+        </Button>
+        <LoadingButton
+          onClick={() => {
+            handleSetMissing(missingDialog.internId, missingDialog.nama);
+            setMissingDialog({ open: false, internId: null, loading: false, nama: '' });
+          }}
+          color="error"
+          variant="contained"
+          loading={missingDialog.loading}
+        >
+          Set Missing
+        </LoadingButton>
+      </DialogActions>
+    </Dialog>
   </Box>  
   );
 };

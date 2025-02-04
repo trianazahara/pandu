@@ -395,7 +395,8 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `sertifikat.docx`;
+      const internName = data.find(intern => intern.id_magang === id)?.nama || 'unknown';
+      link.download = `sertifikat_${internName}.docx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

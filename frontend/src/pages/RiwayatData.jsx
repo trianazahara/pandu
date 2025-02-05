@@ -20,7 +20,7 @@ import {
   Alert,
   Tooltip
 } from '@mui/material';
-import { Assessment as AssessmentIcon, Info as InfoIcon } from '@mui/icons-material';
+import { Assessment as AssessmentIcon, Info as InfoIcon, Check as CheckIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 // Helper function untuk menghitung hari kerja
@@ -201,6 +201,7 @@ const RiwayatData = () => {
         limit: pagination.limit,
         bidang,
         search,
+        search_type: 'nama_institusi', // Change search type to include institution name
         status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
       };
   
@@ -356,17 +357,66 @@ const RiwayatData = () => {
     return ''; // Kosong untuk yang belum dinilai
   };
 
+  const style = document.createElement('style');
+style.textContent = `
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+      background-size: 100% 100%;
+    }
+    25% {
+      background-size: 200% 200%;
+    }
+    50% {
+      background-position: 100% 50%;
+      background-size: 100% 100%;
+    }
+    75% {
+      background-size: 200% 200%;
+    }
+    100% {
+      background-position: 0% 50%;
+      background-size: 100% 100%;
+    }
+  }
+
+  .animated-bg {
+    background: linear-gradient(
+      90deg, 
+      #BCFB69 0%,
+      #26BBAC 33%,
+      #20A4F3 66%,
+      #BCFB69 100%
+    );
+    background-size: 300% 100%;
+    animation: gradient 8s ease-in-out infinite;
+    transition: all 0.3s ease;
+  }
+
+  .animated-bg:hover {
+    transform: scale(1.005);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  }
+`;
+document.head.appendChild(style);
+
   // Render
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
-      <Box sx={{ 
-        width: '100%',
-        background: 'linear-gradient(to right, #BCFB69, #26BBAC)',
-        borderRadius: '12px',
-        mb: 4,
-        p: 3
-      }}>
+      <Box sx={{
+  width: '100%',
+  borderRadius: '12px',
+  mb: 4,
+  p: 3,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  overflow: 'hidden',
+  transition: 'all 0.3s ease',
+}}
+className="animated-bg"
+>
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Riwayat Data Anak Magang
         </Typography>
@@ -375,19 +425,19 @@ const RiwayatData = () => {
       {/* Filter Section */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="Search nama/email"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            size="small"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '0.375rem',
-              }
-            }}
-          />
-        </Grid>
+            <TextField
+              fullWidth
+              label="Search nama/institusi" // Updated from "Search nama/email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '0.375rem',
+                }
+              }}
+            />
+          </Grid>
         <Grid item xs={12} md={4}>
           <FormControl fullWidth size="small">
             <InputLabel>Bidang</InputLabel>
@@ -433,13 +483,13 @@ const RiwayatData = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institusi</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+            <th className="w-[20%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+            <th className="w-[20%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Institusi</th>
+            <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidang</th>
+            <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Masuk</th>
+            <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Keluar</th>
+            <th className="w-[10%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th className="w-[10%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
             </tr>
           </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -450,7 +500,7 @@ const RiwayatData = () => {
                   {String(intern.nama)} {/* Konversi eksplisit ke string untuk memastikan hanya nama yang ditampilkan */}
                   {Boolean(intern.has_scores) && ( // Konversi eksplisit ke boolean
                     <Tooltip title="Sudah memiliki penilaian" placement="top">
-                      <InfoIcon 
+                      <CheckIcon
                         className="text-blue-500 ml-2 h-4 w-4 inline-block" 
                         fontSize="small"
                       />

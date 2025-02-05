@@ -349,12 +349,8 @@ getAll: async (req, res) => {
 
         // Handle search
         if (search) {
-            query += ` AND (p.nama LIKE ? OR p.email LIKE ? OR
-                CASE
-                    WHEN p.jenis_peserta = 'mahasiswa' THEN m.nim
-                    ELSE s.nisn
-                END LIKE ?)`;
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            query += ` AND (p.nama LIKE ? OR p.nama_institusi LIKE ?)`;
+            params.push(`%${search}%`, `%${search}%`);
         }
 
 
@@ -1173,8 +1169,8 @@ getMentors: async (req, res) => {
     
             // Add search filter
             if (search) {
-                query += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;
-                countQuery += ` AND (pm.nama LIKE ? OR pm.email LIKE ?)`;
+                query += ` AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)`;
+                countQuery += ` AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)`;
                 params.push(`%${search}%`, `%${search}%`);
                 countParams.push(`%${search}%`, `%${search}%`);
             }

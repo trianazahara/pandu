@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Bell, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import NotificationHandler from './NotificationHandler';
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -114,6 +115,10 @@ const Header = () => {
     <div className="fixed top-0 right-0 left-64 bg-white border-b z-10">
       <div className="flex justify-end items-center p-1 mr-4">
         <div className="flex items-center gap-3">
+        <NotificationHandler 
+          notifications={notifications}
+          unreadCount={unreadCount}
+        />
           <div className="relative" ref={notificationRef}>
             <button
   onClick={async () => {

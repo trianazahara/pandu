@@ -347,41 +347,40 @@ const InternManagement = () => {
   const fetchInterns = async () => {
     setLoading(true);
     setError(null);
- 
+  
     try {
       const queryParams = new URLSearchParams();
-
-
       queryParams.append('excludeStatus', ['missing', 'selesai'].join(','));
- 
-      // Langsung gunakan nilai status tanpa mapping
+  
       if (filters.status) {
         if (!['missing', 'selesai'].includes(filters.status)) {
           queryParams.append('status', filters.status);
         }
       }
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
-      if (filters.search) queryParams.append('search', filters.search);
- 
-      // Pagination parameters
+      if (filters.search) {
+        queryParams.append('search', filters.search);
+        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  // Added this line
+      }
+  
       queryParams.append('page', pagination.page + 1);
       queryParams.append('limit', pagination.limit);
- 
+  
       const response = await fetch(`/api/intern?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
       });
- 
+  
       if (!response.ok) {
         throw new Error('Failed to load data');
       }
- 
+  
       const data = await response.json();
       const filteredData = data.data.filter(intern =>
         !['missing', 'selesai'].includes(intern.status?.toLowerCase())
       );
- 
+  
       setInterns(filteredData);
       setPagination((prev) => ({
         ...prev,
@@ -1903,19 +1902,40 @@ style.textContent = `
   @keyframes gradient {
     0% {
       background-position: 0% 50%;
+      background-size: 100% 100%;
+    }
+    25% {
+      background-size: 200% 200%;
     }
     50% {
       background-position: 100% 50%;
+      background-size: 100% 100%;
+    }
+    75% {
+      background-size: 200% 200%;
     }
     100% {
       background-position: 0% 50%;
+      background-size: 100% 100%;
     }
   }
 
   .animated-bg {
-    background: linear-gradient(45deg, #BCFB69, #26BBAC, #BCFB69);
-    background-size: 200% 200%;
-    animation: gradient 10s ease infinite;
+    background: linear-gradient(
+      90deg, 
+      #BCFB69 0%,
+      #26BBAC 33%,
+      #20A4F3 66%,
+      #BCFB69 100%
+    );
+    background-size: 300% 100%;
+    animation: gradient 8s ease-in-out infinite;
+    transition: all 0.3s ease;
+  }
+
+  .animated-bg:hover {
+    transform: scale(1.005);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
   }
 `;
 document.head.appendChild(style);
@@ -1925,17 +1945,18 @@ document.head.appendChild(style);
     <Box sx={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
       <Box sx={{
-      width: '100%',
-      borderRadius: '12px',
-      mb: 4,
-      p: 3,
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      overflow: 'hidden'
-    }}
-    className="animated-bg"
-  >
+        width: '100%',
+        borderRadius: '12px',
+        mb: 4,
+        p: 3,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        overflow: 'hidden',
+        transition: 'all 0.3s ease',
+      }}
+      className="animated-bg"
+      >
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Manajemen Data Peserta Magang
         </Typography>
@@ -1947,9 +1968,9 @@ document.head.appendChild(style);
             bgcolor: 'white',
             color: '#26BBAC',
             '&:hover': { bgcolor: '#f5f5f5' },
-            px: 3,
-            py: 1.5,
-            borderRadius: '8px',
+            // px: 3,
+            // py: 1.5,
+            // borderRadius: '8px',
           }}>
           TAMBAH PESERTA MAGANG
         </Button>
@@ -1959,13 +1980,13 @@ document.head.appendChild(style);
       {/* Search and Filter Section */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
-          <input
-            type="text"
-            placeholder="Search nama/email"
-            value={filters.search}
-            onChange={(e) => setFilters({...filters, search: e.target.value})}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <input
+          type="text"
+          placeholder="Search nama/institusi"  // Changed from "Search nama/email"
+          value={filters.search}
+          onChange={(e) => setFilters({...filters, search: e.target.value})}
+          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
         </div>
         
         <div className="relative">

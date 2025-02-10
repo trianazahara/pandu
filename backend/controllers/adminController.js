@@ -8,10 +8,10 @@ const adminController = {
     // create
     addAdmin: async (req, res) => {
         try {
-            const { username, password, email, nama,nip, id_bidang, role } = req.body;
+            const { username, password, email, nama, nip, id_bidang, role } = req.body;
    
             // Validasi input
-            if (!username || !password || !email || !nama ||!nip || !id_bidang || !role) {
+            if (!username || !password || !email || !nama || !id_bidang || !role) {
                 return res.status(400).json({ message: 'Semua data (username, password, email, nama, role) harus diisi.' });
             }
    

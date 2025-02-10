@@ -55,7 +55,6 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
 
 
 const RekapNilai = () => {
-  // State declarations
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
   const [detailDialog, setDetailDialog] = useState({
@@ -88,7 +87,6 @@ const RekapNilai = () => {
     nilai_disiplin: '',
     nilai_tanggungjawab: '',
     nilai_kerjasama: '',
-    // nilai_inisiatif: '',
     nilai_kejujuran: '',
     nilai_kebersihan: '',
     jumlah_hadir: ''
@@ -116,7 +114,6 @@ const RekapNilai = () => {
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
   };
 
-  // Helper functions dan handlers lainnya tetap sama
   const calculateWorkingDays = (startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
@@ -131,7 +128,7 @@ const RekapNilai = () => {
     }
     return workingDays;
   };
-  // Helper functions
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -142,7 +139,6 @@ const RekapNilai = () => {
     });
   };
   
-  // Tambahkan state baru untuk dialog edit data
   const [editDataDialog, setEditDataDialog] = useState({
     open: false,
     loading: false,
@@ -150,13 +146,10 @@ const RekapNilai = () => {
     error: null
   });
 
-// Fungsi untuk menangani klik tombol edit data
 const handleEditDataClick = async (id) => {
   try {
-    // Tutup dialog detail
+
     setDetailDialog(prev => ({ ...prev, open: false }));
-    
-    // Set loading state
     setEditDataDialog(prev => ({
       ...prev,
       loading: true,
@@ -168,7 +161,6 @@ const handleEditDataClick = async (id) => {
     });
 
     if (response.data.status === 'success') {
-      // Update edit dialog dengan data yang diterima
       setEditDataDialog(prev => ({
         ...prev,
         loading: false,
@@ -205,7 +197,7 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     if (response.data.status === 'success') {
       showSnackbar('Data berhasil diperbarui', 'success');
       setEditDataDialog({ open: false, loading: false, data: null, error: null });
-      fetchData(); // Refresh data
+      fetchData(); 
     } else {
       throw new Error(response.data.message || 'Gagal memperbarui data');
     }
@@ -260,14 +252,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     setSnackbar({ open: true, message, severity });
   };
 
-
-
-
-
-
-
-
-  // Fetch functions
   const fetchBidangList = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -282,11 +266,8 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   };
 
 
-
-
   const fetchData = async () => {
   try {
-    // Log state saat ini
     console.log('Current filters:', filters);
     console.log('Current pagination:', pagination);
 
@@ -300,7 +281,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       }
     });
 
-    // Log request dan response
     console.log('Request config:', {
       url: '/api/intern/rekap-nilai',
       params: {
@@ -328,11 +308,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   }
 };
 
-
-
-
-
-  // Effects
   useEffect(() => {
     fetchBidangList();
   }, []);
@@ -345,18 +320,15 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   }, [pagination.page, pagination.limit, filters]);
 
 
-
-
-  // Handlers
   const handleFilter = (key, value) => {
-    console.log(`Handling filter change: ${key} = ${value}`); // Debug log
+    console.log(`Handling filter change: ${key} = ${value}`); 
     
     setFilters(prev => {
       const newFilters = {
         ...prev,
         [key]: value
       };
-      console.log('New filters state:', newFilters); // Debug log
+      console.log('New filters state:', newFilters); 
       return newFilters;
     });
     
@@ -413,8 +385,8 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 };
  
   const handleEditScore = (score) => {
-  console.log("Score data:", score); // Debug data yang diterima
-  console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); // Debug hasil perhitungan
+  console.log("Score data:", score); 
+  console.log("Working days:", calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar)); 
 
 
 
@@ -434,10 +406,9 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
       nilai_disiplin: score.nilai_disiplin || '',
       nilai_tanggungjawab: score.nilai_tanggungjawab || '',
       nilai_kerjasama: score.nilai_kerjasama || '',
-      // nilai_inisiatif: score.nilai_inisiatif || '',
       nilai_kejujuran: score.nilai_kejujuran || '',
       nilai_kebersihan: score.nilai_kebersihan || '',
-      jumlah_hadir: score.jumlah_hadir || ''  // Ambil nilai yang sudah ada
+      jumlah_hadir: score.jumlah_hadir || '' 
     });
   };
 
@@ -448,7 +419,6 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     e.preventDefault();
     setEditDialog(prev => ({ ...prev, loading: true }));
     try {
-      // Pastikan semua nilai dikonversi ke number
       const scoreData = {
         ...scoreForm,
         nilai_teamwork: Number(scoreForm.nilai_teamwork),
@@ -459,10 +429,9 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
         nilai_disiplin: Number(scoreForm.nilai_disiplin),
         nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
         nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        // nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
-        jumlah_hadir: Number(scoreForm.jumlah_hadir)  // Pastikan ini terkirim
+        jumlah_hadir: Number(scoreForm.jumlah_hadir)  
       };
  
       const response = await axios.put(
@@ -510,15 +479,12 @@ const handleExport = async () => {
       bidang: filters.bidang
     };
    
-    // Jika tipe ekspor adalah filtered, hanya mengirim parameter tanggal untuk filter tanggal_keluar
+
     if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
-      // Format tanggal ke YYYY-MM-DD
       const formatDate = (date) => {
         const d = new Date(date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       };
-     
-      // Hanya mengirim range untuk tanggal_keluar
       params.end_date_start = formatDate(exportDialog.dateRange.startDate);
       params.end_date_end = formatDate(exportDialog.dateRange.endDate);
     }
@@ -526,7 +492,7 @@ const handleExport = async () => {
 
 
 
-    console.log('Export params:', params); // Debugging
+    console.log('Export params:', params); 
 
 
 
@@ -556,9 +522,6 @@ const handleExport = async () => {
 };
 
 
-
-
-// Add export dialog JSX after the existing Dialog component
 const ExportDialog = () => (
   <Dialog
     open={exportDialog.open}
@@ -803,18 +766,15 @@ document.head.appendChild(style);
     Number(score.nilai_disiplin || 0) +
     Number(score.nilai_tanggungjawab || 0) +
     Number(score.nilai_kerjasama || 0) +
-    // Hapus nilai_inisiatif
     Number(score.nilai_kejujuran || 0) +
     Number(score.nilai_kebersihan || 0)
   );
  
   const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
-  // Hapus perhitungan attendanceScore
   const average = totalNilai / 10;
  
-          // Hitung persentase kehadiran
+
           const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
-          // const average = ((totalNilai / 11) + attendanceScore) / 2;
             return (
               <tr key={score.id_penilaian} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1108,7 +1068,7 @@ document.head.appendChild(style);
             tanggal_keluar: adjustDateForTimezone(editDataDialog.data.tanggal_keluar),
             nama_pembimbing: editDataDialog.data.nama_pembimbing || '',
             telp_pembimbing: editDataDialog.data.telp_pembimbing || '',
-            status: editDataDialog.data.status || 'not_yet', // Tambahkan initial value untuk status
+            status: editDataDialog.data.status || 'not_yet',
             detail_peserta: {
               ...(editDataDialog.data.jenis_peserta === 'mahasiswa'
                 ? {
@@ -1582,7 +1542,7 @@ document.head.appendChild(style);
               </Typography>
             </Grid>
             {Object.entries(scoreForm).map(([key, value]) => {
-              if (key === 'jumlah_hadir') return null; // Skip attendance field
+              if (key === 'jumlah_hadir') return null; 
               return (
                 <Grid item xs={12} md={6} key={key}>
                   <TextField

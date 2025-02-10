@@ -45,13 +45,10 @@ const Settings = () => {
   });
 
 
-  // Files state for template section
   const [files, setFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-
-  // Fetch profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -74,13 +71,11 @@ const Settings = () => {
   }, []);
 
 
-  // Load existing template files
   useEffect(() => {
     loadExistingFiles();
   }, []);
 
 
-  // Cleanup preview URL when component unmounts
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -99,7 +94,6 @@ const Settings = () => {
   };
 
 
-  // Profile functions
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
@@ -220,7 +214,6 @@ const Settings = () => {
   };
 
 
-  // Template functions
   const loadExistingFiles = async () => {
     try {
         setIsLoading(true);
@@ -232,9 +225,6 @@ const Settings = () => {
         });
         const activeTemplate = response.data.data.filter(file => file.active === 1);
         setUploadedFiles(activeTemplate);
-
-       
-        // Remove the status check since backend doesn't return it
         setUploadedFiles(response.data.data || []);
 
     } catch (error) {

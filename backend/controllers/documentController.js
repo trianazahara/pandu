@@ -725,4 +725,3 @@ async function extractTextFromPDF(pdfPath) {
 }
 
 module.exports = documentController;
-

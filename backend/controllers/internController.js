@@ -970,7 +970,7 @@ const internController = {
             const {
                 page = 1,
                 limit = 10,
-                status = 'selesai,missing',
+                status = 'selesai,missing,almost', 
                 bidang,
                 search
             } = req.query;

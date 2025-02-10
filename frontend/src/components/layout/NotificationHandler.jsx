@@ -17,7 +17,7 @@ const NotificationHandler = ({ notifications, unreadCount }) => {
 
     const soundMap = {
       important: '/sounds/important-notification.mp3',
-      default: '/sounds/default-notification.mp3'
+      default: '/sounds/important-notification.mp3'
     };
 
     audioRef.current.pause();

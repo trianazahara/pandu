@@ -5,7 +5,6 @@ const bcrypt = require('bcrypt');
 
 
 const adminController = {
-    // create
     addAdmin: async (req, res) => {
         try {
             const { username, password, email, nama, nip, id_bidang, role } = req.body;
@@ -29,15 +28,14 @@ const adminController = {
    
             // Cek username atau email sudah ada
             const [existingUsers] = await pool.execute(
-                'SELECT * FROM users WHERE username = ? OR email = ? OR nip = ?',
-                [username, email, nip]
+                'SELECT * FROM users WHERE username = ? OR email = ?',
+                [username, email]
             );
             if (existingUsers.length > 0) {
                 return res.status(400).json({ message: 'Username atau email sudah digunakan.' });
             }
 
-
-            // Validasi bidang exists
+            // Validasi bidang
             const [bidangExists] = await pool.execute(
                 'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
                 [id_bidang]
@@ -66,40 +64,29 @@ const adminController = {
         }
     },
 
-
-     
-
-
-    // delete
-    // adminController.js
     deleteAdmin: async (req, res) => {
         try {
             const { id } = req.params;
-           
-            // Get connection and start transaction
+
             const connection = await pool.getConnection();
             await connection.beginTransaction();
            
             try {
-                // 1. Update peserta_magang mentor_id to NULL
                 await connection.execute(
                     'UPDATE peserta_magang SET mentor_id = NULL WHERE mentor_id = ?',
                     [id]
                 );
 
-                // 2. Delete notifications
                 await connection.execute(
                     'DELETE FROM notifikasi WHERE user_id = ?',
                     [id]
                 );
                
-                // 3. Update peserta_magang created_by to NULL
                 await connection.execute(
                     'UPDATE peserta_magang SET created_by = NULL WHERE created_by = ?',
                     [id]
                 );
                
-                // 4. Delete user
                 const [result] = await connection.execute(
                     'DELETE FROM users WHERE id_users = ? AND role = "admin"',
                     [id]
@@ -112,8 +99,7 @@ const adminController = {
                         message: 'Admin tidak ditemukan atau tidak dapat dihapus.' 
                     });
                 }
-               
-                // Commit transaction
+
                 await connection.commit();
                 connection.release();
                
@@ -136,8 +122,6 @@ const adminController = {
         }    
     },
 
-
-    // read
     getAdmin: async (req, res) => {
         try {
             const [admins] = await pool.execute(`
@@ -158,7 +142,6 @@ const adminController = {
     },
 
 
-    // update
     editAdmin: async (req, res) => {
         try {
             const { id } = req.params;
@@ -205,8 +188,6 @@ const adminController = {
 
             params.push(id);
 
-
-            // Eksekusi query update
             const [result] = await pool.execute(
                 `UPDATE users SET ${updates.join(', ')} WHERE id_users = ? AND role = "admin"`,
                 params

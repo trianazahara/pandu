@@ -19,14 +19,12 @@ const settingsController = {
                 });
             }
 
-            // Deactivate current active template
             await conn.execute(`
                 UPDATE dokumen_template
                 SET active = false
                 WHERE jenis = ? AND active = true
             `, [jenis]);
 
-            // Insert new template
             const id_dokumen = uuidv4();
             const filePath = `/uploads/templates/${file.filename}`;
 
@@ -66,14 +64,6 @@ const settingsController = {
         } catch (error) {
             console.error('Error getting templates:', error);
             res.status(500).json({ message: 'Terjadi kesalahan server' });
-        }
-    },
-
-    updateProfile: async (req, res) => {
-        try {
-
-        } catch {
-            
         }
     }
 };

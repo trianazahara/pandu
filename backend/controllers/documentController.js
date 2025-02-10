@@ -1,9 +1,8 @@
 // documentController 
-
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const fs = require('fs').promises;
-const fsSync = require('fs');  // Untuk existsSyn
+const fsSync = require('fs');  
 const path = require('path');
 const libre = require('libreoffice-convert');
 const { promisify } = require('util');
@@ -18,7 +17,7 @@ class PDFCache {
 
     get(templateId) {
         const cached = this.cache.get(templateId);
-        if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour validity
+        if (cached && Date.now() - cached.timestamp < 3600000) { 
             return cached.buffer;
         }
         return null;
@@ -32,7 +31,6 @@ class PDFCache {
     }
 };
 
-// Utility function untuk menghitung rata-rata nilai
 const calculateAverageScore = (nilaiData) => {
     const nilaiFields = [
         'nilai_teamwork', 'nilai_komunikasi', 'nilai_pengambilan_keputusan',
@@ -47,23 +45,6 @@ const calculateAverageScore = (nilaiData) => {
 
 
 
-
-//Tr
-// const calculateTotalScore = (nilaiData) => {
-//     const nilaiFields = [
-//         'nilai_teamwork', 'nilai_komunikasi', 'nilai_pengambilan_keputusan',
-//         'nilai_kualitas_kerja', 'nilai_teknologi', 'nilai_disiplin',
-//         'nilai_tanggungjawab', 'nilai_kerjasama',
-//         'nilai_kejujuran', 'nilai_kebersihan'
-//     ];
-   
-//     return nilaiFields.map(field => parseFloat(nilaiData[field] || 0))
-//                      .reduce((a, b) => a + b, 0)
-//                      .toFixed(2);
-// };
-
-
-// Fungsi untuk menentukan akreditasi berdasarkan rata-rata
 const getAkreditasi = (rataRata) => {
     const nilai = parseFloat(rataRata);
     if (nilai > 90) return "Amat Baik";
@@ -73,79 +54,6 @@ const getAkreditasi = (rataRata) => {
     return "Kurang";
 };
 
-
-
-
-// Fungsi untuk mengubah angka menjadi teks
-// const angkaKeTeks = (angka) => {
-//     const satuanTeks = [
-//         "", "Satu", "Dua", "Tiga", "Empat", "Lima",
-//         "Enam", "Tujuh", "Delapan", "Sembilan"
-//     ];
-   
-//     const puluhan = Math.floor(angka);
-//     const desimal = Math.round((angka - puluhan) * 100);
-   
-//     if (puluhan === 0) return "Nol";
-   
-//     let hasil = "";
-   
-//     // Handle thousands
-//     if (puluhan >= 1000) {
-//         const ribu = Math.floor(puluhan / 1000);
-//         if (ribu === 1) hasil += "Seribu ";
-//         else hasil += angkaKeTeks(ribu) + " Ribu ";
-//         angka = puluhan % 1000;
-//     }
-   
-//     // Handle hundreds
-//     if (puluhan >= 100) {
-//         const ratus = Math.floor((puluhan % 1000) / 100);
-//         if (ratus === 1) hasil += "Seratus ";
-//         else if (ratus > 0) hasil += satuanTeks[ratus] + " Ratus ";
-//         angka = puluhan % 100;
-//     }
-   
-//     // Handle tens and ones
-//     if (angka >= 20) {
-//         const sepuluh = Math.floor(angka / 10);
-//         hasil += satuanTeks[sepuluh] + " Puluh ";
-//         angka = angka % 10;
-//         if (angka > 0) hasil += satuanTeks[angka];
-//     } else if (angka >= 10) {
-//         if (angka === 10) hasil += "Sepuluh";
-//         else if (angka === 11) hasil += "Sebelas";
-//         else hasil += satuanTeks[angka - 10] + " Belas";
-//     } else if (angka > 0) {
-//         hasil += satuanTeks[angka];
-//     }
-   
-//     if (desimal > 0) {
-//         hasil += ` Koma ${desimal}`;
-//     }
-   
-//     return hasil.trim();
-// };
-
-
-
-
-
-
-// // Format tanggal ke dd/mm/yyyy
-// const formatTanggal = (tanggal) => {
-//     const date = new Date(tanggal);
-//     return date.toLocaleDateString('id-ID', {
-//         day: '2-digit',
-//         month: '2-digit',
-//         year: 'numeric'
-//     }).replace(/\./g, '/');
-// };
-
-
-
-
-//Tr
 const calculateTotalScore = (nilaiData) => {
     const nilaiFields = [
         'nilai_teamwork', 'nilai_komunikasi', 'nilai_pengambilan_keputusan',
@@ -158,23 +66,6 @@ const calculateTotalScore = (nilaiData) => {
                      .reduce((a, b) => a + b, 0)
                      .toFixed(2);
 };
-
-
-// Fungsi untuk menentukan akreditasi berdasarkan rata-rata
-// const getAkreditasi = (rataRata) => {
-//     const nilai = parseFloat(rataRata);
-//     if (nilai > 90) return "Amat Baik";
-//     if (nilai > 80) return "Baik";
-//     if (nilai > 70) return "Cukup";
-//     if (nilai > 60) return "Sedang";
-//     return "Kurang";
-// };
-
-
-
-
-
-
 
 
 // Fungsi untuk mengubah angka menjadi teks
@@ -190,9 +81,9 @@ const angkaKeTeks = (angka) => {
     if (puluhan === 0) return "Nol";
     
     let hasil = "";
-    let tempPuluhan = puluhan; // Store puluhan in temporary variable
+    let tempPuluhan = puluhan; 
     
-    // Handle thousands
+
     if (tempPuluhan >= 1000) {
         const ribu = Math.floor(tempPuluhan / 1000);
         if (ribu === 1) hasil += "Seribu ";
@@ -200,7 +91,6 @@ const angkaKeTeks = (angka) => {
         tempPuluhan = tempPuluhan % 1000;
     }
     
-    // Handle hundreds
     if (tempPuluhan >= 100) {
         const ratus = Math.floor(tempPuluhan / 100);
         if (ratus === 1) hasil += "Seratus ";
@@ -208,7 +98,6 @@ const angkaKeTeks = (angka) => {
         tempPuluhan = tempPuluhan % 100;
     }
     
-    // Handle tens and ones
     if (tempPuluhan >= 20) {
         const sepuluh = Math.floor(tempPuluhan / 10);
         hasil += satuanTeks[sepuluh] + " Puluh ";
@@ -222,7 +111,6 @@ const angkaKeTeks = (angka) => {
         hasil += satuanTeks[tempPuluhan];
     }
     
-    // Handle decimal numbers
     if (desimal > 0) {
         hasil += " Koma " + angkaKeTeks(desimal);
     }
@@ -241,24 +129,12 @@ const formatTanggal = (tanggal) => {
     }).replace(/\./g, '/');
 };
 
-
-
-
-
-
-
-
-// Main controller object
 const documentController = {
     async uploadTemplate(req, res) {
         try {
-            // Deactivate current active template
             await pool.execute(
                 'UPDATE dokumen_template SET active = 0 WHERE active = 1'
             );
-
-
-
 
             if (!req.file) {
                 return res.status(400).json({
@@ -267,40 +143,22 @@ const documentController = {
                 });
             }
 
-
-
-
-           
-            // Setup paths
             const templateDir = path.join(__dirname, '..', 'public', 'templates');
             const filePath = path.join(templateDir, req.file.filename);
-           
-            // Ensure directory exists
+
             await fs.mkdir(templateDir, { recursive: true });
-           
-            // Move file
+
             await fs.rename(req.file.path, filePath);
-
-
-
 
             const templateData = {
                 id_dokumen: Date.now().toString(),
                 id_users: req.user?.id || null,
                 file_path: filePath,
-                active: 1,  // Set active here
+                active: 1,  
                 created_by: req.user?.id || null,
                 created_at: new Date()
             };
 
-
-
-
-
-
-
-
-            // Insert ke database
             const [result] = await pool.execute(
                 `INSERT INTO dokumen_template
                 (id_dokumen, id_users, file_path, active, created_by, created_at)
@@ -315,13 +173,6 @@ const documentController = {
                 ]
             );
 
-
-
-
-
-
-
-
             res.json({
                 success: true,
                 message: 'Template berhasil diupload',
@@ -329,13 +180,6 @@ const documentController = {
                     template_id: templateData.id_dokumen
                 }
             });
-
-
-
-
-
-
-
 
         } catch (error) {
             console.error('Error uploading template:', error);
@@ -347,37 +191,16 @@ const documentController = {
         }
     },
 
-
-
-
-
-
-
-
     async getTemplates(req, res) {
         try {
             const [templates] = await pool.execute(
                 'SELECT * FROM dokumen_template WHERE active = 1'
             );
 
-
-
-
-
-
-
-
             res.json({
                 success: true,
                 data: templates
             });
-
-
-
-
-
-
-
 
         } catch (error) {
             console.error('Error fetching templates:', error);
@@ -405,8 +228,7 @@ const documentController = {
             if (!fsSync.existsSync(filePath)) {
                 return res.status(404).json({ success: false, message: 'File tidak ditemukan' });
             }
-    
-            // Convert DOCX to PDF
+
             const inputBuffer = await fs.readFile(filePath);
             const outputBuffer = await convertAsync(inputBuffer, '.pdf', undefined);
             
@@ -439,17 +261,14 @@ const documentController = {
             if (!fsSync.existsSync(filePath)) {
                 return res.status(404).json({ success: false, message: 'File tidak ditemukan' });
             }
-    
-            // Convert DOCX to PDF
+
             const inputBuffer = await fs.readFile(filePath);
             const outputBuffer = await convertAsync(inputBuffer, '.pdf', undefined);
-            
-            // Tambahkan header-header penting
+
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'inline; filename=preview.pdf');
             res.setHeader('Content-Length', outputBuffer.length);
-            
-            // Tambahkan CORS headers jika diperlukan
+  
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -475,24 +294,10 @@ const documentController = {
                 [id]
             );
 
-
-
-
-
-
-
-
             res.json({
                 success: true,
                 message: 'Template berhasil dihapus'
             });
-
-
-
-
-
-
-
 
         } catch (error) {
             console.error('Error deleting template:', error);
@@ -503,7 +308,7 @@ const documentController = {
             });
         }
     },
-    // Certificate Generation
+
     async generateSertifikat(req, res) {
         try {
             const id_magang = req.params.id;
@@ -514,8 +319,6 @@ const documentController = {
                 });
             }
    
-
-            // 1. Ambil template
             const [templates] = await pool.execute(
                 'SELECT * FROM dokumen_template WHERE active = 1 ORDER BY created_at DESC LIMIT 1'
             );
@@ -527,7 +330,6 @@ const documentController = {
                 });
             }
    
-            // 2. Ambil data peserta (kode sama seperti sebelumnya)
             const [peserta] = await pool.execute(`
                 SELECT
                     pm.*,
@@ -554,9 +356,8 @@ const documentController = {
                 });
             }
    
-            // 3. Generate DOCX
             const templatePath = templates[0].file_path;
-            console.log('Template path:', templatePath); // Debug log
+            console.log('Template path:', templatePath); 
    
             const content = await fs.readFile(templatePath);
             const zip = new PizZip(content);
@@ -566,7 +367,6 @@ const documentController = {
                 linebreaks: true,
             });
    
-            // Data untuk template
             const tandaTangan = `\${ttd_pengirim}`;
             const nomorSertifikat = `\${nomor_naskah}`;
             const tanggalNaskah = new Date().toLocaleDateString('id-ID', {
@@ -575,7 +375,6 @@ const documentController = {
                 year: 'numeric'
             });
    
-            // Render template
             doc.render({
                 nomor_naskah: nomorSertifikat,
                 nama: peserta[0].nama,
@@ -613,26 +412,18 @@ const documentController = {
                 akreditasi: getAkreditasi(calculateAverageScore(peserta[0]))
             });
    
-            // Generate buffer
             const buffer = doc.getZip().generate({
                 type: 'nodebuffer',
                 compression: 'DEFLATE'
             });
    
-            // Setup paths
             const docxName = `sertifikat_${peserta[0].nama.replace(/\s+/g, '_')}_${Date.now()}.docx`;
             const certificatesDir = path.join(__dirname, '..', 'public', 'certificates');
             await fs.mkdir(certificatesDir, { recursive: true });
             const docxPath = path.join(certificatesDir, docxName);
    
-
-
-
-
-            // Simpan file
             await fs.writeFile(docxPath, buffer);
            
-            // Update database dengan path DOCX
             const dbPath = `/certificates/${docxName}`;
             await pool.execute(
                 'UPDATE peserta_magang SET sertifikat_path = ? WHERE id_magang = ?',
@@ -658,10 +449,6 @@ const documentController = {
         }
     },
 
-
-
-
-    // Endpoint untuk download sertifikat
     async downloadSertifikat(req, res) {
         try {
             const { id_magang } = req.params;
@@ -690,13 +477,10 @@ const documentController = {
             });
         }
     },
-    // Receipt Generation (if needed)
+
     async generateReceipt(req, res) {
         try {
             const { nomor_surat, tanggal, penerima, jabatan, departemen, daftar_barang } = req.body;
-           
-            // Implementation for receipt generation
-            // Similar to generateSertifikat but with receipt-specific logic
            
             res.json({
                 success: true,
@@ -715,9 +499,8 @@ const documentController = {
     }
 };
 
-// Helper function untuk extract text dari PDF
+
 async function extractTextFromPDF(pdfPath) {
-    // Menggunakan pdf-parse package
     const pdf = require('pdf-parse');
     const dataBuffer = await fs.readFile(pdfPath);
     const data = await pdf(dataBuffer);

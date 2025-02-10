@@ -288,22 +288,30 @@ const InternManagement = () => {
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        console.log('Fetching mentors...');
+        const token = localStorage.getItem('token');
+        console.log('Using token:', token); // Debug log
+  
         const response = await fetch('/api/admin/mentors', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
           }
         });
-        console.log('Response status:', response.status);
+  
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+  
+        const data = await response.json();
+        console.log('Mentor data received:', data); // Debug log
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Mentors data received:', data);
-          setMentorList(data);
-          console.log('MentorList state after update:', data);
+        // Set data based on role
+        if (localStorage.getItem('role') === 'admin') {
+          // For admin, we receive single object, wrap it in array
+          setMentorList(Array.isArray(data) ? data : [data]);
         } else {
-          const errorText = await response.text();
-          console.error('Response not OK:', errorText);
+          // For superadmin, we receive array
+          setMentorList(data);
         }
       } catch (error) {
         console.error('Error fetching mentors:', error);
@@ -696,473 +704,442 @@ const adjustDateForTimezone = (dateString) => {
   }, []);
 
 
+  const userRole = localStorage.getItem('role');
+  console.log('Current user role:', userRole);
+
   // Add Dialog Component
-const AddDialog = () => (
-    <Dialog
-      open={addDialog.open}
-      onClose={() => setAddDialog({ open: false, loading: false, error: null })}
-      maxWidth="md"
-      fullWidth
-    >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="h6">Tambah Peserta Magang</Typography>
-          <IconButton
-            onClick={() => setAddDialog({ open: false, loading: false, error: null })}
-            size="small"
-          >
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-
-
-      <DialogContent>
-        {addDialog.error && (
-          <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
-        )}
-
-
-        <Formik
-          initialValues={{
-            nama: '',
-            jenis_peserta: '',
-            nama_institusi: '',
-            jenis_institusi: '',
-            email: '',
-            no_hp: '',
-            bidang_id: '',
-            tanggal_masuk: '',
-            tanggal_keluar: '',
-            nama_pembimbing: '',  
-            telp_pembimbing: '',
-            mentor_id: '',  
-            detail_peserta: {
-              nim: '',
-              nisn: '',
-              fakultas: '',
-              jurusan: '',
-              semester: '',
-              kelas: ''
-            }
-          }}
-          validationSchema={Yup.object({
-            nama: Yup.string()
-        .required('Nama wajib diisi')
-        .min(3, 'Nama minimal 3 karakter'),
-    jenis_peserta: Yup.string()
-        .required('Jenis peserta wajib dipilih'),
-    nama_institusi: Yup.string()
-        .required('Nama institusi wajib diisi'),
-    jenis_institusi: Yup.string()
-        .required('Jenis institusi wajib dipilih'),
-    email: Yup.string()
-        .email('Format email tidak valid')
-        .nullable(),
-    no_hp: Yup.string()
-        .nullable()
-        .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
-        .min(10, 'Nomor HP minimal 10 digit')
-        .max(15, 'Nomor HP maksimal 15 digit'),
-    bidang_id: Yup.string()
-         .nullable(),
-    tanggal_masuk: Yup.date()
-        .required('Tanggal masuk wajib diisi'),
-    tanggal_keluar: Yup.date()
-        .required('Tanggal keluar wajib diisi')
-        .min(
-            Yup.ref('tanggal_masuk'),
-            'Tanggal keluar harus setelah tanggal masuk'
-        ),
-    nama_pembimbing: Yup.string()
-        .nullable(),
-    telp_pembimbing: Yup.string()
-        .nullable()
-        .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
-        .min(10, 'Nomor telepon minimal 10 digit')
-        .max(15, 'Nomor telepon maksimal 15 digit'),
-    mentor_id: Yup.string().nullable(),
-    detail_peserta: Yup.object().when('jenis_peserta', {
-        is: 'mahasiswa',
-        then: () => Yup.object({
-            nim: Yup.string()
-                .required('NIM wajib diisi'),
-            fakultas: Yup.string()
+  const AddDialog = () => {  // Changed from () => ( to () => {
+    // const userRole = localStorage.getItem('role');
+  
+    return (
+      <Dialog
+        open={addDialog.open}
+        onClose={() => setAddDialog({ open: false, loading: false, error: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Tambah Peserta Magang</Typography>
+            <IconButton
+              onClick={() => setAddDialog({ open: false, loading: false, error: null })}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+  
+        <DialogContent>
+          {addDialog.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
+          )}
+  
+          <Formik
+            initialValues={{
+              nama: '',
+              jenis_peserta: '',
+              nama_institusi: '',
+              jenis_institusi: '',
+              email: '',
+              no_hp: '',
+              bidang_id: '',
+              tanggal_masuk: '',
+              tanggal_keluar: '',
+              nama_pembimbing: '',  
+              telp_pembimbing: '',
+              mentor_id: userRole === 'admin' ? localStorage.getItem('userId') : '',  
+              detail_peserta: {
+                nim: '',
+                nisn: '',
+                fakultas: '',
+                jurusan: '',
+                semester: '',
+                kelas: ''
+              }
+            }}
+            validationSchema={Yup.object({
+              nama: Yup.string()
+                .required('Nama wajib diisi')
+                .min(3, 'Nama minimal 3 karakter'),
+              jenis_peserta: Yup.string()
+                .required('Jenis peserta wajib dipilih'),
+              nama_institusi: Yup.string()
+                .required('Nama institusi wajib diisi'),
+              jenis_institusi: Yup.string()
+                .required('Jenis institusi wajib dipilih'),
+              email: Yup.string()
+                .email('Format email tidak valid')
                 .nullable(),
-            jurusan: Yup.string()
-                .required('Jurusan wajib diisi'),
-            semester: Yup.number()
+              no_hp: Yup.string()
                 .nullable()
-                .typeError('Semester harus berupa angka')
-                .min(1, 'Minimal semester 1')
-                .max(14, 'Maksimal semester 14')
-        }),
-        otherwise: () => Yup.object({
-            nisn: Yup.string()
-                .required('NISN wajib diisi'),
-            jurusan: Yup.string()
-                .required('Jurusan wajib diisi'),
-            kelas: Yup.string()
+                .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
+                .min(10, 'Nomor HP minimal 10 digit')
+                .max(15, 'Nomor HP maksimal 15 digit'),
+              bidang_id: Yup.string()
+                .nullable(),
+              tanggal_masuk: Yup.date()
+                .required('Tanggal masuk wajib diisi'),
+              tanggal_keluar: Yup.date()
+                .required('Tanggal keluar wajib diisi')
+                .min(
+                  Yup.ref('tanggal_masuk'),
+                  'Tanggal keluar harus setelah tanggal masuk'
+                ),
+              nama_pembimbing: Yup.string()
+                .nullable(),
+              telp_pembimbing: Yup.string()
                 .nullable()
+                .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
+                .min(10, 'Nomor telepon minimal 10 digit')
+                .max(15, 'Nomor telepon maksimal 15 digit'),
+              mentor_id: userRole === 'admin' 
+                ? Yup.string().nullable() 
+                : Yup.string().nullable(),
+              detail_peserta: Yup.object().when('jenis_peserta', {
+                is: 'mahasiswa',
+                then: () => Yup.object({
+                  nim: Yup.string()
+                    .required('NIM wajib diisi'),
+                  fakultas: Yup.string()
+                    .nullable(),
+                  jurusan: Yup.string()
+                    .required('Jurusan wajib diisi'),
+                  semester: Yup.number()
+                    .nullable()
+                    .typeError('Semester harus berupa angka')
+                    .min(1, 'Minimal semester 1')
+                    .max(14, 'Maksimal semester 14')
+                }),
+                otherwise: () => Yup.object({
+                  nisn: Yup.string()
+                    .required('NISN wajib diisi'),
+                  jurusan: Yup.string()
+                    .required('Jurusan wajib diisi'),
+                  kelas: Yup.string()
+                    .nullable()
+                })
               })
-            })
-          })}
-          onSubmit={async (values, { setSubmitting, resetForm }) => {
-            try {
-              // Cek availability terlebih dahulu
-              const availabilityData = await checkInternAvailability(values.tanggal_masuk);
-              
-              // Jika tidak tersedia atau ada yang akan selesai, tampilkan dialog konfirmasi
-              if (!availabilityData.available || availabilityData.leavingCount > 0) {
-                setAvailabilityDialog({
-                  open: true,
-                  data: availabilityData,
-                  formValues: values
-                });
+            })}
+            onSubmit={async (values, { setSubmitting, resetForm }) => {
+              try {
+                const availabilityData = await checkInternAvailability(values.tanggal_masuk);
+                
+                if (!availabilityData.available || availabilityData.leavingCount > 0) {
+                  setAvailabilityDialog({
+                    open: true,
+                    data: availabilityData,
+                    formValues: values
+                  });
+                  setSubmitting(false);
+                  return;
+                }
+            
+                const success = await submitInternData(values);
+                if (success) {
+                  resetForm();
+                }
+              } catch (error) {
+                setAddDialog(prev => ({
+                  ...prev,
+                  error: error.message
+                }));
+              } finally {
                 setSubmitting(false);
-                return;
               }
-          
-              // Jika available, langsung submit
-              const success = await submitInternData(values);
-              if (success) {
-                resetForm();
-              }
-            } catch (error) {
-              setAddDialog(prev => ({
-                ...prev,
-                error: error.message
-              }));
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-        >
-          {({ values, isSubmitting }) => (
-            <Form>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                {/* Basic Information */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                    Informasi Pribadi
-                  </Typography>
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Lengkap"
-                    size="small"
-
-                    required={true}
-                  />
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                <Field
-                  name="jenis_peserta"
-                  component={({ field, form }) => (
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Jenis Peserta</InputLabel>
-                      <Select 
-                        {...field}
-                        label="Jenis Peserta"
-                        onChange={(e) => {
-                          const newValue = e.target.value;
-                          field.onChange(e);
-                          // Set jenis_institusi berdasarkan jenis_peserta
-                          form.setFieldValue(
-                            'jenis_institusi',
-                            newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
-                          );
-                        }}
-                      >
-                        <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
-                        <MenuItem value="siswa">Siswa</MenuItem>
-                      </Select>
-                    </FormControl>
-                    
-                  )}
-                required={true}
-                    
-                  
-                />
-              </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="email"
-                    component={FormTextField}
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    size="small"
-                  />
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="no_hp"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nomor HP"
-                    size="small"
-                  />
-                </Grid>
-
-
-                {/* Institution Information */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Informasi Institusi
-                  </Typography>
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama_institusi"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Institusi"
-                    size="small"
-
-                    required={true}
-                  />
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                <Field
-                  name="jenis_institusi"
-                  component={({ field }) => (
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Jenis Institusi</InputLabel>
-                      <Select
-                        {...field}
-                        label="Jenis Institusi"
-                        disabled
-                      >
-                        <MenuItem value="universitas">Universitas</MenuItem>
-                        <MenuItem value="sekolah">Sekolah</MenuItem>
-                      </Select>
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="bidang_id"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
-                        <InputLabel>Ruang Penempatan</InputLabel>
-                        <Select {...field} label="Bidang">
-                          {bidangList.map(bidang => (
-                            <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
-                              {bidang.nama_bidang}
-                              {bidang.available_slots > 0 && ` (${bidang.available_slots} slot tersedia)`}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {form.touched.bidang_id && form.errors.bidang_id && (
-                          <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+            }}
+          >
+            {({ values, isSubmitting }) => (
+              <Form>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  {/* Basic Information */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                      Informasi Pribadi
+                    </Typography>
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="nama"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Lengkap"
+                      size="small"
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="jenis_peserta"
+                      component={({ field, form }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Jenis Peserta</InputLabel>
+                          <Select 
+                            {...field}
+                            label="Jenis Peserta"
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              field.onChange(e);
+                              form.setFieldValue(
+                                'jenis_institusi',
+                                newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
+                              );
+                            }}
+                          >
+                            <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
+                            <MenuItem value="siswa">Siswa</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="email"
+                      component={FormTextField}
+                      fullWidth
+                      label="Email"
+                      type="email"
+                      size="small"
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="no_hp"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nomor HP"
+                      size="small"
+                    />
+                  </Grid>
+  
+                  {/* Institution Information */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Informasi Institusi
+                    </Typography>
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="nama_institusi"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Institusi"
+                      size="small"
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="jenis_institusi"
+                      component={({ field }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Jenis Institusi</InputLabel>
+                          <Select
+                            {...field}
+                            label="Jenis Institusi"
+                            disabled
+                          >
+                            <MenuItem value="universitas">Universitas</MenuItem>
+                            <MenuItem value="sekolah">Sekolah</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="bidang_id"
+                      component={({ field, form }) => (
+                        <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
+                          <InputLabel>Ruang Penempatan</InputLabel>
+                          <Select {...field} label="Bidang">
+                            {bidangList.map(bidang => (
+                              <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                                {bidang.nama_bidang}
+                                {bidang.available_slots > 0 && ` (${bidang.available_slots} slot tersedia)`}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {form.touched.bidang_id && form.errors.bidang_id && (
+                            <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+                          )}
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
+  
+                  {/* Internship Period */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Periode Magang
+                    </Typography>
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="tanggal_masuk"
+                      component={FormTextField}
+                      fullWidth
+                      label="Tanggal Mulai"
+                      type="date"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="tanggal_keluar"
+                      component={FormTextField}
+                      fullWidth
+                      label="Tanggal Selesai"
+                      type="date"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      required={true}
+                    />
+                  </Grid>
+  
+                  {/* Detail Peserta */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Detail Peserta
+                    </Typography>
+                  </Grid>
+  
+                  {values.jenis_peserta === 'mahasiswa' ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.nim"
+                          component={FormTextField}
+                          fullWidth
+                          label="NIM"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.fakultas"
+                          component={FormTextField}
+                          fullWidth
+                          label="Fakultas"
+                          size="small"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.jurusan"
+                          component={FormTextField}
+                          fullWidth
+                          label="Jurusan"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.semester"
+                          component={FormTextField}
+                          fullWidth
+                          label="Semester" 
+                          type="number"
+                          size="small"
+                        />
+                      </Grid>
+                    </>
+                  ) : values.jenis_peserta === 'siswa' ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.nisn"
+                          component={FormTextField}
+                          fullWidth
+                          label="NISN"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.jurusan"
+                          component={FormTextField}
+                          fullWidth
+                          label="Jurusan"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.kelas"
+                          component={FormTextField}
+                          fullWidth
+                          label="Kelas"
+                          size="small"
+                        />
+                      </Grid>
+                    </>
+                  ) : null}
+                
+                  {/* Informasi Pembimbing */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Informasi Pembimbing  
+                    </Typography>
+                  </Grid>
+                
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="nama_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Pembimbing"
+                      size="small"
+                    />
+                  </Grid>
+                
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="telp_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="No. Telp Pembimbing"
+                      size="small"
+                    />
+                  </Grid>
+  
+                  {userRole === 'superadmin' && (
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="mentor_id"
+                        component={({ field, form }) => (
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Mentor</InputLabel>
+                            <Select {...field} label="Mentor">
+                              {mentorList.map(mentor => (
+                                <MenuItem key={mentor.id_users} value={mentor.id_users}>
+                                  {mentor.nama}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
                         )}
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
-
-               
-
-
-                {/* Internship Period */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Periode Magang
-                  </Typography>
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="tanggal_masuk"
-                    component={FormTextField}
-                    fullWidth
-                    label="Tanggal Mulai"
-                    type="date"
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-
-                    required={true}
-                  />
-                </Grid>
-
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="tanggal_keluar"
-                    component={FormTextField}
-                    fullWidth
-                    label="Tanggal Selesai"
-                    type="date"
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-
-                    required={true}
-                  />
-                </Grid>
-
-
-                {/* Detail Peserta */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Detail Peserta
-                  </Typography>
-                </Grid>
-
-
-                {values.jenis_peserta === 'mahasiswa' ? (
-                  <>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.nim"
-                        component={FormTextField}
-                        fullWidth
-                        label="NIM"
-                        size="small"
-
-                        required={true}
-
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.fakultas"
-                        component={FormTextField}
-                        fullWidth
-                        label="Fakultas"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.jurusan"
-                        component={FormTextField}
-                        fullWidth
-                        label="Jurusan"
-                        size="small"
-
-                        required={true}
-
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.semester"
-                        component={FormTextField}
-                        fullWidth
-                        label="Semester" 
-                        type="number"
-                        size="small"
-                      />
-                    </Grid>
-                  </>
-                ) : (
-                  // Fields for high school students
-                  <>
-                  <Grid item xs={12} md={6}>
-                    <Field
-                      name="detail_peserta.nisn"
-                      component={FormTextField}
-                      fullWidth
-                      label="NISN"
-
-                      size="small"
-
-                      required={true}
-
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Field
-                      name="detail_peserta.jurusan"
-                      component={FormTextField}
-                      fullWidth
-                      label="Jurusan"
-                      size="small"
-
-                      required={true}
-
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Field
-                      name="detail_peserta.kelas"
-                      component={FormTextField}
-                      fullWidth
-                      label="Kelas"
-                      size="small"
-                    />
-                  </Grid>
-                </>
-              )}
-              
-              {/* Informasi Pembimbing - Pindahkan keluar dari conditional rendering */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                  Informasi Pembimbing  
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Field
-                  name="nama_pembimbing"
-                  component={FormTextField}
-                  fullWidth
-                  label="Nama Pembimbing"
-                  size="small"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Field
-                  name="telp_pembimbing"
-                  component={FormTextField}
-                  fullWidth
-                  label="No. Telp Pembimbing"
-                  size="small"
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-              <Field
-                name="mentor_id"
-                component={({ field, form }) => (
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Mentor</InputLabel>
-                    <Select {...field} label="Mentor">
-                      {mentorList.map(mentor => (
-                        <MenuItem key={mentor.id_users} value={mentor.id_users}>
-                          {mentor.nama}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
-              </Grid>
-              
-
-
+                  )}
+                </Grid>
               <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button
                   onClick={() => setAddDialog({ open: false, loading: false, error: null })}
@@ -1199,8 +1176,9 @@ const AddDialog = () => (
       </DialogContent>
     </Dialog>
   );
+};
 
-
+  
   // Detail Dialog Component
   const DetailDialog = () => (
     <Dialog
@@ -1977,7 +1955,7 @@ document.head.appendChild(style);
       </Box>
 
 
-      {/* Search and Filter Section */}
+
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
         <input
@@ -2015,10 +1993,10 @@ document.head.appendChild(style);
           onChange={(e) => handleFilter('status', e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
         >
-           <option value="">Status</option>
-  <option value="not_yet">Belum Mulai</option>
-  <option value="aktif">Aktif</option>
-  <option value="almost">Hampir Selesai</option>
+          <option value="">Status</option>
+          <option value="not_yet">Belum Mulai</option>
+          <option value="aktif">Aktif</option>
+          <option value="almost">Hampir Selesai</option>
         </select>
           <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2027,159 +2005,154 @@ document.head.appendChild(style);
           </div>
         </div>
       </div>
-
-
-
-      {/* Table Section with Percentage Widths */}
-      {/* <div className="bg-white rounded-lg shadow overflow-auto"> */}
-        <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
-          <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="w-[5%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <input
-                    type="checkbox"
-                    onChange={handleSelectAll}
-                    checked={selectedInterns.length === interns.length && interns.length > 0}
-                  />
-                </th>
-                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nama
-                </th>
-                <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Institusi
-                </th>
-                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ruang Penempatan
-                </th>
-                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tanggal Masuk
-                </th>
-                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tanggal Keluar
-                </th>
-                <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mentor
-                </th>
-                <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                    Loading...
-                  </td>
-                </tr>
-              ) : interns.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                    Tidak ada data
-                  </td>
-                </tr>
-              ) : (
-                interns.map((intern) => (
-                  <tr key={intern.id_magang} className="hover:bg-gray-50">
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedInterns.includes(intern.id_magang)}
-                        onChange={() => handleSelectIntern(intern.id_magang)}
-                      />
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
-                      {intern.nama}
-                      {hasIncompleteData(intern) && (  // Ganti dari intern.has_incomplete_data
-                        <Tooltip title="Data belum lengkap" placement="top">
-                          <InfoIcon 
-                            className="text-yellow-500 ml-1 h-4 w-4"
-                            fontSize="small"
-                          />
-                        </Tooltip>
-                      )}
-                    </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 truncate">
-                        {intern.nama_institusi}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 truncate">
-                        {intern.nama_bidang}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(intern.tanggal_masuk)}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(intern.tanggal_keluar)}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-center">
-                      <span className={getStatusStyle(intern.status)}>
-                        {getStatusLabel(intern.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-center">
-  <div className="flex justify-center space-x-1">
-    <IconButton
-      size="small"
-      onClick={() => handleDetailClick(intern.id_magang)}
-      sx={{ color: 'info.main' }}
-    >
-      <VisibilityIcon fontSize="small" />
-    </IconButton>
-    <IconButton
-      size="small"
-      onClick={() => handleEditClick(intern.id_magang)}
-      sx={{ color: 'warning.main' }}
-    >
-      <EditIcon fontSize="small" />
-    </IconButton>
-    {intern.status !== 'missing' && (  // Only show for non-missing interns
-      <Tooltip title="Set as Missing">
-        <IconButton
-          size="small"
-          onClick={() => handleMissingClick(intern.id_magang, intern.nama)}
-          sx={{ 
-            color: 'grey.500',
-            '&:hover': {
-              color: 'error.main'
-            }
-          }}
-        >
-          <PersonOffIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    )}
-    <IconButton
-      size="small"
-      onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
-      sx={{ color: 'error.main' }}
-    >
-      <DeleteIcon fontSize="small" />
-    </IconButton>
-  </div>
-</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      {/* </div> */}
-
+      <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
+  <table className="w-full divide-y divide-gray-200">
+    <thead className="bg-gray-50">
+      <tr>
+        <th scope="col" className="w-[5%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <input
+            type="checkbox"
+            onChange={handleSelectAll}
+            checked={selectedInterns.length === interns.length && interns.length > 0}
+          />
+        </th>
+        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Nama
+        </th>
+        <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Institusi
+        </th>
+        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Ruang Penempatan
+        </th>
+        <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Tanggal Masuk
+        </th>
+        <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Tanggal Keluar
+        </th>
+        <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Status
+        </th>
+        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Mentor
+        </th>
+        <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Action
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+      {loading ? (
+        <tr>
+          <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
+            Loading...
+          </td>
+        </tr>
+      ) : interns.length === 0 ? (
+        <tr>
+          <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
+            Tidak ada data
+          </td>
+        </tr>
+      ) : (
+        interns.map((intern) => (
+          <tr key={intern.id_magang} className="hover:bg-gray-50">
+            <td className="px-3 py-4 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={selectedInterns.includes(intern.id_magang)}
+                onChange={() => handleSelectIntern(intern.id_magang)}
+              />
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap">
+              <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
+                {intern.nama}
+                {hasIncompleteData(intern) && (
+                  <Tooltip title="Data belum lengkap" placement="top">
+                    <InfoIcon 
+                      className="text-yellow-500 ml-1 h-4 w-4"
+                      fontSize="small"
+                    />
+                  </Tooltip>
+                )}
+              </div>
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap">
+              <div className="text-sm text-gray-500 truncate">
+                {intern.nama_institusi}
+              </div>
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap">
+              <div className="text-sm text-gray-500 truncate">
+                {intern.nama_bidang}
+              </div>
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              {formatDate(intern.tanggal_masuk)}
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              {formatDate(intern.tanggal_keluar)}
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap text-center">
+              <span className={getStatusStyle(intern.status)}>
+                {getStatusLabel(intern.status)}
+              </span>
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap">
+              <div className="text-sm text-gray-500">
+                {localStorage.getItem('role') === 'admin' 
+                  ? mentorList[0]?.nama  // Admin akan melihat namanya sendiri
+                  : mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
+              </div>
+            </td>
+            <td className="px-4 py-4 whitespace-nowrap text-center">
+              <div className="flex justify-center space-x-1">
+                <IconButton
+                  size="small"
+                  onClick={() => handleDetailClick(intern.id_magang)}
+                  sx={{ color: 'info.main' }}
+                >
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => handleEditClick(intern.id_magang)}
+                  sx={{ color: 'warning.main' }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                {intern.status !== 'missing' && (
+                  <Tooltip title="Set as Missing">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMissingClick(intern.id_magang, intern.nama)}
+                      sx={{ 
+                        color: 'grey.500',
+                        '&:hover': {
+                          color: 'error.main'
+                        }
+                      }}
+                    >
+                      <PersonOffIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
+                  sx={{ color: 'error.main' }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </div>
+            </td>
+          </tr>
+        ))
+      )}
+    </tbody>
+  </table>
+</div>
 
       {/* Pagination */}
       <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">

@@ -65,11 +65,11 @@ const authController = {
                 'SELECT id_users, username, email, nama, role FROM users WHERE id_users = ?',
                 [req.user.userId]
             );
-
+    
             if (users.length === 0) {
                 return res.status(404).json({ message: 'User tidak ditemukan' });
             }
-
+    
             res.json(users[0]);
         } catch (error) {
             console.error('Get user error:', error);

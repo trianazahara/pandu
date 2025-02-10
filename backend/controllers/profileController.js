@@ -5,13 +5,11 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
-// Create uploads directory if it doesn't exist
 const uploadDir = path.join(__dirname, '../uploads/profile_pictures');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure multer storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir);
@@ -23,7 +21,6 @@ const storage = multer.diskStorage({
     }
 });
 
-// Configure multer upload with file filtering
 const fileFilter = (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -36,14 +33,12 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-// Create multer upload instance
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 }, 
     fileFilter: fileFilter
 }).single('profile_picture');
 
-// Helper function to get full URL
 const getFullUrl = (req, relativePath) => {
     if (!relativePath) return null;
     return `${req.protocol}://${req.get('host')}${relativePath}`;
@@ -62,8 +57,6 @@ const profileController = {
             if (rows.length === 0) {
                 return res.status(404).json({ message: 'Profil tidak ditemukan.' });
             }
-
-            // Convert relative path to full URL for profile picture
             const userData = rows[0];
             if (userData.profile_picture) {
                 userData.profile_picture = getFullUrl(req, userData.profile_picture);
@@ -85,7 +78,6 @@ const profileController = {
                 return res.status(400).json({ message: 'Setidaknya satu kolom harus diisi untuk diperbarui.' });
             }
     
-            // Check if email exists (if email is being updated)
             if (email) {
                 const [existingEmail] = await pool.execute(
                     'SELECT id_users FROM users WHERE email = ? AND id_users != ?',
@@ -96,7 +88,6 @@ const profileController = {
                 }
             }
 
-            // Check if username exists (if username is being updated)
             if (username) {
                 const [existingUsername] = await pool.execute(
                     'SELECT id_users FROM users WHERE username = ? AND id_users != ?',
@@ -134,7 +125,6 @@ const profileController = {
                 return res.status(404).json({ message: 'Profil tidak ditemukan.' });
             }
 
-            // Fetch updated profile
             const [updatedProfile] = await pool.execute(
                 `SELECT id_users, username, email, nama, profile_picture FROM users WHERE id_users = ?`,
                 [userId]
@@ -174,13 +164,11 @@ const profileController = {
 
                 const { userId } = req.user;
 
-                // Get current profile picture
                 const [currentUser] = await pool.execute(
                     'SELECT profile_picture FROM users WHERE id_users = ?',
                     [userId]
                 );
 
-                // Delete old profile picture if exists
                 if (currentUser[0]?.profile_picture) {
                     const oldPath = path.join(__dirname, '..', currentUser[0].profile_picture);
                     if (fs.existsSync(oldPath)) {
@@ -190,19 +178,16 @@ const profileController = {
 
                 const relativePath = `/uploads/profile_pictures/${req.file.filename}`;
 
-                // Update database with new profile picture path
                 const [result] = await pool.execute(
                     'UPDATE users SET profile_picture = ? WHERE id_users = ?',
                     [relativePath, userId]
                 );
 
                 if (result.affectedRows === 0) {
-                    // If update fails, delete uploaded file
                     fs.unlinkSync(req.file.path);
                     return res.status(404).json({ message: 'User not found' });
                 }
 
-                // Get the full URL for the profile picture
                 const fullUrl = getFullUrl(req, relativePath);
 
                 res.status(200).json({
@@ -210,7 +195,6 @@ const profileController = {
                     profile_picture: fullUrl
                 });
             } catch (error) {
-                // If an error occurs, delete uploaded file if it exists
                 if (req.file) {
                     fs.unlinkSync(req.file.path);
                 }
@@ -265,7 +249,6 @@ const profileController = {
         try {
             const { userId } = req.user;
 
-            // Get current profile picture
             const [user] = await pool.execute(
                 'SELECT profile_picture FROM users WHERE id_users = ?',
                 [userId]
@@ -275,7 +258,6 @@ const profileController = {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            // If there's an existing profile picture, delete the file
             if (user[0].profile_picture) {
                 const fullPath = path.join(__dirname, '..', user[0].profile_picture);
                 if (fs.existsSync(fullPath)) {
@@ -283,7 +265,6 @@ const profileController = {
                 }
             }
 
-            // Update database to remove profile picture reference
             const [result] = await pool.execute(
                 'UPDATE users SET profile_picture = NULL WHERE id_users = ?',
                 [userId]

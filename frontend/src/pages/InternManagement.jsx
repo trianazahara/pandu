@@ -276,22 +276,30 @@ const InternManagement = () => {
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        console.log('Fetching mentors...');
+        const token = localStorage.getItem('token');
+        console.log('Using token:', token); // Debug log
+  
         const response = await fetch('/api/admin/mentors', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
           }
         });
-        console.log('Response status:', response.status);
+  
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+  
+        const data = await response.json();
+        console.log('Mentor data received:', data); // Debug log
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Mentors data received:', data);
-          setMentorList(data);
-          console.log('MentorList state after update:', data);
+        // Set data based on role
+        if (localStorage.getItem('role') === 'admin') {
+          // For admin, we receive single object, wrap it in array
+          setMentorList(Array.isArray(data) ? data : [data]);
         } else {
-          const errorText = await response.text();
-          console.error('Response not OK:', errorText);
+          // For superadmin, we receive array
+          setMentorList(data);
         }
       } catch (error) {
         console.error('Error fetching mentors:', error);
@@ -675,7 +683,6 @@ const adjustDateForTimezone = (dateString) => {
     fetchBidangList();
   }, []);
 
-
 const AddDialog = () => (
     <Dialog
       open={addDialog.open}
@@ -701,89 +708,120 @@ const AddDialog = () => (
           <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
         )}
 
-
-        <Formik
-          initialValues={{
-            nama: '',
-            jenis_peserta: '',
-            nama_institusi: '',
-            jenis_institusi: '',
-            email: '',
-            no_hp: '',
-            bidang_id: '',
-            tanggal_masuk: '',
-            tanggal_keluar: '',
-            nama_pembimbing: '',  
-            telp_pembimbing: '',
-            mentor_id: '',  
-            detail_peserta: {
-              nim: '',
-              nisn: '',
-              fakultas: '',
-              jurusan: '',
-              semester: '',
-              kelas: ''
-            }
-          }}
-          validationSchema={Yup.object({
-            nama: Yup.string()
-        .required('Nama wajib diisi')
-        .min(3, 'Nama minimal 3 karakter'),
-    jenis_peserta: Yup.string()
-        .required('Jenis peserta wajib dipilih'),
-    nama_institusi: Yup.string()
-        .required('Nama institusi wajib diisi'),
-    jenis_institusi: Yup.string()
-        .required('Jenis institusi wajib dipilih'),
-    email: Yup.string()
-        .email('Format email tidak valid')
-        .nullable(),
-    no_hp: Yup.string()
-        .nullable()
-        .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
-        .min(10, 'Nomor HP minimal 10 digit')
-        .max(15, 'Nomor HP maksimal 15 digit'),
-    bidang_id: Yup.string()
-         .nullable(),
-    tanggal_masuk: Yup.date()
-        .required('Tanggal masuk wajib diisi'),
-    tanggal_keluar: Yup.date()
-        .required('Tanggal keluar wajib diisi')
-        .min(
-            Yup.ref('tanggal_masuk'),
-            'Tanggal keluar harus setelah tanggal masuk'
-        ),
-    nama_pembimbing: Yup.string()
-        .nullable(),
-    telp_pembimbing: Yup.string()
-        .nullable()
-        .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
-        .min(10, 'Nomor telepon minimal 10 digit')
-        .max(15, 'Nomor telepon maksimal 15 digit'),
-    mentor_id: Yup.string().nullable(),
-    detail_peserta: Yup.object().when('jenis_peserta', {
-        is: 'mahasiswa',
-        then: () => Yup.object({
-            nim: Yup.string()
-                .required('NIM wajib diisi'),
-            fakultas: Yup.string()
+  // Add Dialog Component
+  const AddDialog = () => {  // Changed from () => ( to () => {
+    // const userRole = localStorage.getItem('role');
+  
+    return (
+      <Dialog
+        open={addDialog.open}
+        onClose={() => setAddDialog({ open: false, loading: false, error: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Tambah Peserta Magang</Typography>
+            <IconButton
+              onClick={() => setAddDialog({ open: false, loading: false, error: null })}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+  
+        <DialogContent>
+          {addDialog.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
+          )}
+  
+          <Formik
+            initialValues={{
+              nama: '',
+              jenis_peserta: '',
+              nama_institusi: '',
+              jenis_institusi: '',
+              email: '',
+              no_hp: '',
+              bidang_id: '',
+              tanggal_masuk: '',
+              tanggal_keluar: '',
+              nama_pembimbing: '',  
+              telp_pembimbing: '',
+              mentor_id: userRole === 'admin' ? localStorage.getItem('userId') : '',  
+              detail_peserta: {
+                nim: '',
+                nisn: '',
+                fakultas: '',
+                jurusan: '',
+                semester: '',
+                kelas: ''
+              }
+            }}
+            validationSchema={Yup.object({
+              nama: Yup.string()
+                .required('Nama wajib diisi')
+                .min(3, 'Nama minimal 3 karakter'),
+              jenis_peserta: Yup.string()
+                .required('Jenis peserta wajib dipilih'),
+              nama_institusi: Yup.string()
+                .required('Nama institusi wajib diisi'),
+              jenis_institusi: Yup.string()
+                .required('Jenis institusi wajib dipilih'),
+              email: Yup.string()
+                .email('Format email tidak valid')
                 .nullable(),
-            jurusan: Yup.string()
-                .required('Jurusan wajib diisi'),
-            semester: Yup.number()
+              no_hp: Yup.string()
                 .nullable()
-                .typeError('Semester harus berupa angka')
-                .min(1, 'Minimal semester 1')
-                .max(14, 'Maksimal semester 14')
-        }),
-        otherwise: () => Yup.object({
-            nisn: Yup.string()
-                .required('NISN wajib diisi'),
-            jurusan: Yup.string()
-                .required('Jurusan wajib diisi'),
-            kelas: Yup.string()
+                .matches(/^[0-9]*$/, 'Nomor HP hanya boleh berisi angka')
+                .min(10, 'Nomor HP minimal 10 digit')
+                .max(15, 'Nomor HP maksimal 15 digit'),
+              bidang_id: Yup.string()
+                .nullable(),
+              tanggal_masuk: Yup.date()
+                .required('Tanggal masuk wajib diisi'),
+              tanggal_keluar: Yup.date()
+                .required('Tanggal keluar wajib diisi')
+                .min(
+                  Yup.ref('tanggal_masuk'),
+                  'Tanggal keluar harus setelah tanggal masuk'
+                ),
+              nama_pembimbing: Yup.string()
+                .nullable(),
+              telp_pembimbing: Yup.string()
                 .nullable()
+                .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
+                .min(10, 'Nomor telepon minimal 10 digit')
+                .max(15, 'Nomor telepon maksimal 15 digit'),
+              mentor_id: userRole === 'admin' 
+                ? Yup.string().nullable() 
+                : Yup.string().nullable(),
+              detail_peserta: Yup.object().when('jenis_peserta', {
+                is: 'mahasiswa',
+                then: () => Yup.object({
+                  nim: Yup.string()
+                    .required('NIM wajib diisi'),
+                  fakultas: Yup.string()
+                    .nullable(),
+                  jurusan: Yup.string()
+                    .required('Jurusan wajib diisi'),
+                  semester: Yup.number()
+                    .nullable()
+                    .typeError('Semester harus berupa angka')
+                    .min(1, 'Minimal semester 1')
+                    .max(14, 'Maksimal semester 14')
+                }),
+                otherwise: () => Yup.object({
+                  nisn: Yup.string()
+                    .required('NISN wajib diisi'),
+                  jurusan: Yup.string()
+                    .required('Jurusan wajib diisi'),
+                  kelas: Yup.string()
+                    .nullable()
+                })
               })
+
             })
           })}
           onSubmit={async (values, { setSubmitting, resetForm }) => {
@@ -1053,91 +1091,288 @@ const AddDialog = () => (
                   </>
                 ) : (
                   <>
+
                   <Grid item xs={12} md={6}>
                     <Field
-                      name="detail_peserta.nisn"
+                      name="nama"
                       component={FormTextField}
                       fullWidth
-                      label="NISN"
-
+                      label="Nama Lengkap"
                       size="small"
-
                       required={true}
-
                     />
                   </Grid>
+  
                   <Grid item xs={12} md={6}>
                     <Field
-                      name="detail_peserta.jurusan"
-                      component={FormTextField}
-                      fullWidth
-                      label="Jurusan"
-                      size="small"
-
+                      name="jenis_peserta"
+                      component={({ field, form }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Jenis Peserta</InputLabel>
+                          <Select 
+                            {...field}
+                            label="Jenis Peserta"
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              field.onChange(e);
+                              form.setFieldValue(
+                                'jenis_institusi',
+                                newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
+                              );
+                            }}
+                          >
+                            <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
+                            <MenuItem value="siswa">Siswa</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
                       required={true}
-
                     />
                   </Grid>
+  
                   <Grid item xs={12} md={6}>
                     <Field
-                      name="detail_peserta.kelas"
+                      name="email"
                       component={FormTextField}
                       fullWidth
-                      label="Kelas"
+                      label="Email"
+                      type="email"
                       size="small"
                     />
                   </Grid>
-                </>
-              )}
-              
-              {/* Informasi Pembimbing - Pindahkan keluar dari conditional rendering */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                  Informasi Pembimbing  
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Field
-                  name="nama_pembimbing"
-                  component={FormTextField}
-                  fullWidth
-                  label="Nama Pembimbing"
-                  size="small"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Field
-                  name="telp_pembimbing"
-                  component={FormTextField}
-                  fullWidth
-                  label="No. Telp Pembimbing"
-                  size="small"
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-              <Field
-                name="mentor_id"
-                component={({ field, form }) => (
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Mentor</InputLabel>
-                    <Select {...field} label="Mentor">
-                      {mentorList.map(mentor => (
-                        <MenuItem key={mentor.id_users} value={mentor.id_users}>
-                          {mentor.nama}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
-              </Grid>
-              
-
-
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="no_hp"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nomor HP"
+                      size="small"
+                    />
+                  </Grid>
+  
+                  {/* Institution Information */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Informasi Institusi
+                    </Typography>
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="nama_institusi"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Institusi"
+                      size="small"
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="jenis_institusi"
+                      component={({ field }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Jenis Institusi</InputLabel>
+                          <Select
+                            {...field}
+                            label="Jenis Institusi"
+                            disabled
+                          >
+                            <MenuItem value="universitas">Universitas</MenuItem>
+                            <MenuItem value="sekolah">Sekolah</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="bidang_id"
+                      component={({ field, form }) => (
+                        <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
+                          <InputLabel>Ruang Penempatan</InputLabel>
+                          <Select {...field} label="Bidang">
+                            {bidangList.map(bidang => (
+                              <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                                {bidang.nama_bidang}
+                                {bidang.available_slots > 0 && ` (${bidang.available_slots} slot tersedia)`}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {form.touched.bidang_id && form.errors.bidang_id && (
+                            <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+                          )}
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
+  
+                  {/* Internship Period */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Periode Magang
+                    </Typography>
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="tanggal_masuk"
+                      component={FormTextField}
+                      fullWidth
+                      label="Tanggal Mulai"
+                      type="date"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      required={true}
+                    />
+                  </Grid>
+  
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="tanggal_keluar"
+                      component={FormTextField}
+                      fullWidth
+                      label="Tanggal Selesai"
+                      type="date"
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                      required={true}
+                    />
+                  </Grid>
+  
+                  {/* Detail Peserta */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Detail Peserta
+                    </Typography>
+                  </Grid>
+  
+                  {values.jenis_peserta === 'mahasiswa' ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.nim"
+                          component={FormTextField}
+                          fullWidth
+                          label="NIM"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.fakultas"
+                          component={FormTextField}
+                          fullWidth
+                          label="Fakultas"
+                          size="small"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.jurusan"
+                          component={FormTextField}
+                          fullWidth
+                          label="Jurusan"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.semester"
+                          component={FormTextField}
+                          fullWidth
+                          label="Semester" 
+                          type="number"
+                          size="small"
+                        />
+                      </Grid>
+                    </>
+                  ) : values.jenis_peserta === 'siswa' ? (
+                    <>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.nisn"
+                          component={FormTextField}
+                          fullWidth
+                          label="NISN"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.jurusan"
+                          component={FormTextField}
+                          fullWidth
+                          label="Jurusan"
+                          size="small"
+                          required={true}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Field
+                          name="detail_peserta.kelas"
+                          component={FormTextField}
+                          fullWidth
+                          label="Kelas"
+                          size="small"
+                        />
+                      </Grid>
+                    </>
+                  ) : null}
+                
+                  {/* Informasi Pembimbing */}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                      Informasi Pembimbing  
+                    </Typography>
+                  </Grid>
+                
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="nama_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="Nama Pembimbing"
+                      size="small"
+                    />
+                  </Grid>
+                
+                  <Grid item xs={12} md={6}>
+                    <Field
+                      name="telp_pembimbing"
+                      component={FormTextField}
+                      fullWidth
+                      label="No. Telp Pembimbing"
+                      size="small"
+                    />
+                  </Grid>
+  
+                  {userRole === 'superadmin' && (
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="mentor_id"
+                        component={({ field, form }) => (
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Mentor</InputLabel>
+                            <Select {...field} label="Mentor">
+                              {mentorList.map(mentor => (
+                                <MenuItem key={mentor.id_users} value={mentor.id_users}>
+                                  {mentor.nama}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        )}
+                      />
+                    </Grid>
+                  )}
+                </Grid>
               <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button
                   onClick={() => setAddDialog({ open: false, loading: false, error: null })}
@@ -1174,8 +1409,9 @@ const AddDialog = () => (
       </DialogContent>
     </Dialog>
   );
+};
 
-
+  
   // Detail Dialog Component
   const DetailDialog = () => (
     <Dialog
@@ -1944,7 +2180,7 @@ document.head.appendChild(style);
       </Box>
 
 
-      {/* Search and Filter Section */}
+
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
         <input
@@ -1982,10 +2218,10 @@ document.head.appendChild(style);
           onChange={(e) => handleFilter('status', e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
         >
-           <option value="">Status</option>
-  <option value="not_yet">Belum Mulai</option>
-  <option value="aktif">Aktif</option>
-  <option value="almost">Hampir Selesai</option>
+          <option value="">Status</option>
+          <option value="not_yet">Belum Mulai</option>
+          <option value="aktif">Aktif</option>
+          <option value="almost">Hampir Selesai</option>
         </select>
           <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1994,8 +2230,6 @@ document.head.appendChild(style);
           </div>
         </div>
       </div>
-
-
 
       {/* Table Section with Percentage Widths */}
       {/* <div className="bg-white rounded-lg shadow overflow-auto"> */}

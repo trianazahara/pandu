@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 class WebSocketServer {
     constructor(server) {
         this.wss = new WebSocket.Server({ server });
-        this.clients = new Map(); // Map to store client connections
+        this.clients = new Map(); 
 
         this.wss.on('connection', (ws, req) => {
             this.handleConnection(ws, req);
@@ -13,16 +13,13 @@ class WebSocketServer {
     }
 
     handleConnection(ws, req) {
-        // Get token from query string
         const url = new URL(req.url, 'ws://localhost');
         const token = url.searchParams.get('token');
 
         try {
-            // Verify JWT token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             const userId = decoded.id;
 
-            // Store client connection
             this.clients.set(userId, ws);
 
             ws.on('close', () => {
@@ -34,7 +31,6 @@ class WebSocketServer {
         }
     }
 
-    // Send notification to specific user
     sendNotification(userId, notification) {
         const client = this.clients.get(userId);
         if (client && client.readyState === WebSocket.OPEN) {
@@ -42,7 +38,6 @@ class WebSocketServer {
         }
     }
 
-    // Broadcast notification to all connected admin users
     broadcastToAdmins(notification, adminIds) {
         adminIds.forEach(adminId => {
             this.sendNotification(adminId, notification);

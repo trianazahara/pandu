@@ -4,7 +4,6 @@ const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 
 
-// Fungsi helper untuk menentukan status berdasarkan tanggal
 const determineStatus = (tanggal_masuk, tanggal_keluar) => {
     const current = new Date();
     const masuk = new Date(tanggal_masuk);
@@ -27,17 +26,14 @@ const determineStatus = (tanggal_masuk, tanggal_keluar) => {
 
 const createInternNotification = async (conn, {userId, internName, action = 'menambah'}) => {
     try {
-        // 1. Ambil data user yang melakukan aksi (ubah dari username ke nama)
         const [userData] = await conn.execute(
-            'SELECT nama FROM users WHERE id_users = ?',  // Ubah username menjadi nama
+            'SELECT nama FROM users WHERE id_users = ?',  
             [userId]
         );
-        const nama = userData[0]?.nama || 'Unknown User';  // Gunakan nama alih-alih username
-       
-        // 2. Ambil semua user yang terdaftar
+        const nama = userData[0]?.nama || 'Unknown User';  
+
         const [allUsers] = await conn.execute('SELECT id_users FROM users');
-       
-        // 3. Siapkan query untuk insert
+
         const query = `
             INSERT INTO notifikasi (
                 id_notifikasi,
@@ -49,13 +45,13 @@ const createInternNotification = async (conn, {userId, internName, action = 'men
             ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
        
-        // 4. Insert notifikasi untuk setiap user
+
         for (const user of allUsers) {
             const values = [
                 uuidv4(),
                 user.id_users,
                 'Aktivitas Peserta Magang',
-                `${nama} telah ${action} data peserta magang: ${internName}`,  // Gunakan nama di sini
+                `${nama} telah ${action} data peserta magang: ${internName}`,  
                 0
             ];
            
@@ -87,8 +83,6 @@ const updateInternStatuses = async (conn) => {
 
 const internController = {
 
-
-    // Tambahkan di internController.js
 setMissingStatus: async (req, res) => {
     const conn = await pool.getConnection();
     try {
@@ -169,7 +163,6 @@ getDetailedStats: async (req, res) => {
         // Update status terlebih dahulu
         await updateInternStatuses(conn);
 
-        // Base query parts
         let baseWhere = 'WHERE 1=1';
         const params = [];
 
@@ -179,7 +172,6 @@ getDetailedStats: async (req, res) => {
             params.push(req.user.userId);
         }
 
-        // 1. Get basic stats with role-based filtering
         const [basicStats] = await conn.execute(`
             SELECT
                 COUNT(CASE WHEN status IN ('aktif', 'almost') THEN 1 END) as active_count,
@@ -191,7 +183,6 @@ getDetailedStats: async (req, res) => {
             ${baseWhere}
         `, params);
 
-        // 2. Get education stats with role-based filtering
         const [educationStats] = await conn.execute(`
             SELECT
                 jenis_peserta,
@@ -202,7 +193,6 @@ getDetailedStats: async (req, res) => {
             GROUP BY jenis_peserta
         `, params);
 
-        // 3. Get department stats with role-based filtering
         const [departmentStats] = await conn.execute(`
             SELECT
                 b.nama_bidang,
@@ -214,7 +204,6 @@ getDetailedStats: async (req, res) => {
             GROUP BY b.id_bidang, b.nama_bidang
         `, params);
 
-        // 4. Get completing soon data with role-based filtering
         const [completingSoon] = await conn.execute(`
             SELECT
                 p.nama,
@@ -229,7 +218,6 @@ getDetailedStats: async (req, res) => {
             ORDER BY p.tanggal_keluar ASC
         `, params);
 
-        // Format response
         const response = {
             activeInterns: {
                 total: basicStats[0].active_count,
@@ -262,7 +250,8 @@ getDetailedStats: async (req, res) => {
         conn.release();
     }
 },
-    // Modifikasi fungsi getAll di internController.js
+
+
 getAll: async (req, res) => {
     try {
         const {
@@ -310,14 +299,12 @@ getAll: async (req, res) => {
     
         const params = [];
     
-        // Add mentor filter for admin role
         if (req.user.role === 'admin') {
           query += ` AND p.mentor_id = ?`;
           params.push(req.user.userId);
         }
 
 
-        // Handle excludeStatus (untuk menyembunyikan status missing dan selesai)
         if (excludeStatus) {
             const statusesToExclude = excludeStatus.split(',');
             query += ` AND p.status NOT IN (${statusesToExclude.map(() => '?').join(',')})`;
@@ -325,43 +312,34 @@ getAll: async (req, res) => {
         }
 
 
-        // Handle filter status
         if (status) {
             query += ` AND p.status = ?`;
             params.push(status);
         }
 
 
-        // Handle filter bidang
         if (bidang) {
             query += ` AND p.id_bidang = ?`;
             params.push(bidang);
         }
 
 
-        // Handle search
         if (search) {
             query += ` AND (p.nama LIKE ? OR p.nama_institusi LIKE ?)`;
             params.push(`%${search}%`, `%${search}%`);
         }
 
 
-        // Get total count first
         const countQuery = `SELECT COUNT(*) as total FROM (${query}) as count_query`;
         const [countResult] = await pool.execute(countQuery, params);
         const total = countResult[0].total;
 
-
-        // Add order and pagination to main query
         query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
         params.push(Number(limit), Number(offset));
 
 
-        // Execute main query
         const [rows] = await pool.execute(query, params);
 
-
-        // Send response
         res.json({
             status: 'success',
             data: rows,
@@ -383,27 +361,6 @@ getAll: async (req, res) => {
     }
 },
 
-getMentors: async (req, res) => {
-    try {
-      let query;
-      const params = [];
-  
-      if (req.user.role === 'superadmin') {
-        // Superadmin bisa lihat semua mentor
-        query = `SELECT id_users, nama FROM users WHERE role = 'admin' AND is_active = 1`;
-      } else {
-        // Admin hanya bisa lihat dirinya sendiri
-        query = `SELECT id_users, nama FROM users WHERE id_users = ? AND is_active = 1`;
-        params.push(req.user.userId);
-      }
-  
-      const [mentors] = await pool.execute(query, params);
-      res.json(mentors);
-    } catch (error) {
-      console.error('Error getting mentors:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  },
 
   checkAvailability: async (req, res) => {
     try {
@@ -454,7 +411,6 @@ getMentors: async (req, res) => {
         const totalUpcoming = parseInt(upcomingInterns[0].count);
         const totalOccupied = totalActive + totalUpcoming;
 
-        // Siapkan pesan
         let message = '';
         if (totalOccupied >= SLOT_LIMIT) {
             message = `Saat ini terisi: ${totalOccupied} dari ${SLOT_LIMIT} slot`;
@@ -463,7 +419,6 @@ getMentors: async (req, res) => {
             message = `Tersedia ${availableSlots} slot dari total ${SLOT_LIMIT} slot`;
         }
 
-        // Kirim response
         return res.status(200).json({
             success: true,
             available: totalOccupied < SLOT_LIMIT,
@@ -484,10 +439,6 @@ getMentors: async (req, res) => {
     }
 },
 
-
-
-
-    // Modifikasi pada fungsi add
     add : async (req, res) => {
         const conn = await pool.getConnection();
         try {
@@ -525,7 +476,6 @@ getMentors: async (req, res) => {
                 jenis_peserta: 'Jenis peserta',
                 nama_institusi: 'Nama institusi',
                 jenis_institusi: 'Jenis institusi',
-                // bidang_id: 'Ruang penempatan',
                 tanggal_masuk: 'Tanggal masuk',
                 tanggal_keluar: 'Tanggal keluar'
             };
@@ -556,8 +506,6 @@ getMentors: async (req, res) => {
                 }
             }
     
-    
-            // Status determination remains the same
             const status = determineStatus(tanggal_masuk, tanggal_keluar);
     
     
@@ -575,7 +523,7 @@ getMentors: async (req, res) => {
     
         const pesertaMagangValues = [
             id_magang, nama, jenis_peserta, nama_institusi,
-            jenis_institusi, email || null, no_hp || null, bidang_id || null,  // Tambahkan || null di sini
+            jenis_institusi, email || null, no_hp || null, bidang_id || null,
             tanggal_masuk, tanggal_keluar, status,
             nama_pembimbing || null, telp_pembimbing || null,
             req.body.mentor_id || null,              
@@ -604,7 +552,7 @@ getMentors: async (req, res) => {
             }
     
     
-            // Create notification and commit
+            // notification 
             await createInternNotification(conn, {
                 userId: req.user.userId,
                 internName: nama,
@@ -653,7 +601,6 @@ getMentors: async (req, res) => {
     },
     
     
-  
     getDetail : async (req, res) => {
         try {
             const { id } = req.params;
@@ -710,6 +657,7 @@ getMentors: async (req, res) => {
             res.status(500).json({ message: 'Terjadi kesalahan server' });
         }
     },
+
     updateStatuses: async (req, res) => {
         const conn = await pool.getConnection();
         try {
@@ -842,7 +790,6 @@ getMentors: async (req, res) => {
     
             const [updateResult] = await conn.execute(updateQuery, updateValues);
     
-            // 5. Update detail peserta (mahasiswa/siswa)
             const currentJenisPeserta = jenis_peserta || existingIntern[0].jenis_peserta;
     
             // Hapus data lama
@@ -876,18 +823,15 @@ getMentors: async (req, res) => {
                 `, [id, nisn, jurusan, kelas]);
             }
 
-            // 6. Buat notifikasi
+            // Buat notifikasi
             await createInternNotification(conn, {
                 userId: req.user.userId,
                 internName: nama,
                 action: 'mengupdate'
             });
 
-   
-            // 7. Commit transaksi
             await conn.commit();
 
-            // 8. Ambil data terbaru
             const [updatedData] = await conn.execute(
                 `SELECT pm.*,
                         dm.nim, dm.fakultas, dm.jurusan as mhs_jurusan, dm.semester,
@@ -899,7 +843,6 @@ getMentors: async (req, res) => {
                 [id]
             );
 
-            // 9. Kirim response
             res.json({
                 status: 'success',
                 message: 'Data peserta magang berhasil diperbarui',
@@ -913,7 +856,6 @@ getMentors: async (req, res) => {
                 await conn.rollback();
             }
 
-            // Handle specific errors
             if (error.message.includes('wajib')) {
                 res.status(400).json({
                     status: 'error',
@@ -944,7 +886,6 @@ getMentors: async (req, res) => {
             
             const { id } = req.params;
             
-            // Ambil data peserta sebelum dihapus untuk notifikasi
             const [internData] = await conn.execute(
                 'SELECT nama, jenis_peserta FROM peserta_magang WHERE id_magang = ?',
                 [id]
@@ -1007,73 +948,12 @@ getMentors: async (req, res) => {
             conn.release();
         }
     },
-     // Modify getStats to use new status logic
-    //  getStats: async (req, res) => {
-    //     const conn = await pool.getConnection();
-    //     try {
-    //         // Update statuses first to ensure we have current data
-    //         await updateInternStatuses(conn);
-   
-    //         // Get active interns count
-    //         const [activeCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count
-    //             FROM peserta_magang
-    //             WHERE status = 'aktif'
-    //         `);
-   
-    //         // Get completed interns count
-    //         const [completedCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count
-    //             FROM peserta_magang
-    //             WHERE status = 'selesai'
-    //         `);
-   
-    //         // Get interns completing soon (status = 'almost')
-    //         const [completingSoon] = await conn.execute(`
-    //             SELECT COUNT(*) as count
-    //             FROM peserta_magang
-    //             WHERE status = 'almost'
-    //         `);
-   
-    //         // Get total interns count
-    //         const [totalCount] = await conn.execute(`
-    //             SELECT COUNT(*) as count
-    //             FROM peserta_magang
-    //         `);
-   
-    //         // Prepare response object
-    //         const response = {
-    //             activeInterns: activeCount[0].count,
-    //             completedInterns: completedCount[0].count,
-    //             totalInterns: totalCount[0].count,
-    //             completingSoon: completingSoon[0].count
-    //         };
-   
-    //         res.json(response);
-   
-    //     } catch (error) {
-    //         console.error('Error getting stats:', error);
-    //         res.status(500).json({
-    //             status: 'error',
-    //             message: 'Terjadi kesalahan server saat mengambil statistik'
-    //         });
-    //     } finally {
-    //         conn.release();
-    //     }
-    // },
-
-
-   
-
-
-     // Modify getCompletingSoon to use 'almost' status
+    
      getCompletingSoon: async (req, res) => {
         const conn = await pool.getConnection();
         try {
-            // Update statuses first
             await updateInternStatuses(conn);
    
-            // Modifikasi query untuk mencakup data yang akan selesai dalam 7 hari
             const [interns] = await conn.execute(`
                 SELECT
                     p.*,
@@ -1085,7 +965,7 @@ getMentors: async (req, res) => {
             `);
    
             if (interns.length === 0) {
-                return res.json([]); // Kembalikan array kosong alih-alih error
+                return res.json([]); 
             }
    
             res.json(interns);
@@ -1111,12 +991,9 @@ getMentors: async (req, res) => {
             const offset = (page - 1) * limit;
             const statusArray = status.split(','); 
             const statusPlaceholders = statusArray.map(() => '?').join(',');
-    
-            // Inisialisasi params di awal
             const params = [...statusArray];
             const countParams = [...statusArray];
-    
-            // Modified query to include has_scores field
+
             let query = `
                 SELECT 
                     pm.id_magang, 
@@ -1135,31 +1012,27 @@ getMentors: async (req, res) => {
                 WHERE pm.status IN (${statusPlaceholders})
             `;
     
-            // Base query for counting total records
             let countQuery = `
                 SELECT COUNT(*) AS total 
                 FROM peserta_magang pm
                 LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
                 WHERE pm.status IN (${statusPlaceholders})
             `;
-    
-            // Add mentor_id filter for admin role
+
             if (req.user.role === 'admin') {
                 query += ` AND pm.mentor_id = ?`;
                 countQuery += ` AND pm.mentor_id = ?`;
                 params.push(req.user.userId);
                 countParams.push(req.user.userId);
             }
-    
-            // Add filter for bidang
+
             if (bidang) {
                 query += ` AND pm.id_bidang = ?`;
                 countQuery += ` AND pm.id_bidang = ?`;
                 params.push(bidang);
                 countParams.push(bidang);
             }
-    
-            // Add search filter
+
             if (search) {
                 query += ` AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)`;
                 countQuery += ` AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)`;
@@ -1167,22 +1040,18 @@ getMentors: async (req, res) => {
                 countParams.push(`%${search}%`, `%${search}%`);
             }
             
-            // Add sorting and pagination
             query += ` ORDER BY pm.tanggal_keluar DESC LIMIT ? OFFSET ?`;
             params.push(parseInt(limit), parseInt(offset));
     
-            console.log('Query:', query); // Debug log
+            console.log('Query:', query); 
             console.log('Params:', params);
     
-            // Execute the main query
             const [rows] = await pool.execute(query, params);
     
-            // Execute the count query
             const [countRows] = await pool.execute(countQuery, countParams);
             const totalData = countRows[0]?.total || 0;
             const totalPages = Math.ceil(totalData / limit);
     
-            // Response
             return res.status(200).json({
                 status: "success",
                 data: rows,

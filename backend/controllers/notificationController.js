@@ -3,7 +3,6 @@ const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 const notificationController = {
-    // Fungsi helper untuk membuat notifikasi
     createNotification: async (conn, {
         userId,
         judul,
@@ -26,13 +25,12 @@ const notificationController = {
             userId,
             judul,
             pesan,
-            0 // dibaca defaultnya 0 (belum dibaca)
+            0 
         ];
 
         await conn.execute(query, values);
     },
 
-    // Get notifications dengan pagination
     getNotifications: async (req, res) => {
         try {
             const { page = 1, limit = 10 } = req.query;
@@ -54,7 +52,6 @@ const notificationController = {
                 Number(offset)
             ]);
 
-            // Get total count
             const [countResult] = await pool.execute(
                 'SELECT COUNT(*) as total FROM notifikasi WHERE user_id = ?',
                 [userId]
@@ -80,7 +77,6 @@ const notificationController = {
         }
     },
 
-    // Get unread count
     getUnreadCount: async (req, res) => {
         try {
             const userId = req.user.userId;
@@ -103,7 +99,6 @@ const notificationController = {
         }
     },
 
-    // Mark notification as read
     markAsRead: async (req, res) => {
         const conn = await pool.getConnection();
         try {
@@ -138,7 +133,6 @@ const notificationController = {
         }
     },
 
-    // Mark all notifications as read
     markAllAsRead: async (req, res) => {
         const conn = await pool.getConnection();
         try {

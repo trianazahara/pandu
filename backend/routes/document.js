@@ -26,20 +26,15 @@ const storage = multer.diskStorage({
     }
 });
 
-
-
 const fileFilter = (req, file, cb) => {
-                if (file.mimetype === 'application/msword' || // .doc
-                    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') { // .docx
-                    cb(null, true);
-                } else {
-                    cb(new Error('Format file tidak didukung. Gunakan .doc atau .docx'), false);
-                }
-            };
+    if (file.mimetype === 'application/msword' || // .doc
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') { // .docx
+        cb(null, true);
+    } else {
+        cb(new Error('Format file tidak didukung. Gunakan .doc atau .docx'), false);
+    }
+};
 
-
-
-// Inisialisasi multer dengan konfigurasi
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
@@ -48,8 +43,6 @@ const upload = multer({
     }
 });
 
-
-// Middleware untuk handling error multer
 const handleMulterError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -78,12 +71,8 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 
-
-
-// Routes untuk manajemen template
 router.post(
     '/upload',
-    // authMiddleware, // Uncomment jika ingin menggunakan autentikasi
     upload.single('file'),
     handleMulterError,
     documentController.uploadTemplate
@@ -94,33 +83,22 @@ router.post(
 
 router.get(
     '/templates',
-    // authMiddleware,
     documentController.getTemplates
 );
 
 
-
-// routes/document.js
 router.get('/preview/:id', documentController.previewDocument);
 
 router.delete(
     '/template/:id',
-    // authMiddleware,
     documentController.deleteTemplate
 );
 
-
-
-// Routes untuk generasi sertifikat
 router.post(
     '/generate-sertifikat/:id',
     documentController.generateSertifikat
  );
 
-
-
-
-// Endpoint untuk mengakses file yang di-generate
 router.get('/certificates/:filename', (req, res) => {
     const certificatePath = path.join(__dirname, '..', 'public', 'certificates', req.params.filename);
     res.sendFile(certificatePath, (err) => {
@@ -136,13 +114,8 @@ router.get('/certificates/:filename', (req, res) => {
 router.get('/download-sertifikat/:id_magang', documentController.downloadSertifikat);
 
 
-// Akses file sertifikat
 router.use('/certificates', express.static(path.join(__dirname, '..', 'public', 'certificates')));
 
-
-
-
-// Route untuk preview template
 router.get('/templates/:filename', (req, res) => {
     const templatePath = path.join(__dirname, '..', 'public', 'templates', req.params.filename);
     res.sendFile(templatePath, (err) => {
@@ -170,10 +143,6 @@ router.get('/certificates/:filename', (req, res) => {
 
 });
 
-
-
-
-// Error handler untuk route
 router.use((err, req, res, next) => {
     console.error('Route error:', err);
     res.status(500).json({

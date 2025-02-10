@@ -16,7 +16,7 @@ const bidangRoutes = require('./routes/bidang');
 
 
 const app = express();
-const server = require('http').createServer(app); // Create HTTP server
+const server = require('http').createServer(app); 
 
 
 // Initialize WebSocket server
@@ -30,7 +30,7 @@ notificationCron.start();
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/notifications', notificationRoutes); // Ensure the base path is correct
+app.use('/notifications', notificationRoutes); 
 app.use('/certificates', express.static(path.join(__dirname, 'public', 'certificates')));
 
 
@@ -44,7 +44,6 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/bidang', bidangRoutes);
 
 
-// Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);
     res.status(500).json({
@@ -54,7 +53,6 @@ app.use((err, req, res, next) => {
 });
 
 
-// Handle 404
 app.use((req, res) => {
     res.status(404).json({
         status: 'error',
@@ -66,8 +64,6 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 
 
-
-// Improved error handling for server startup
 const startServer = async () => {
     try {
         server.listen(PORT, () => {

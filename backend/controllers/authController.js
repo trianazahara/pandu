@@ -8,8 +8,8 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // Simpan di .env
-        pass: process.env.EMAIL_PASS  // Simpan di .env
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS  
     }
 });
 
@@ -21,22 +21,22 @@ const authController = {
     login: async (req, res) => {
         try {
             const { username, password } = req.body;
-            console.log('Login attempt:', { username }); // debug
+            console.log('Login attempt:', { username }); 
 
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ?',
                 [username]
             );
-            console.log('Users found:', users.length); // debug
+            console.log('Users found:', users.length); 
 
             if (users.length === 0) {
                 return res.status(401).json({ message: 'Username atau password salah' });
             }
 
             const user = users[0];
-            console.log('Comparing passwords...'); // debug
+            console.log('Comparing passwords...'); 
             const validPassword = await bcrypt.compare(password, user.password);
-            console.log('Password valid:', validPassword); // debug
+            console.log('Password valid:', validPassword); 
 
             if (!validPassword) {
                 return res.status(401).json({ message: 'Username atau password salah' });
@@ -78,7 +78,6 @@ const authController = {
     },
     checkUsername: async (req, res) => {
         try {
-            // Validasi body request
             const { username } = req.body;
             
             if (!username) {
@@ -102,20 +101,17 @@ const authController = {
                 });
             }
 
-            // Mask email sebelum dikirim ke client
             const email = users[0].email;
             const maskedEmail = email.replace(/(.{3})(.*)(@.*)/, '$1***$3');
 
-            // Langsung kirim OTP setelah username ditemukan
             const otp = generateOTP();
             
-            // Simpan OTP ke database
+
             await pool.execute(
                 'UPDATE users SET otp = ?, otp_expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE username = ?',
                 [otp, username]
             );
 
-            // Kirim email dengan OTP
             await transporter.sendMail({
                 from: process.env.EMAIL_USER,
                 to: email,
@@ -147,7 +143,6 @@ const authController = {
             const { username } = req.body;
             console.log('Step 1: Received username:', username);
 
-            // Get user email from username
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ?',
                 [username]
@@ -162,20 +157,17 @@ const authController = {
             const otp = generateOTP();
             console.log('Step 3: Generated OTP:', otp);
 
-            // Save OTP to database
             await pool.execute(
                 'UPDATE users SET otp = ?, otp_expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE username = ?',
                 [otp, username]
             );
             console.log('Step 4: OTP saved to database');
 
-            // Check email configuration
             console.log('Step 5: Email configuration:', {
                 host: process.env.EMAIL_USER,
                 hasPassword: !!process.env.EMAIL_PASS
             });
 
-            // Send email
             try {
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
@@ -190,7 +182,6 @@ const authController = {
                 });
                 console.log('Step 6: Email sent successfully');
 
-                // Mask email for response
                 const maskedEmail = user.email.replace(/(.{3})(.*)(@.*)/, '$1***$3');
                 
                 res.json({ 
@@ -219,7 +210,6 @@ const authController = {
             const { username, otp, newPassword } = req.body;
             console.log('Reset password attempt:', { username });
 
-            // Check valid OTP and not expired
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ? AND otp = ? AND otp_expires_at > NOW()',
                 [username, otp]
@@ -229,11 +219,9 @@ const authController = {
                 return res.status(400).json({ message: 'OTP tidak valid atau sudah expired' });
             }
 
-            // Hash new password
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-            // Update password and clear OTP
             await pool.execute(
                 'UPDATE users SET password = ?, otp = NULL, otp_expires_at = NULL WHERE username = ?',
                 [hashedPassword, username]

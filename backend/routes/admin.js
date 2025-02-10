@@ -23,7 +23,6 @@ router.patch('/:id', adminController.editAdmin);
 // Delete admin
 router.delete('/:id', adminController.deleteAdmin);
 
-// backend/routes/users.js
 router.get('/mentors', authMiddleware, internController.getMentors);
 
 

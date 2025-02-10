@@ -2,7 +2,6 @@
 const pool = require('../config/database');
 
 const bidangController = {
-    // Get all bidang
     getAll: async (req, res) => {
         try {
             const [rows] = await pool.execute(`

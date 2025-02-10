@@ -23,7 +23,6 @@ const calculateWorkingDays = (startDate, endDate) => {
         try {
             const { bidang, end_date_start, end_date_end } = req.query;
 
-            // Start building the query
             let query = `
             SELECT 
                 pm.nama,
@@ -68,7 +67,6 @@ const calculateWorkingDays = (startDate, endDate) => {
             AND p.id_magang IS NOT NULL
             `;
 
-            // Handle filters (if any)
             const queryParams = [];
             if (bidang) {
                 query += ` AND b.nama_bidang = ?`;
@@ -80,10 +78,8 @@ const calculateWorkingDays = (startDate, endDate) => {
                 queryParams.push(end_date_end);
             }
 
-            // Execute the query with the appropriate parameters
             const [rows] = await pool.execute(query, queryParams);
 
-            // Process the data and map it
             const formattedData = rows.map(row => {
                 return {
                     'Nama': row.nama || '-',
@@ -113,11 +109,9 @@ const calculateWorkingDays = (startDate, endDate) => {
                 };
             });
 
-            // Create workbook
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(formattedData);
 
-            // Set column widths
             const colWidths = [
                 { wch: 30 },
                 { wch: 15 },
@@ -145,13 +139,10 @@ const calculateWorkingDays = (startDate, endDate) => {
             ];
             ws['!cols'] = colWidths;
 
-            // Add worksheet to workbook
             XLSX.utils.book_append_sheet(wb, ws, 'Data Anak Magang');
 
-            // Generate buffer
             const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
-            // Set response headers
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=Data_Anak_Magang.xlsx');
             res.send(buffer);
@@ -169,8 +160,6 @@ const calculateWorkingDays = (startDate, endDate) => {
     generateCertificate: async (req, res) => {
         try {
             const { id_magang } = req.params;
-
-            // Get assessment and intern data
             const [assessment] = await pool.execute(`
                 SELECT p.*, pm.nama, pm.jenis_peserta,
                        i.nama_institusi, b.nama_bidang,
@@ -196,7 +185,6 @@ const calculateWorkingDays = (startDate, endDate) => {
                 });
             }
 
-            // Get certificate template
             const [template] = await pool.execute(`
                 SELECT file_path
                 FROM dokumen_template
@@ -211,15 +199,11 @@ const calculateWorkingDays = (startDate, endDate) => {
                 });
             }
 
-            // Generate certificate using PDF lib
             const templatePath = path.join(__dirname, '..', template[0].file_path);
             const templateBytes = await fs.readFile(templatePath);
             const pdfDoc = await PDFDocument.load(templateBytes);
             const pages = pdfDoc.getPages();
             const firstPage = pages[0];
-
-            // Add details to certificate
-            // Note: Exact positions would depend on your template
             const data = assessment[0];
             const { width, height } = firstPage.getSize();
 
@@ -230,8 +214,6 @@ const calculateWorkingDays = (startDate, endDate) => {
                 font: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
                 color: rgb(0, 0, 0)
             });
-
-            // Add more text fields as needed
 
             const pdfBytes = await pdfDoc.save();
             
@@ -254,13 +236,15 @@ const calculateWorkingDays = (startDate, endDate) => {
                     pm.nama,
                     pm.nama_institusi,
                     b.nama_bidang,
+                    u.nama as nama_mentor,
                     DATE_FORMAT(pm.tanggal_masuk, '%d-%m-%Y') as tanggal_masuk,
                     DATE_FORMAT(pm.tanggal_keluar, '%d-%m-%Y') as tanggal_keluar
                 FROM peserta_magang pm
                 JOIN bidang b ON pm.id_bidang = b.id_bidang
+                LEFT JOIN users u ON pm.mentor_id = u.id_users
                 WHERE pm.id_magang IN (${placeholders})
             `, [...internIds]);
-    
+
             const doc = new jsPDF({
                 orientation: 'landscape',
                 unit: 'mm',
@@ -276,7 +260,6 @@ const calculateWorkingDays = (startDate, endDate) => {
                 return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
             };
     
-            // Define margins
             const margin = {
                 left: 20,
                 right: 20,
@@ -284,83 +267,77 @@ const calculateWorkingDays = (startDate, endDate) => {
                 bottom: 20
             };
     
-            // Header
             doc.setFontSize(16);
             doc.text('TANDA TERIMA', doc.internal.pageSize.width / 2, 30, { align: 'center' });
             doc.setFontSize(12);
             doc.text('Telah diterima berkas dari peserta magang sebagai berikut:', margin.left, 45);
     
-            // Table
-            doc.autoTable({
-                startY: 50,
-                margin: { left: margin.left, right: margin.right },
-                head: [
-                    [
-                        { content: 'No.', rowSpan: 2 },
-                        { content: 'Nama', rowSpan: 2 },
-                        { content: 'Nama Institusi', rowSpan: 2 },
-                        { content: 'Ruang Penempatan', rowSpan: 2 },
-                        { content: 'Tgl Masuk - Tgl Keluar', rowSpan: 2 },
-                        {
-                            content: 'Diterima oleh',
-                            colSpan: 2,
-                            styles: { halign: 'center' }
-                        }
-                    ],
-                    [
-                        'Nama',
-                        'Tandatangan'
-                    ]
+             doc.autoTable({
+            startY: 50,
+            margin: { left: margin.left, right: margin.right },
+            head: [
+                [
+                    { content: 'No.', rowSpan: 2 },
+                    { content: 'Nama', rowSpan: 2 },
+                    { content: 'Nama Institusi', rowSpan: 2 },
+                    { content: 'Ruang Penempatan', rowSpan: 2 },
+                    { content: 'Tgl Masuk - Tgl Keluar', rowSpan: 2 },
+                    {
+                        content: 'Diterima oleh',
+                        colSpan: 2,
+                        styles: { halign: 'center' }
+                    }
                 ],
-                body: selectedInterns.map((intern, index) => [
-                    index + 1,
-                    intern.nama,
-                    intern.nama_institusi,
-                    intern.nama_bidang,
-                    `${intern.tanggal_masuk} - ${intern.tanggal_keluar}`,
-                    '',
-                    ''
-                ]),
-                theme: 'grid',
-                styles: {
-                    fontSize: 10,
-                    cellPadding: 4,
-                    halign: 'left',
-                    valign: 'middle',
-                    lineWidth: 0.5
-                },
-                headStyles: {
-                    fillColor: [80, 80, 80],
-                    textColor: 255,
-                    fontSize: 10,
-                    fontStyle: 'bold',
-                    halign: 'center',
-                    valign: 'middle'
-                },
-                columnStyles: {
-                    0: { cellWidth: 15 },
-                    1: { cellWidth: 60 },
-                    2: { cellWidth: 40 },
-                    3: { cellWidth: 40 },
-                    4: { cellWidth: 30 },
-                    5: { cellWidth: 40 },
-                    6: { cellWidth: 30 }
-                },
-                didDrawPage: function(data) {
-                    doc.lastAutoTable.finalY = data.cursor.y;
-                }
-            });
+                [
+                    'Nama',
+                    'Tandatangan'
+                ]
+            ],
+            body: selectedInterns.map((intern, index) => [
+                index + 1,
+                intern.nama,
+                intern.nama_institusi,
+                intern.nama_bidang,
+                `${intern.tanggal_masuk} - ${intern.tanggal_keluar}`,
+                intern.nama_mentor || '-',
+                ''
+            ]),
+            theme: 'grid',
+            styles: {
+                fontSize: 10,
+                cellPadding: 4,
+                halign: 'left',
+                valign: 'middle',
+                lineWidth: 0.5
+            },
+            headStyles: {
+                fillColor: [80, 80, 80],
+                textColor: 255,
+                fontSize: 10,
+                fontStyle: 'bold',
+                halign: 'center',
+                valign: 'middle'
+            },
+            columnStyles: {
+                0: { cellWidth: 15 },
+                1: { cellWidth: 60 },
+                2: { cellWidth: 40 },
+                3: { cellWidth: 40 },
+                4: { cellWidth: 30 },
+                5: { cellWidth: 40 },
+                6: { cellWidth: 30 }
+            },
+            didDrawPage: function(data) {
+                doc.lastAutoTable.finalY = data.cursor.y;
+            }
+        });
     
-            // Calculate required height for signature section
-            const signatureHeight = 60; // Increased height for safety
+            const signatureHeight = 60; 
             const pageHeight = doc.internal.pageSize.height;
             const pageWidth = doc.internal.pageSize.width;
             const remainingSpace = pageHeight - doc.lastAutoTable.finalY;
+            const signatureX = pageWidth - margin.right - 65; 
     
-            // Calculate signature x position (align right with proper margin)
-            const signatureX = pageWidth - margin.right - 65; // 60mm from right margin
-    
-            // Check if there's enough space for signature
             if (remainingSpace < signatureHeight) {
                 doc.addPage();
                 addSignature(doc, margin.top + 10, signatureX);
@@ -368,19 +345,16 @@ const calculateWorkingDays = (startDate, endDate) => {
                 addSignature(doc, doc.lastAutoTable.finalY + 10, signatureX);
             }
     
-            // Helper function to add signature section
             function addSignature(doc, startY, signatureX) {
                 doc.text('Demikian tanda terima ini dibuat untuk dipergunakan sebagaimana mestinya.', 
                     margin.left, startY);
                 
-                // Sign section with proper right alignment
                 doc.text(`Padang, ${formatCurrentDate()}`, signatureX, startY + 5, { align: 'left' });
                 doc.text('Kasubag Umpeg', signatureX, startY + 10, { align: 'left' });
                 doc.text('Benny Wahyudi, ST, Msi', signatureX, startY + 35, { align: 'left' });
                 doc.text('NIP. 197810232010011009', signatureX, startY + 40, { align: 'left' });
             }
     
-            // Convert and send PDF
             const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'attachment; filename=tanda-terima-magang.pdf');

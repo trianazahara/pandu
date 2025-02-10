@@ -253,18 +253,19 @@ const assessmentController = {
                     pm.tanggal_keluar,
                     p.*
                 FROM penilaian p
-                INNER JOIN peserta_magang pm ON p.id_magang = pm.id_magang
-                INNER JOIN bidang b ON pm.id_bidang = b.id_bidang
+                LEFT JOIN peserta_magang pm ON p.id_magang = pm.id_magang
+                LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
                 WHERE 1=1
             `;
     
+            // Filter untuk admin berdasarkan mentor_id
             if (req.user.role === 'admin') {
                 query += ` AND pm.mentor_id = ?`;
                 params.push(req.user.userId);
-              }
+            }
               
             if (bidang && bidang !== '') {
-                query += ` AND pm.id_bidang = ?`;  // Ubah dari b.nama_bidang menjadi pm.id_bidang
+                query += ` AND pm.id_bidang = ?`;
                 params.push(bidang);
             }
     
@@ -273,14 +274,17 @@ const assessmentController = {
                 params.push(`%${search}%`, `%${search}%`);
             }
     
-            // Eksekusi query sederhana dulu untuk debug
+            // Debug query
             let debugQuery = `
                 SELECT COUNT(*) as total
                 FROM penilaian p
-                INNER JOIN peserta_magang pm ON p.id_magang = pm.id_magang
-                INNER JOIN bidang b ON pm.id_bidang = b.id_bidang
+                LEFT JOIN peserta_magang pm ON p.id_magang = pm.id_magang
+                LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
+                WHERE 1=1
+                ${req.user.role === 'admin' ? ' AND pm.mentor_id = ?' : ''}
             `;
-            const [debugResult] = await pool.execute(debugQuery);
+            const debugParams = req.user.role === 'admin' ? [req.user.userId] : [];
+            const [debugResult] = await pool.execute(debugQuery, debugParams);
             console.log('Debug Query Result:', debugResult);
     
             query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
@@ -290,13 +294,13 @@ const assessmentController = {
             console.log('Final Query:', query);
             console.log('Parameters:', params);
     
-            // Eksekusi query utama
+            // Execute main query
             const [rows] = await pool.execute(query, params);
             console.log('=== RESULT INFO ===');
             console.log('Number of rows returned:', rows ? rows.length : 0);
             console.log('First row:', rows && rows.length > 0 ? rows[0] : 'No data');
     
-            // Jika tidak ada data
+            // If no data
             if (!rows || rows.length === 0) {
                 console.log('No data found in query result');
                 return res.status(200).json({
@@ -311,19 +315,18 @@ const assessmentController = {
                 });
             }
     
-            // Count total records (tanpa pagination)
+            // Count total records
             const countQuery = `
                 SELECT COUNT(*) as total 
                 FROM penilaian p
-                INNER JOIN peserta_magang pm ON p.id_magang = pm.id_magang
-                INNER JOIN bidang b ON pm.id_bidang = b.id_bidang
+                LEFT JOIN peserta_magang pm ON p.id_magang = pm.id_magang
+                LEFT JOIN bidang b ON pm.id_bidang = b.id_bidang
                 WHERE 1=1
-                ${bidang && bidang !== '' ? ' AND b.nama_bidang = ?' : ''}
+                ${req.user.role === 'admin' ? ' AND pm.mentor_id = ?' : ''}
+                ${bidang && bidang !== '' ? ' AND pm.id_bidang = ?' : ''}
                 ${search && search !== '' ? ' AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)' : ''}
             `;
-            const countParams = [...params];
-            countParams.pop(); // Remove LIMIT
-            countParams.pop(); // Remove OFFSET
+            const countParams = params.slice(0, -2); // Remove LIMIT and OFFSET
             
             const [countRows] = await pool.execute(countQuery, countParams);
             const totalData = countRows[0]?.total || 0;

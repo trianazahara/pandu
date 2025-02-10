@@ -61,8 +61,6 @@ const ForgotPassword = () => {
             navigate('/login');
             return;
         }
-
-        // OTP sudah dikirim dari halaman login, jadi hanya perlu tampilkan pesan sukses
         setSuccessMessage(`Kode OTP telah dikirim ke ${maskedEmail}`);
     }, [username, maskedEmail, navigate]);
 

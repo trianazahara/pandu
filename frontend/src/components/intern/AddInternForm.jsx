@@ -145,7 +145,6 @@ const AddInternForm = () => {
 
   return (
     <div className="min-h-screen py-4 px-6 sm:ml-64">
-    {/* Tombol Kembali */}
     <div className="max-w-3xl mx-auto mb-4">
       <button
         onClick={() => navigate(-1)}
@@ -176,7 +175,6 @@ const AddInternForm = () => {
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Basic Information */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Nama Lengkap

@@ -21,8 +21,8 @@
 }
 
 .overflow-x-auto {
-  overflow-x: auto; /* Wajib */
-  white-space: nowrap; /* Hindari pemenggalan konten */
+  overflow-x: auto;
+  white-space: nowrap; 
 }
 
 /* Table Styles */

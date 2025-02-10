@@ -17,7 +17,7 @@ const NotificationHandler = ({ notifications, unreadCount }) => {
 
     const soundMap = {
       important: '/sounds/important-notification.mp3',
-      default: '/sounds/default-notification.mp3'
+      default: '/sounds/important-notification.mp3'
     };
 
     audioRef.current.pause();
@@ -38,7 +38,6 @@ const NotificationHandler = ({ notifications, unreadCount }) => {
     if (unreadCount > lastCountRef.current && notifications[0]) {
       const latestNotification = notifications[0];
       
-      // Cek apakah notifikasi termasuk kategori penting
       const isImportant = latestNotification && (
         (latestNotification.judul.includes('Penilaian') && 
          (latestNotification.pesan.includes('menambahkan') || 

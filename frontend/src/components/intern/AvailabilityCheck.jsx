@@ -13,7 +13,6 @@ const AvailabilityCheck = () => {
     setError(null);
   };
 
-  // Di komponen React
 const checkAvailability = async () => {
     if (!date) {
       setError('Silakan pilih tanggal terlebih dahulu');

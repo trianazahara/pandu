@@ -37,7 +37,7 @@ const theme = createTheme({
     },
 });
 
-// Komponen untuk protected routes
+
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
     
@@ -50,7 +50,7 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// Layout untuk halaman dengan sidebar
+
 const DashboardLayout = ({ children }) => {
     return (
         <div className="flex h-screen overflow-hidden bg-gray-100">

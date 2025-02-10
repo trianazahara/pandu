@@ -11,6 +11,27 @@ const convertAsync = promisify(libre.convert);
 const pool = require('../config/database');
 libre.convertAsync = require('util').promisify(libre.convert);
 
+class PDFCache {
+    constructor() {
+        this.cache = new Map();
+    }
+
+    get(templateId) {
+        const cached = this.cache.get(templateId);
+        if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour validity
+            return cached.buffer;
+        }
+        return null;
+    }
+
+    set(templateId, buffer) {
+        this.cache.set(templateId, {
+            buffer,
+            timestamp: Date.now()
+        });
+    }
+};
+
 // Utility function untuk menghitung rata-rata nilai
 const calculateAverageScore = (nilaiData) => {
     const nilaiFields = [
@@ -409,23 +430,32 @@ const documentController = {
                 'SELECT * FROM dokumen_template WHERE id_dokumen = ? AND active = 1',
                 [id]
             );
-   
+    
             if (templates.length === 0) {
                 return res.status(404).json({ success: false, message: 'Template tidak ditemukan' });
             }
-   
+    
             const filePath = templates[0].file_path;
             if (!fsSync.existsSync(filePath)) {
                 return res.status(404).json({ success: false, message: 'File tidak ditemukan' });
             }
-   
+    
             // Convert DOCX to PDF
             const inputBuffer = await fs.readFile(filePath);
             const outputBuffer = await convertAsync(inputBuffer, '.pdf', undefined);
-           
+            
+            // Tambahkan header-header penting
             res.setHeader('Content-Type', 'application/pdf');
-            res.send(outputBuffer);
-   
+            res.setHeader('Content-Disposition', 'inline; filename=preview.pdf');
+            res.setHeader('Content-Length', outputBuffer.length);
+            
+            // Tambahkan CORS headers jika diperlukan
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+            return res.send(outputBuffer);
+    
         } catch (error) {
             console.error('Error:', error);
             res.status(500).json({
@@ -435,7 +465,6 @@ const documentController = {
             });
         }
     },
-
 
     async deleteTemplate(req, res) {
         try {

@@ -270,19 +270,20 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 
 
   const fetchData = async () => {
-  try {
-    console.log('Current filters:', filters);
-    console.log('Current pagination:', pagination);
-
-    const response = await axios.get('/api/intern/rekap-nilai', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      params: {
-        page: pagination.page + 1,
-        limit: pagination.limit,
-        bidang: filters.bidang,
-        search: filters.search
-      }
-    });
+    try {
+      console.log('Current filters:', filters);
+      console.log('Current pagination:', pagination);
+  
+      const response = await axios.get('/api/intern/rekap-nilai', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        params: {
+          page: pagination.page + 1,
+          limit: pagination.limit,
+          bidang: filters.bidang,
+          search: filters.search,
+          status: ['selesai', 'almost'].join(',') 
+        }
+      });
 
     console.log('Request config:', {
       url: '/api/intern/rekap-nilai',

@@ -1979,20 +1979,19 @@ document.head.appendChild(style);
         <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
           Manajemen Data Peserta Magang
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setAddDialog({ open: true, loading: false, error: null })}
-          sx={{
-            bgcolor: 'white',
-            color: '#26BBAC',
-            '&:hover': { bgcolor: '#f5f5f5' },
-            // px: 3,
-            // py: 1.5,
-            // borderRadius: '8px',
-          }}>
-          TAMBAH PESERTA MAGANG
-        </Button>
+        {userRole === 'superadmin' && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialog({ open: true, loading: false, error: null })}
+            sx={{
+              bgcolor: 'white',
+              color: '#26BBAC',
+              '&:hover': { bgcolor: '#f5f5f5' },
+            }}>
+            TAMBAH PESERTA MAGANG
+          </Button>
+        )}
       </Box>
 
 

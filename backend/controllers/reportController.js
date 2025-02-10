@@ -88,17 +88,13 @@ const reportController = {
             const formattedData = rows.map(row => {
                 return {
                     'Nama': row.nama || '-',
-                    'Jenis Peserta': row.jenis_peserta || '-',
                     'Nomor Induk': row.nomor_induk || '-',
                     'Institusi': row.nama_institusi || '-',
                     'Bidang': row.nama_bidang || '-',
                     'Tanggal Masuk': row.tanggal_masuk || '-',
                     'Tanggal Keluar': row.tanggal_keluar || '-',
-                    'Status': row.status || '-',
                     'Fakultas': row.fakultas || '-',
                     'Jurusan': row.jurusan || '-',
-                    'Semester': row.semester || '-',
-                    'Kelas': row.kelas || '-',
                     'Absensi': row.jumlah_hadir || '-',
                     'Nilai Teamwork': row.nilai_teamwork || '-',
                     'Nilai Komunikasi': row.nilai_komunikasi || '-',
@@ -120,12 +116,13 @@ const reportController = {
 
             // Set lebar kolom
             const colWidths = [
-                { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
-                { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-                { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 10 },
-                { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 20 },
-                { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
-                { wch: 15 }, { wch: 15 }, { wch: 10 }
+                { wch: 30 }, { wch: 20 }, { wch: 30 },
+                { wch: 20 }, { wch: 15 }, { wch: 15 },
+                { wch: 20 }, { wch: 25 }, { wch: 15 }, 
+                { wch: 15 }, { wch: 25 }, { wch: 20 },
+                { wch: 15 }, { wch: 15 }, { wch: 20 }, 
+                { wch: 15 }, { wch: 15 }, { wch: 15 }, 
+                { wch: 10 }
             ];
             ws['!cols'] = colWidths;
 

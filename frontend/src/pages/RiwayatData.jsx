@@ -197,8 +197,8 @@ const RiwayatData = () => {
         limit: pagination.limit,
         bidang,
         search,
-        search_type: 'nama_institusi', 
-        status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
+        search_type: 'nama_institusi',
+        status: statusFilter ? statusFilter : ['selesai', 'missing', 'almost'].join(',') 
       };
   
       if (userRole === 'admin') {
@@ -239,7 +239,8 @@ const RiwayatData = () => {
     const labels = {
       'selesai': 'Selesai',
       'completed': 'Selesai',
-      'missing': 'Missing'
+      'missing': 'Missing',
+      'almost': 'Hampir Selesai'
     };
     return labels[status?.toLowerCase()] || status;
   };
@@ -255,6 +256,11 @@ const RiwayatData = () => {
             bg: '#fee2e2', 
             color: '#991b1b', 
             border: '#991b1b'
+        },
+        'almost': {            
+            bg: '#fef9c3',      
+            color: '#854d0e',   
+            border: '#854d0e'   
         }
     };
 
@@ -462,6 +468,7 @@ className="animated-bg"
             >
               <MenuItem value="">Semua Status</MenuItem>
               <MenuItem value="selesai">Selesai</MenuItem>
+              <MenuItem value="almost">Hampir Selesai</MenuItem>
               <MenuItem value="missing">Missing</MenuItem>
             </Select>
           </FormControl>

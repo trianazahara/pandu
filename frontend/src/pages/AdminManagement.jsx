@@ -166,7 +166,6 @@ const AdminManagement = () => {
       }
     };
 
-    // Add styles
     React.useEffect(() => {
       const style = document.createElement('style');
       style.textContent = `
@@ -211,7 +210,6 @@ const AdminManagement = () => {
       `;
       document.head.appendChild(style);
       
-      // Cleanup function
       return () => {
         document.head.removeChild(style);
       };

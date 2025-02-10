@@ -54,7 +54,6 @@ const Dashboard = () => {
 
 
         fetchDashboardData();
-        // Refresh setiap 1 menit
         const interval = setInterval(fetchDashboardData, 60000);
 
 

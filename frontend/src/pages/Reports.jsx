@@ -42,7 +42,6 @@ const Reports = () => {
             const response = await fetch(`/api/report/export?${queryParams}`);
             const blob = await response.blob();
             
-            // Create download link
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;

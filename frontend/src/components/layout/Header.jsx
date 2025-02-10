@@ -94,7 +94,6 @@ const Header = () => {
         },
       });
       
-      // Update local state
       setNotifications(prevNotifications =>
         prevNotifications.map(notif => ({ ...notif, dibaca: 1 }))
       );
@@ -107,7 +106,7 @@ const Header = () => {
   useEffect(() => {
     fetchUserProfile();
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 5000); // Check every minute
+    const interval = setInterval(fetchUnreadCount, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -125,7 +124,7 @@ const Header = () => {
     setIsOpen(!isOpen);
     if (!isOpen) {
       await fetchNotifications();
-      await markAllAsRead();  // Tambahkan ini
+      await markAllAsRead();
     }
   }}
   className="relative p-2 rounded-full hover:bg-gray-100 focus:outline-none"

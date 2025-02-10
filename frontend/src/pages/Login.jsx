@@ -20,7 +20,6 @@ const FloatingElement = ({ className, animationDelay }) => (
 );
 
 
-// Animation keyframes yang akan di-inject ke HEAD
 const AnimationStyles = () => (
     <style>
         {`
@@ -127,18 +126,16 @@ const Login = () => {
         
         setIsLoading(true);
         try {
-            // Check username and get masked email
+           
             const checkResponse = await axios.post('http://localhost:5000/api/auth/check-username', { 
                 username 
             });
 
             if (checkResponse.data.exists) {
-                // If username exists, send OTP
                 const forgotResponse = await axios.post('http://localhost:5000/api/auth/forgot-password', { 
                     username 
                 });
 
-                // Navigate to forgot password page
                 navigate('/forgot-password', { 
                     state: { 
                         username,

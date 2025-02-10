@@ -23,7 +23,7 @@ import {
 import { Assessment as AssessmentIcon, Info as InfoIcon, Check as CheckIcon } from '@mui/icons-material';
 import axios from 'axios';
 
-// Helper function untuk menghitung hari kerja
+
 const calculateWorkingDays = (startDate, endDate) => {
   if (!startDate || !endDate) return 0;
   
@@ -49,7 +49,6 @@ const ScoreDialog = ({ open, onClose, selectedIntern, scoreForm, setScoreForm, o
     calculateWorkingDays(selectedIntern.tanggal_masuk, selectedIntern.tanggal_keluar) : 0;
 
     useEffect(() => {
-      // Log setiap kali nilai form berubah
       console.log('Current scoreForm:', scoreForm);
       console.log('Current jumlah_hadir:', scoreForm.jumlah_hadir);
     }, [scoreForm]);
@@ -71,14 +70,14 @@ const ScoreDialog = ({ open, onClose, selectedIntern, scoreForm, setScoreForm, o
               value={scoreForm.jumlah_hadir}
               onChange={(e) => {
                 const val = e.target.value;
-                console.log('Input jumlah_hadir:', val); // Log nilai input
+                console.log('Input jumlah_hadir:', val);
                 if (val === '' || (Number(val) >= 0 && Number(val) <= workingDays)) {
                   setScoreForm(prev => {
                     const newForm = {
                       ...prev,
                       jumlah_hadir: val
                     };
-                    console.log('Updated scoreForm:', newForm); // Log form setelah update
+                    console.log('Updated scoreForm:', newForm);
                     return newForm;
                   });
                 }
@@ -142,7 +141,6 @@ const ScoreDialog = ({ open, onClose, selectedIntern, scoreForm, setScoreForm, o
 
 // Main Component
 const RiwayatData = () => {
-  // States
   const [pagination, setPagination] = useState({
     page: 0,
     limit: 10,
@@ -164,7 +162,6 @@ const RiwayatData = () => {
     nilai_disiplin: 0,
     nilai_tanggungjawab: 0,
     nilai_kerjasama: 0,
-    // nilai_inisiatif: 0,
     nilai_kejujuran: 0,
     nilai_kebersihan: 0,
     jumlah_hadir: 0
@@ -192,7 +189,6 @@ const RiwayatData = () => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('token');
-      // Decode token untuk mendapatkan role
       const decodedToken = JSON.parse(atob(token.split('.')[1]));
       const userRole = decodedToken.role;
   
@@ -201,11 +197,10 @@ const RiwayatData = () => {
         limit: pagination.limit,
         bidang,
         search,
-        search_type: 'nama_institusi', // Change search type to include institution name
+        search_type: 'nama_institusi', 
         status: statusFilter ? statusFilter : ['selesai', 'missing'].join(',')
       };
   
-      // Jika role adalah admin, tambahkan mentor_id ke params
       if (userRole === 'admin') {
         params.mentor_id = decodedToken.userId;
       }
@@ -244,7 +239,7 @@ const RiwayatData = () => {
     const labels = {
       'selesai': 'Selesai',
       'completed': 'Selesai',
-      'missing': 'Missing'  // Tambahkan ini
+      'missing': 'Missing'
     };
     return labels[status?.toLowerCase()] || status;
   };
@@ -257,11 +252,10 @@ const RiwayatData = () => {
             border: '#1e40af'
         },
         'missing': {
-            bg: '#fee2e2', // merah muda
-            color: '#991b1b', // merah tua
+            bg: '#fee2e2', 
+            color: '#991b1b', 
             border: '#991b1b'
         }
-        // tambahkan status lain jika diperlukan
     };
 
     return styles[status?.toLowerCase()] || styles['selesai'];
@@ -280,7 +274,6 @@ const RiwayatData = () => {
       nilai_disiplin: 0,
       nilai_tanggungjawab: 0,
       nilai_kerjasama: 0,
-      // nilai_inisiatif: 0,
       nilai_kejujuran: 0,
       nilai_kebersihan: 0,
       jumlah_hadir: 0
@@ -302,7 +295,6 @@ const RiwayatData = () => {
         nilai_disiplin: Number(scoreForm.nilai_disiplin),
         nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
         nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        // nilai_inisiatif: Number(scoreForm.nilai_inisiatif),
         nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)
@@ -333,8 +325,7 @@ const RiwayatData = () => {
       if (response.status === 201) {
         showSnackbar('Nilai berhasil disimpan');
         setOpenDialog(false);
-        
-        // Update data local untuk mengubah status penilaian
+
         setData(prevData => 
           prevData.map(item => 
             item.id_magang === selectedIntern.id_magang 
@@ -350,11 +341,10 @@ const RiwayatData = () => {
   };
 
   const getRowStyle = (intern) => {
-    // Prioritaskan pengecekan has_scores
     if (intern.has_scores) {
-      return 'bg-blue-50'; // Biru muda untuk yang sudah dinilai
+      return 'bg-blue-50'; 
     }
-    return ''; // Kosong untuk yang belum dinilai
+    return ''; 
   };
 
   const style = document.createElement('style');
@@ -427,7 +417,7 @@ className="animated-bg"
         <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="Search nama/institusi" // Updated from "Search nama/email"
+              label="Search nama/institusi" 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               size="small"
@@ -497,8 +487,8 @@ className="animated-bg"
                 <tr key={intern.id_magang} 
                 className={`hover:bg-gray-100 transition-colors duration-200 ${getRowStyle(intern)}`}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 relative group">
-                  {String(intern.nama)} {/* Konversi eksplisit ke string untuk memastikan hanya nama yang ditampilkan */}
-                  {Boolean(intern.has_scores) && ( // Konversi eksplisit ke boolean
+                  {String(intern.nama)} 
+                  {Boolean(intern.has_scores) && ( 
                     <Tooltip title="Sudah memiliki penilaian" placement="top">
                       <CheckIcon
                         className="text-blue-500 ml-2 h-4 w-4 inline-block" 
@@ -543,11 +533,11 @@ className="animated-bg"
                               '&:hover': {
                                 bgcolor: 'rgba(76, 175, 80, 0.08)'
                               },
-                              cursor: 'default'  // Ubah cursor agar menunjukkan tidak bisa diklik
+                              cursor: 'default'  
                             }}
                             size="small"
-                            disableRipple  // Hilangkan efek ripple saat hover
-                            disabled  // Nonaktifkan button
+                            disableRipple  
+                            disabled  
                           >
                             <AssessmentIcon fontSize="small" />
                           </IconButton>

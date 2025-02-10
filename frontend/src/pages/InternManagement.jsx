@@ -150,10 +150,10 @@ const InternManagement = () => {
   };
   
   const STATUS_MAPPING = {
-    'not_yet': 'not_yet',      // untuk 'Belum Mulai'
-    'aktif': 'aktif',          // untuk 'Aktif'
-    'almost': 'almost',        // untuk 'Hampir Selesai'
-    'selesai': 'selesai',      // untuk 'Selesai'
+    'not_yet': 'not_yet',     
+    'aktif': 'aktif',         
+    'almost': 'almost',     
+    'selesai': 'selesai',    
     'missing': 'missing'  
   };
 
@@ -168,8 +168,8 @@ const InternManagement = () => {
    
     const styles = {
       'active': {
-        bg: '#dcfce7', // Lighter green background
-        color: '#15803d', // Darker green text
+        bg: '#dcfce7', 
+        color: '#15803d', 
         border: '#15803d'
       },
       'missing': {
@@ -178,28 +178,28 @@ const InternManagement = () => {
             border: '#dc2626'
         },
       'not_yet': {
-        bg: '#f1f5f9', // Light slate background
-        color: '#475569', // Slate text
+        bg: '#f1f5f9', 
+        color: '#475569', 
         border: '#475569'
       },
       'completed': {
-        bg: '#dbeafe', // Light blue background
-        color: '#1e40af', // Darker blue text
+        bg: '#dbeafe', 
+        color: '#1e40af', 
         border: '#1e40af'
       },
       'almost': {
-        bg: '#fef9c3', // Light yellow background
-        color: '#854d0e', // Darker yellow text
+        bg: '#fef9c3', 
+        color: '#854d0e', 
         border: '#854d0e'
       },
       'belum_mulai': {
-        bg: '#f1f5f9', // Light slate background
-        color: '#475569', // Slate text
+        bg: '#f1f5f9', 
+        color: '#475569', 
         border: '#475569'
       },
       'hampir_selesai': {
-        bg: '#fef9c3', // Light yellow background
-        color: '#854d0e', // Darker yellow text
+        bg: '#fef9c3', 
+        color: '#854d0e', 
         border: '#854d0e'
       }
     };
@@ -242,24 +242,18 @@ const InternManagement = () => {
         throw new Error('Failed to generate receipt');
       }
 
-      // Get the PDF blob from the response
       const blob = await response.blob();
-      
-      // Create a URL for the blob
       const url = window.URL.createObjectURL(blob);
-      
-      // Create a temporary anchor element and trigger download
+
       const a = document.createElement('a');
       a.href = url;
       a.download = 'tanda-terima-magang.pdf';
       document.body.appendChild(a);
       a.click();
-      
-      // Cleanup
+
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
-      // Reset selection
+
       setSelectedInterns([]);
       
       setSnackbar({
@@ -277,12 +271,6 @@ const InternManagement = () => {
     }
   };
  
-
-//   const [mentors, setMentors] = useState([]);
-// const [mentorsLoading, setMentorsLoading] = useState(true);
-// const [mentorsError, setMentorsError] = useState(null);
-
-
 
   // Fetch functions
   useEffect(() => {
@@ -368,7 +356,7 @@ const InternManagement = () => {
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
       if (filters.search) {
         queryParams.append('search', filters.search);
-        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  // Added this line
+        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  
       }
   
       queryParams.append('page', pagination.page + 1);
@@ -422,17 +410,14 @@ const InternManagement = () => {
     }
   };
 
-  // Event handlers
   const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
   try {
-    // Check availability first
+
     const availabilityData = await checkInternAvailability(values.tanggal_masuk);
     
-    console.log('Availability Data:', availabilityData); // Debugging
-    console.log('Total Available Slots:', availabilityData.availableSlots); // Debugging
-    console.log('Total Occupied:', availabilityData.totalOccupied); // Debugging
-    
-    // Dialog should ONLY show if adding this intern would exceed 50 slots
+    console.log('Availability Data:', availabilityData); 
+    console.log('Total Available Slots:', availabilityData.availableSlots); 
+    console.log('Total Occupied:', availabilityData.totalOccupied); 
     const noSlotsAvailable = availabilityData.availableSlots <= 0;
     
     if (wouldExceedLimit) {
@@ -443,8 +428,7 @@ const InternManagement = () => {
       });
       return;
     }
-    
-    // If there's still room, submit directly
+
     await submitInternData(values);
     resetForm();
     setAddDialog({ open: false, loading: false, error: null });
@@ -505,7 +489,6 @@ const InternManagement = () => {
   const handleFilter = (key, value) => {
     setFilters(prevFilters => {
       if (key === 'status') {
-        // For status filter, use the direct value without mapping
         return {
           ...prevFilters,
           [key]: value
@@ -668,8 +651,7 @@ const adjustDateForTimezone = (dateString) => {
         error: error.message || 'Terjadi kesalahan saat memperbarui data',
         loading: false
       }));
-  
-      // Tampilkan error notification
+
       setSnackbar({
         open: true,
         message: error.message || 'Terjadi kesalahan saat memperbarui data',
@@ -692,7 +674,6 @@ const adjustDateForTimezone = (dateString) => {
   };
 
 
-  // useEffect hooks
   useEffect(() => {
     fetchInterns();
   }, [pagination.page, pagination.limit, filters]);
@@ -700,12 +681,32 @@ const adjustDateForTimezone = (dateString) => {
 
   useEffect(() => {
     fetchBidangList();
-    // fetchMentors();
   }, []);
 
+const AddDialog = () => (
+    <Dialog
+      open={addDialog.open}
+      onClose={() => setAddDialog({ open: false, loading: false, error: null })}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">Tambah Peserta Magang</Typography>
+          <IconButton
+            onClick={() => setAddDialog({ open: false, loading: false, error: null })}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
 
-  const userRole = localStorage.getItem('role');
-  console.log('Current user role:', userRole);
+
+      <DialogContent>
+        {addDialog.error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{addDialog.error}</Alert>
+        )}
 
   // Add Dialog Component
   const AddDialog = () => {  // Changed from () => ( to () => {
@@ -820,45 +821,277 @@ const adjustDateForTimezone = (dateString) => {
                     .nullable()
                 })
               })
-            })}
-            onSubmit={async (values, { setSubmitting, resetForm }) => {
-              try {
-                const availabilityData = await checkInternAvailability(values.tanggal_masuk);
-                
-                if (!availabilityData.available || availabilityData.leavingCount > 0) {
-                  setAvailabilityDialog({
-                    open: true,
-                    data: availabilityData,
-                    formValues: values
-                  });
-                  setSubmitting(false);
-                  return;
-                }
-            
-                const success = await submitInternData(values);
-                if (success) {
-                  resetForm();
-                }
-              } catch (error) {
-                setAddDialog(prev => ({
-                  ...prev,
-                  error: error.message
-                }));
-              } finally {
+
+            })
+          })}
+          onSubmit={async (values, { setSubmitting, resetForm }) => {
+            try {
+              const availabilityData = await checkInternAvailability(values.tanggal_masuk);
+
+              if (!availabilityData.available || availabilityData.leavingCount > 0) {
+                setAvailabilityDialog({
+                  open: true,
+                  data: availabilityData,
+                  formValues: values
+                });
                 setSubmitting(false);
+                return;
               }
-            }}
-          >
-            {({ values, isSubmitting }) => (
-              <Form>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  {/* Basic Information */}
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                      Informasi Pribadi
-                    </Typography>
-                  </Grid>
-  
+          
+
+              const success = await submitInternData(values);
+              if (success) {
+                resetForm();
+              }
+            } catch (error) {
+              setAddDialog(prev => ({
+                ...prev,
+                error: error.message
+              }));
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+        >
+          {({ values, isSubmitting }) => (
+            <Form>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                {/* Basic Information */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                    Informasi Pribadi
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Lengkap"
+                    size="small"
+
+                    required={true}
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                <Field
+                  name="jenis_peserta"
+                  component={({ field, form }) => (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Jenis Peserta</InputLabel>
+                      <Select 
+                        {...field}
+                        label="Jenis Peserta"
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          field.onChange(e);
+                          form.setFieldValue(
+                            'jenis_institusi',
+                            newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
+                          );
+                        }}
+                      >
+                        <MenuItem value="mahasiswa">Mahasiswa</MenuItem>
+                        <MenuItem value="siswa">Siswa</MenuItem>
+                      </Select>
+                    </FormControl>
+                    
+                  )}
+                required={true}
+                    
+                  
+                />
+              </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="email"
+                    component={FormTextField}
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    size="small"
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="no_hp"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nomor HP"
+                    size="small"
+                  />
+                </Grid>
+
+
+                {/* Institution Information */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Informasi Institusi
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="nama_institusi"
+                    component={FormTextField}
+                    fullWidth
+                    label="Nama Institusi"
+                    size="small"
+
+                    required={true}
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                <Field
+                  name="jenis_institusi"
+                  component={({ field }) => (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Jenis Institusi</InputLabel>
+                      <Select
+                        {...field}
+                        label="Jenis Institusi"
+                        disabled
+                      >
+                        <MenuItem value="universitas">Universitas</MenuItem>
+                        <MenuItem value="sekolah">Sekolah</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="bidang_id"
+                    component={({ field, form }) => (
+                      <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
+                        <InputLabel>Ruang Penempatan</InputLabel>
+                        <Select {...field} label="Bidang">
+                          {bidangList.map(bidang => (
+                            <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
+                              {bidang.nama_bidang}
+                              {bidang.available_slots > 0 && ` (${bidang.available_slots} slot tersedia)`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {form.touched.bidang_id && form.errors.bidang_id && (
+                          <FormHelperText>{form.errors.bidang_id}</FormHelperText>
+                        )}
+                      </FormControl>
+                    )}
+                  />
+                </Grid>
+
+               
+
+
+                {/* Internship Period */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Periode Magang
+                  </Typography>
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_masuk"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Mulai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+
+                    required={true}
+                  />
+                </Grid>
+
+
+                <Grid item xs={12} md={6}>
+                  <Field
+                    name="tanggal_keluar"
+                    component={FormTextField}
+                    fullWidth
+                    label="Tanggal Selesai"
+                    type="date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+
+                    required={true}
+                  />
+                </Grid>
+
+
+                {/* Detail Peserta */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+                    Detail Peserta
+                  </Typography>
+                </Grid>
+
+
+                {values.jenis_peserta === 'mahasiswa' ? (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.nim"
+                        component={FormTextField}
+                        fullWidth
+                        label="NIM"
+                        size="small"
+
+                        required={true}
+
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.fakultas"
+                        component={FormTextField}
+                        fullWidth
+                        label="Fakultas"
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.jurusan"
+                        component={FormTextField}
+                        fullWidth
+                        label="Jurusan"
+                        size="small"
+
+                        required={true}
+
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Field
+                        name="detail_peserta.semester"
+                        component={FormTextField}
+                        fullWidth
+                        label="Semester" 
+                        type="number"
+                        size="small"
+                      />
+                    </Grid>
+                  </>
+                ) : (
+                  <>
+
                   <Grid item xs={12} md={6}>
                     <Field
                       name="nama"
@@ -1341,19 +1574,17 @@ const adjustDateForTimezone = (dateString) => {
     </Dialog>
   );
 
-  // Helper function to check if data is incomplete
+
   const hasIncompleteData = (intern) => {
-    // Fungsi untuk mengecek apakah sebuah nilai kosong
     const isEmpty = (value) => value === null || value === undefined || value === '';
     
-    // Cek field-field opsional
     const hasIncompleteBasicData = 
       isEmpty(intern.email) || 
       isEmpty(intern.no_hp) ||
       isEmpty(intern.nama_pembimbing) ||
       isEmpty(intern.telp_pembimbing) ||
-      isEmpty(intern.mentor_id) ||  // Tambah pengecekan mentor
-      isEmpty(intern.id_bidang);    // Tambah pengecekan bidang
+      isEmpty(intern.mentor_id) ||  
+      isEmpty(intern.id_bidang);   
       
     return hasIncompleteBasicData;
   };
@@ -1399,7 +1630,6 @@ const adjustDateForTimezone = (dateString) => {
               nama_pembimbing: editDialog.data.nama_pembimbing || '',
               telp_pembimbing: editDialog.data.telp_pembimbing || '',
               mentor_id: editDialog.data.mentor_id || '',
-              // status: editDialog.data.status || 'not_yet'
               detail_peserta: {
 
               ...(editDialog.data.jenis_peserta === 'mahasiswa'
@@ -1436,10 +1666,7 @@ const adjustDateForTimezone = (dateString) => {
                 Yup.ref('tanggal_masuk'),
                 'Tanggal keluar harus setelah tanggal masuk'
               ),
-            // status: Yup.string()
-            //   .required('Status wajib dipilih'),
-          
-            // Field Opsional
+            
             email: Yup.string()
               .email('Format email tidak valid')
               .nullable(),
@@ -1866,7 +2093,7 @@ const handleSelectIntern = (internId) => {
   });
 };
  
-  // Handle select all checkboxes
+  
   const handleSelectAll = (event) => {
     if (event.target.checked) {
       setSelectedInterns(interns.map(intern => intern.id_magang));
@@ -1946,9 +2173,7 @@ document.head.appendChild(style);
             bgcolor: 'white',
             color: '#26BBAC',
             '&:hover': { bgcolor: '#f5f5f5' },
-            // px: 3,
-            // py: 1.5,
-            // borderRadius: '8px',
+            
           }}>
           TAMBAH PESERTA MAGANG
         </Button>
@@ -1960,7 +2185,7 @@ document.head.appendChild(style);
         <div className="relative">
         <input
           type="text"
-          placeholder="Search nama/institusi"  // Changed from "Search nama/email"
+          placeholder="Search nama/institusi"  
           value={filters.search}
           onChange={(e) => setFilters({...filters, search: e.target.value})}
           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2005,154 +2230,157 @@ document.head.appendChild(style);
           </div>
         </div>
       </div>
-      <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
-  <table className="w-full divide-y divide-gray-200">
-    <thead className="bg-gray-50">
-      <tr>
-        <th scope="col" className="w-[5%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          <input
-            type="checkbox"
-            onChange={handleSelectAll}
-            checked={selectedInterns.length === interns.length && interns.length > 0}
-          />
-        </th>
-        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Nama
-        </th>
-        <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Institusi
-        </th>
-        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Ruang Penempatan
-        </th>
-        <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Tanggal Masuk
-        </th>
-        <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Tanggal Keluar
-        </th>
-        <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Status
-        </th>
-        <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Mentor
-        </th>
-        <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Action
-        </th>
-      </tr>
-    </thead>
-    <tbody className="bg-white divide-y divide-gray-200">
-      {loading ? (
-        <tr>
-          <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
-            Loading...
-          </td>
-        </tr>
-      ) : interns.length === 0 ? (
-        <tr>
-          <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
-            Tidak ada data
-          </td>
-        </tr>
-      ) : (
-        interns.map((intern) => (
-          <tr key={intern.id_magang} className="hover:bg-gray-50">
-            <td className="px-3 py-4 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={selectedInterns.includes(intern.id_magang)}
-                onChange={() => handleSelectIntern(intern.id_magang)}
-              />
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap">
-              <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
-                {intern.nama}
-                {hasIncompleteData(intern) && (
-                  <Tooltip title="Data belum lengkap" placement="top">
-                    <InfoIcon 
-                      className="text-yellow-500 ml-1 h-4 w-4"
-                      fontSize="small"
-                    />
-                  </Tooltip>
-                )}
-              </div>
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap">
-              <div className="text-sm text-gray-500 truncate">
-                {intern.nama_institusi}
-              </div>
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap">
-              <div className="text-sm text-gray-500 truncate">
-                {intern.nama_bidang}
-              </div>
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              {formatDate(intern.tanggal_masuk)}
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              {formatDate(intern.tanggal_keluar)}
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap text-center">
-              <span className={getStatusStyle(intern.status)}>
-                {getStatusLabel(intern.status)}
-              </span>
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap">
-              <div className="text-sm text-gray-500">
-                {localStorage.getItem('role') === 'admin' 
-                  ? mentorList[0]?.nama  // Admin akan melihat namanya sendiri
-                  : mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
-              </div>
-            </td>
-            <td className="px-4 py-4 whitespace-nowrap text-center">
-              <div className="flex justify-center space-x-1">
-                <IconButton
-                  size="small"
-                  onClick={() => handleDetailClick(intern.id_magang)}
-                  sx={{ color: 'info.main' }}
-                >
-                  <VisibilityIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => handleEditClick(intern.id_magang)}
-                  sx={{ color: 'warning.main' }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                {intern.status !== 'missing' && (
-                  <Tooltip title="Set as Missing">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMissingClick(intern.id_magang, intern.nama)}
-                      sx={{ 
-                        color: 'grey.500',
-                        '&:hover': {
-                          color: 'error.main'
-                        }
-                      }}
-                    >
-                      <PersonOffIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <IconButton
-                  size="small"
-                  onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
-                  sx={{ color: 'error.main' }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </div>
-            </td>
-          </tr>
-        ))
-      )}
-    </tbody>
-  </table>
-</div>
+
+      {/* Table Section with Percentage Widths */}
+      {/* <div className="bg-white rounded-lg shadow overflow-auto"> */}
+        <div className="overflow-x-scroll" style={{ maxWidth: '950px' }}>
+          <table className="w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="w-[5%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    onChange={handleSelectAll}
+                    checked={selectedInterns.length === interns.length && interns.length > 0}
+                  />
+                </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nama
+                </th>
+                <th scope="col" className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Institusi
+                </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ruang Penempatan
+                </th>
+                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tanggal Masuk
+                </th>
+                <th scope="col" className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tanggal Keluar
+                </th>
+                <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mentor
+                </th>
+                <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                    Loading...
+                  </td>
+                </tr>
+              ) : interns.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                    Tidak ada data
+                  </td>
+                </tr>
+              ) : (
+                interns.map((intern) => (
+                  <tr key={intern.id_magang} className="hover:bg-gray-50">
+                    <td className="px-3 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedInterns.includes(intern.id_magang)}
+                        onChange={() => handleSelectIntern(intern.id_magang)}
+                      />
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
+                      {intern.nama}
+                      {hasIncompleteData(intern) && (  
+                        <Tooltip title="Data belum lengkap" placement="top">
+                          <InfoIcon 
+                            className="text-yellow-500 ml-1 h-4 w-4"
+                            fontSize="small"
+                          />
+                        </Tooltip>
+                      )}
+                    </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 truncate">
+                        {intern.nama_institusi}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 truncate">
+                        {intern.nama_bidang}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(intern.tanggal_masuk)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(intern.tanggal_keluar)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+                      <span className={getStatusStyle(intern.status)}>
+                        {getStatusLabel(intern.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
+  <div className="flex justify-center space-x-1">
+    <IconButton
+      size="small"
+      onClick={() => handleDetailClick(intern.id_magang)}
+      sx={{ color: 'info.main' }}
+    >
+      <VisibilityIcon fontSize="small" />
+    </IconButton>
+    <IconButton
+      size="small"
+      onClick={() => handleEditClick(intern.id_magang)}
+      sx={{ color: 'warning.main' }}
+    >
+      <EditIcon fontSize="small" />
+    </IconButton>
+    {intern.status !== 'missing' && (  
+      <Tooltip title="Set as Missing">
+        <IconButton
+          size="small"
+          onClick={() => handleMissingClick(intern.id_magang, intern.nama)}
+          sx={{ 
+            color: 'grey.500',
+            '&:hover': {
+              color: 'error.main'
+            }
+          }}
+        >
+          <PersonOffIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    )}
+    <IconButton
+      size="small"
+      onClick={() => handleDeleteClick(intern.id_magang, intern.nama)}
+      sx={{ color: 'error.main' }}
+    >
+      <DeleteIcon fontSize="small" />
+    </IconButton>
+  </div>
+</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      {/* </div> */}
+
 
       {/* Pagination */}
       <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">

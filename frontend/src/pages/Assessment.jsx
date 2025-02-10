@@ -31,10 +31,10 @@ const Assessment = () => {
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
-        severity: 'success' // 'success', 'error', 'warning', 'info'
+        severity: 'success' 
     });
 
-    // Fetch data peserta magang yang sudah selesai
+  
     const fetchCompletedInterns = async () => {
         try {
             const response = await fetch('/api/intern?status=selesai', {
@@ -58,7 +58,6 @@ const Assessment = () => {
         fetchCompletedInterns();
     }, []);
 
-    // Handle submit penilaian
     const handleSubmitAssessment = async () => {
         try {
             const response = await fetch(`/api/assessment/${selectedIntern.id_magang}`, {
@@ -95,7 +94,6 @@ const Assessment = () => {
         }
     };
 
-    // Handle generate sertifikat
     const handleGenerateCertificate = async (internId) => {
         try {
             const response = await fetch(`/api/document/certificate/${internId}`, {
@@ -106,7 +104,6 @@ const Assessment = () => {
             });
 
             if (response.ok) {
-                // Download PDF
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');

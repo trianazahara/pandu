@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
                     });
                     if (response.ok) {
                         const userData = await response.json();
-                        console.log('User data from auth check:', userData); // Debugging
+                        console.log('User data from auth check:', userData); 
                         setUser(userData);
                     } else {
                         localStorage.removeItem('token');

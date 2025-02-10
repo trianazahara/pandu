@@ -38,7 +38,6 @@ const NotificationHandler = ({ notifications, unreadCount }) => {
     if (unreadCount > lastCountRef.current && notifications[0]) {
       const latestNotification = notifications[0];
       
-      // Cek apakah notifikasi termasuk kategori penting
       const isImportant = latestNotification && (
         (latestNotification.judul.includes('Penilaian') && 
          (latestNotification.pesan.includes('menambahkan') || 

@@ -9,7 +9,7 @@ export default function AddInternPage() {
   }, []);
 
   if (!isMounted) {
-    return null; // atau loading spinner
+    return null;
   }
 
   return (

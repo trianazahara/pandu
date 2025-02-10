@@ -55,6 +55,8 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
 
 
 const RekapNilai = () => {
+  const [mentorList, setMentorList] = useState([]);
+  const [userRole, setUserRole] = useState('');
   const [data, setData] = useState([]);
   const [bidangList, setBidangList] = useState([]);
   const [detailDialog, setDetailDialog] = useState({
@@ -318,6 +320,51 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   useEffect(() => {
     fetchData();
   }, [pagination.page, pagination.limit, filters]);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUserRole(data.role);
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+
+    fetchUserRole();
+  }, []);
+
+  // Add useEffect for fetching mentors (only for superadmin)
+  useEffect(() => {
+    const fetchMentors = async () => {
+      if (userRole !== 'superadmin') return;
+      
+      try {
+        const response = await fetch('/api/admin/mentors', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setMentorList(data);
+        }
+      } catch (error) {
+        console.error('Error fetching mentors:', error);
+      }
+    };
+
+    fetchMentors();
+  }, [userRole]);
 
 
   const handleFilter = (key, value) => {
@@ -984,7 +1031,21 @@ document.head.appendChild(style);
           </Paper>
         </Grid>
 
-
+        {userRole === 'superadmin' && (
+    <Grid item xs={12} md={6}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }} >Mentor</Typography>
+      <Paper variant="outlined" sx={{ p: 2, mt: 1}}>
+        <Stack spacing={2}>
+          <Box>
+            <Typography variant="body2" color="text.secondary">Nama Mentor</Typography>
+            <Typography variant="body1">
+              {mentorList.find(m => m.id_users === detailDialog.data.mentor_id)?.nama || '-'}
+            </Typography>
+          </Box>
+        </Stack>
+      </Paper>
+    </Grid>
+  )}
 
 
         <Grid item xs={12}>
@@ -1068,6 +1129,7 @@ document.head.appendChild(style);
             tanggal_keluar: adjustDateForTimezone(editDataDialog.data.tanggal_keluar),
             nama_pembimbing: editDataDialog.data.nama_pembimbing || '',
             telp_pembimbing: editDataDialog.data.telp_pembimbing || '',
+            mentor_id: editDataDialog.data.mentor_id || '',
             status: editDataDialog.data.status || 'not_yet',
             detail_peserta: {
               ...(editDataDialog.data.jenis_peserta === 'mahasiswa'
@@ -1117,6 +1179,8 @@ document.head.appendChild(style);
                           .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
                           .min(10, 'Nomor telepon minimal 10 digit')
                           .max(15, 'Nomor telepon maksimal 15 digit'),
+                          mentor_id: Yup.string()
+    .nullable(),
             status: Yup.string()
               .required('Status wajib dipilih'),
             detail_peserta: Yup.object().shape(
@@ -1385,15 +1449,39 @@ document.head.appendChild(style);
 
 
                 <Grid item xs={12} md={6}>
-                  <Field
-                    name="telp_pembimbing"
-                    component={FormTextField}
-                    fullWidth
-                    label="No. Telp Pembimbing"
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
+  <Field
+    name="telp_pembimbing"
+    component={FormTextField}
+    fullWidth
+    label="No. Telp Pembimbing"
+    size="small"
+  />
+</Grid>
+
+<Grid item xs={12}>
+  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+    Mentor
+  </Typography>
+</Grid>
+
+<Grid item xs={12} md={6}>
+  <Field
+    name="mentor_id"
+    component={({ field, form }) => (
+      <FormControl fullWidth size="small">
+        <InputLabel>Mentor</InputLabel>
+        <Select {...field} label="Mentor">
+          {mentorList.map(mentor => (
+            <MenuItem key={mentor.id_users} value={mentor.id_users}>
+              {mentor.nama}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )}
+  />
+</Grid>
+</Grid>
 
 
               <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>

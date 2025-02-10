@@ -64,6 +64,7 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
 
 const InternManagement = () => {
   // States
+  const [userRole, setUserRole] = useState('');
   const [interns, setInterns] = useState([]);
   const [mentorList, setMentorList] = useState([]);
   const [selectedInterns, setSelectedInterns] = useState([]);
@@ -150,10 +151,10 @@ const InternManagement = () => {
   };
   
   const STATUS_MAPPING = {
-    'not_yet': 'not_yet',     
-    'aktif': 'aktif',         
-    'almost': 'almost',     
-    'selesai': 'selesai',    
+    'not_yet': 'not_yet',      // untuk 'Belum Mulai'
+    'aktif': 'aktif',          // untuk 'Aktif'
+    'almost': 'almost',        // untuk 'Hampir Selesai'
+    'selesai': 'selesai',      // untuk 'Selesai'
     'missing': 'missing'  
   };
 
@@ -168,8 +169,8 @@ const InternManagement = () => {
    
     const styles = {
       'active': {
-        bg: '#dcfce7', 
-        color: '#15803d', 
+        bg: '#dcfce7', // Lighter green background
+        color: '#15803d', // Darker green text
         border: '#15803d'
       },
       'missing': {
@@ -178,28 +179,28 @@ const InternManagement = () => {
             border: '#dc2626'
         },
       'not_yet': {
-        bg: '#f1f5f9', 
-        color: '#475569', 
+        bg: '#f1f5f9', // Light slate background
+        color: '#475569', // Slate text
         border: '#475569'
       },
       'completed': {
-        bg: '#dbeafe', 
-        color: '#1e40af', 
+        bg: '#dbeafe', // Light blue background
+        color: '#1e40af', // Darker blue text
         border: '#1e40af'
       },
       'almost': {
-        bg: '#fef9c3', 
-        color: '#854d0e', 
+        bg: '#fef9c3', // Light yellow background
+        color: '#854d0e', // Darker yellow text
         border: '#854d0e'
       },
       'belum_mulai': {
-        bg: '#f1f5f9', 
-        color: '#475569', 
+        bg: '#f1f5f9', // Light slate background
+        color: '#475569', // Slate text
         border: '#475569'
       },
       'hampir_selesai': {
-        bg: '#fef9c3', 
-        color: '#854d0e', 
+        bg: '#fef9c3', // Light yellow background
+        color: '#854d0e', // Darker yellow text
         border: '#854d0e'
       }
     };
@@ -242,18 +243,24 @@ const InternManagement = () => {
         throw new Error('Failed to generate receipt');
       }
 
+      // Get the PDF blob from the response
       const blob = await response.blob();
+      
+      // Create a URL for the blob
       const url = window.URL.createObjectURL(blob);
-
+      
+      // Create a temporary anchor element and trigger download
       const a = document.createElement('a');
       a.href = url;
       a.download = 'tanda-terima-magang.pdf';
       document.body.appendChild(a);
       a.click();
-
+      
+      // Cleanup
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
+      
+      // Reset selection
       setSelectedInterns([]);
       
       setSnackbar({
@@ -272,34 +279,56 @@ const InternManagement = () => {
   };
  
 
-  // Fetch functions
-  useEffect(() => {
-    const fetchMentors = async () => {
-      try {
-        console.log('Fetching mentors...');
-        const response = await fetch('/api/admin/mentors', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        console.log('Response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Mentors data received:', data);
-          setMentorList(data);
-          console.log('MentorList state after update:', data);
-        } else {
-          const errorText = await response.text();
-          console.error('Response not OK:', errorText);
+//   const [mentors, setMentors] = useState([]);
+// const [mentorsLoading, setMentorsLoading] = useState(true);
+// const [mentorsError, setMentorsError] = useState(null);
+
+
+
+useEffect(() => {
+  const fetchUserRole = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      } catch (error) {
-        console.error('Error fetching mentors:', error);
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.role);
       }
-    };
-  
-    fetchMentors();
-  }, []);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
+
+  fetchUserRole();
+}, []);
+
+// Modify mentor fetching to only run for superadmin
+useEffect(() => {
+  const fetchMentors = async () => {
+    if (userRole !== 'superadmin') return; // Only fetch if superadmin
+    
+    try {
+      const response = await fetch('/api/admin/mentors', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMentorList(data);
+      }
+    } catch (error) {
+      console.error('Error fetching mentors:', error);
+    }
+  };
+
+  fetchMentors();
+}, [userRole]);
 
   const fetchBidangList = async () => {
     try {
@@ -348,7 +377,7 @@ const InternManagement = () => {
       if (filters.bidang) queryParams.append('bidang', filters.bidang);
       if (filters.search) {
         queryParams.append('search', filters.search);
-        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  
+        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  // Added this line
       }
   
       queryParams.append('page', pagination.page + 1);
@@ -402,14 +431,17 @@ const InternManagement = () => {
     }
   };
 
+  // Event handlers
   const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
   try {
-
+    // Check availability first
     const availabilityData = await checkInternAvailability(values.tanggal_masuk);
     
-    console.log('Availability Data:', availabilityData); 
-    console.log('Total Available Slots:', availabilityData.availableSlots); 
-    console.log('Total Occupied:', availabilityData.totalOccupied); 
+    console.log('Availability Data:', availabilityData); // Debugging
+    console.log('Total Available Slots:', availabilityData.availableSlots); // Debugging
+    console.log('Total Occupied:', availabilityData.totalOccupied); // Debugging
+    
+    // Dialog should ONLY show if adding this intern would exceed 50 slots
     const noSlotsAvailable = availabilityData.availableSlots <= 0;
     
     if (wouldExceedLimit) {
@@ -420,7 +452,8 @@ const InternManagement = () => {
       });
       return;
     }
-
+    
+    // If there's still room, submit directly
     await submitInternData(values);
     resetForm();
     setAddDialog({ open: false, loading: false, error: null });
@@ -481,6 +514,7 @@ const InternManagement = () => {
   const handleFilter = (key, value) => {
     setFilters(prevFilters => {
       if (key === 'status') {
+        // For status filter, use the direct value without mapping
         return {
           ...prevFilters,
           [key]: value
@@ -643,7 +677,8 @@ const adjustDateForTimezone = (dateString) => {
         error: error.message || 'Terjadi kesalahan saat memperbarui data',
         loading: false
       }));
-
+  
+      // Tampilkan error notification
       setSnackbar({
         open: true,
         message: error.message || 'Terjadi kesalahan saat memperbarui data',
@@ -666,6 +701,7 @@ const adjustDateForTimezone = (dateString) => {
   };
 
 
+  // useEffect hooks
   useEffect(() => {
     fetchInterns();
   }, [pagination.page, pagination.limit, filters]);
@@ -673,9 +709,11 @@ const adjustDateForTimezone = (dateString) => {
 
   useEffect(() => {
     fetchBidangList();
+    // fetchMentors();
   }, []);
 
 
+  // Add Dialog Component
 const AddDialog = () => (
     <Dialog
       open={addDialog.open}
@@ -788,8 +826,10 @@ const AddDialog = () => (
           })}
           onSubmit={async (values, { setSubmitting, resetForm }) => {
             try {
+              // Cek availability terlebih dahulu
               const availabilityData = await checkInternAvailability(values.tanggal_masuk);
-
+              
+              // Jika tidak tersedia atau ada yang akan selesai, tampilkan dialog konfirmasi
               if (!availabilityData.available || availabilityData.leavingCount > 0) {
                 setAvailabilityDialog({
                   open: true,
@@ -800,7 +840,7 @@ const AddDialog = () => (
                 return;
               }
           
-
+              // Jika available, langsung submit
               const success = await submitInternData(values);
               if (success) {
                 resetForm();
@@ -851,6 +891,7 @@ const AddDialog = () => (
                         onChange={(e) => {
                           const newValue = e.target.value;
                           field.onChange(e);
+                          // Set jenis_institusi berdasarkan jenis_peserta
                           form.setFieldValue(
                             'jenis_institusi',
                             newValue === 'mahasiswa' ? 'universitas' : 'sekolah'
@@ -1052,6 +1093,7 @@ const AddDialog = () => (
                     </Grid>
                   </>
                 ) : (
+                  // Fields for high school students
                   <>
                   <Grid item xs={12} md={6}>
                     <Field
@@ -1278,19 +1320,21 @@ const AddDialog = () => (
               </Paper>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <Typography variant="subtitle2" color="text.secondary">Mentor</Typography>
-              <Paper variant="outlined" sx={{ p: 2, mt: 1, height: '100%' }}>
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Nama Mentor</Typography>
-                    <Typography variant="body1">
-                      {mentorList.find(m => m.id_users === detailDialog.data.mentor_id)?.nama || '-'}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Paper>
-            </Grid>
+             {userRole === 'superadmin' && (
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">Mentor</Typography>
+                <Paper variant="outlined" sx={{ p: 2, mt: 1, height: '100%' }}>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">Nama Mentor</Typography>
+                      <Typography variant="body1">
+                        {mentorList.find(m => m.id_users === detailDialog.data.mentor_id)?.nama || '-'}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
+              </Grid>
+            )}
 
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
@@ -1338,17 +1382,19 @@ const AddDialog = () => (
     </Dialog>
   );
 
-
+  // Helper function to check if data is incomplete
   const hasIncompleteData = (intern) => {
+    // Fungsi untuk mengecek apakah sebuah nilai kosong
     const isEmpty = (value) => value === null || value === undefined || value === '';
     
+    // Cek field-field opsional
     const hasIncompleteBasicData = 
       isEmpty(intern.email) || 
       isEmpty(intern.no_hp) ||
       isEmpty(intern.nama_pembimbing) ||
       isEmpty(intern.telp_pembimbing) ||
-      isEmpty(intern.mentor_id) ||  
-      isEmpty(intern.id_bidang);   
+      isEmpty(intern.mentor_id) ||  // Tambah pengecekan mentor
+      isEmpty(intern.id_bidang);    // Tambah pengecekan bidang
       
     return hasIncompleteBasicData;
   };
@@ -1394,6 +1440,7 @@ const AddDialog = () => (
               nama_pembimbing: editDialog.data.nama_pembimbing || '',
               telp_pembimbing: editDialog.data.telp_pembimbing || '',
               mentor_id: editDialog.data.mentor_id || '',
+              // status: editDialog.data.status || 'not_yet'
               detail_peserta: {
 
               ...(editDialog.data.jenis_peserta === 'mahasiswa'
@@ -1430,7 +1477,10 @@ const AddDialog = () => (
                 Yup.ref('tanggal_masuk'),
                 'Tanggal keluar harus setelah tanggal masuk'
               ),
-            
+            // status: Yup.string()
+            //   .required('Status wajib dipilih'),
+          
+            // Field Opsional
             email: Yup.string()
               .email('Format email tidak valid')
               .nullable(),
@@ -1857,7 +1907,7 @@ const handleSelectIntern = (internId) => {
   });
 };
  
-  
+  // Handle select all checkboxes
   const handleSelectAll = (event) => {
     if (event.target.checked) {
       setSelectedInterns(interns.map(intern => intern.id_magang));
@@ -1937,7 +1987,9 @@ document.head.appendChild(style);
             bgcolor: 'white',
             color: '#26BBAC',
             '&:hover': { bgcolor: '#f5f5f5' },
-            
+            // px: 3,
+            // py: 1.5,
+            // borderRadius: '8px',
           }}>
           TAMBAH PESERTA MAGANG
         </Button>
@@ -1949,7 +2001,7 @@ document.head.appendChild(style);
         <div className="relative">
         <input
           type="text"
-          placeholder="Search nama/institusi"  
+          placeholder="Search nama/institusi"  // Changed from "Search nama/email"
           value={filters.search}
           onChange={(e) => setFilters({...filters, search: e.target.value})}
           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2028,13 +2080,15 @@ document.head.appendChild(style);
                 <th scope="col" className="w-[11%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mentor
-                </th>
-                <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
+                {userRole === 'superadmin' && (
+      <th scope="col" className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        Mentor
+      </th>
+    )}
+    <th scope="col" className="w-[10%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+      Action
+    </th>
+  </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
@@ -2062,7 +2116,7 @@ document.head.appendChild(style);
                     <td className="px-4 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
                       {intern.nama}
-                      {hasIncompleteData(intern) && (  
+                      {hasIncompleteData(intern) && (  // Ganti dari intern.has_incomplete_data
                         <Tooltip title="Data belum lengkap" placement="top">
                           <InfoIcon 
                             className="text-yellow-500 ml-1 h-4 w-4"
@@ -2093,11 +2147,13 @@ document.head.appendChild(style);
                         {getStatusLabel(intern.status)}
                       </span>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
-                      </div>
-                    </td>
+                    {userRole === 'superadmin' && (
+      <td className="px-4 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-500">
+          {mentorList.find(m => m.id_users === intern.mentor_id)?.nama || '-'}
+        </div>
+      </td>
+    )}
                     <td className="px-4 py-4 whitespace-nowrap text-center">
   <div className="flex justify-center space-x-1">
     <IconButton
@@ -2114,7 +2170,7 @@ document.head.appendChild(style);
     >
       <EditIcon fontSize="small" />
     </IconButton>
-    {intern.status !== 'missing' && (  
+    {intern.status !== 'missing' && (  // Only show for non-missing interns
       <Tooltip title="Set as Missing">
         <IconButton
           size="small"

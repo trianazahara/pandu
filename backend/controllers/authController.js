@@ -1,10 +1,9 @@
-// backend/controllers/authController.js
 const pool = require('../config/database');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../config/auth');
 const nodemailer = require('nodemailer');
 
-
+// Konfigurasi email sender
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -13,16 +12,19 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// Generate 6 digit OTP
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
-const authController = {
 
+const authController = {
+    // Proses login user
     login: async (req, res) => {
         try {
             const { username, password } = req.body;
             console.log('Login attempt:', { username }); 
 
+            // Cek username di database
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ?',
                 [username]
@@ -33,6 +35,7 @@ const authController = {
                 return res.status(401).json({ message: 'Username atau password salah' });
             }
 
+            // Verifikasi password
             const user = users[0];
             console.log('Comparing passwords...'); 
             const validPassword = await bcrypt.compare(password, user.password);
@@ -42,6 +45,7 @@ const authController = {
                 return res.status(401).json({ message: 'Username atau password salah' });
             }
 
+            // Generate token JWT
             const token = generateToken(user.id_users, user.role);
             res.json({ 
                 token, 
@@ -59,6 +63,7 @@ const authController = {
         }
     },
 
+    // Ambil data user yang sedang login
     getMe: async (req, res) => {
         try {
             const [users] = await pool.execute(
@@ -76,6 +81,8 @@ const authController = {
             res.status(500).json({ message: 'Terjadi kesalahan server' });
         }
     },
+
+    // Cek keberadaan username untuk reset password
     checkUsername: async (req, res) => {
         try {
             const { username } = req.body;
@@ -89,6 +96,7 @@ const authController = {
 
             console.log('Checking username:', username);
 
+            // Cek username di database
             const [users] = await pool.execute(
                 'SELECT email FROM users WHERE username = ?',
                 [username]
@@ -101,17 +109,19 @@ const authController = {
                 });
             }
 
+            // Masking email untuk keamanan
             const email = users[0].email;
             const maskedEmail = email.replace(/(.{3})(.*)(@.*)/, '$1***$3');
 
             const otp = generateOTP();
             
-
+            // Simpan OTP ke database
             await pool.execute(
                 'UPDATE users SET otp = ?, otp_expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE username = ?',
                 [otp, username]
             );
 
+            // Kirim OTP ke email
             await transporter.sendMail({
                 from: process.env.EMAIL_USER,
                 to: email,
@@ -138,11 +148,14 @@ const authController = {
             });
         }
     },
+
+    // Proses lupa password
     forgotPassword: async (req, res) => {
         try {
             const { username } = req.body;
             console.log('Step 1: Received username:', username);
 
+            // Cek username
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ?',
                 [username]
@@ -153,6 +166,7 @@ const authController = {
                 return res.status(404).json({ message: 'Username tidak ditemukan' });
             }
 
+            // Generate dan simpan OTP
             const user = users[0];
             const otp = generateOTP();
             console.log('Step 3: Generated OTP:', otp);
@@ -169,6 +183,7 @@ const authController = {
             });
 
             try {
+                // Kirim email OTP
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: user.email,
@@ -205,11 +220,13 @@ const authController = {
         }
     },
 
+    // Reset password dengan OTP
     resetPassword: async (req, res) => {
         try {
             const { username, otp, newPassword } = req.body;
             console.log('Reset password attempt:', { username });
 
+            // Validasi OTP
             const [users] = await pool.execute(
                 'SELECT * FROM users WHERE username = ? AND otp = ? AND otp_expires_at > NOW()',
                 [username, otp]
@@ -219,9 +236,11 @@ const authController = {
                 return res.status(400).json({ message: 'OTP tidak valid atau sudah expired' });
             }
 
+            // Hash password baru
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(newPassword, salt);
 
+            // Update password dan hapus OTP
             await pool.execute(
                 'UPDATE users SET password = ?, otp = NULL, otp_expires_at = NULL WHERE username = ?',
                 [hashedPassword, username]

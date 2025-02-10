@@ -1,7 +1,7 @@
-// backend/controllers/bidangController.js
 const pool = require('../config/database');
 
 const bidangController = {
+    // Ambil semua data bidang (diurutkan berdasarkan nama)
     getAll: async (req, res) => {
         try {
             const [rows] = await pool.execute(`
@@ -23,4 +23,5 @@ const bidangController = {
         }
     }
 };
+
 module.exports = bidangController;

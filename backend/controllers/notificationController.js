@@ -1,8 +1,8 @@
-// controllers/notificationController.js
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 const notificationController = {
+    // Buat notifikasi baru
     createNotification: async (conn, {
         userId,
         judul,
@@ -25,18 +25,20 @@ const notificationController = {
             userId,
             judul,
             pesan,
-            0 
+            0  // Status belum dibaca
         ];
 
         await conn.execute(query, values);
     },
 
+    // Ambil daftar notifikasi dengan paginasi
     getNotifications: async (req, res) => {
         try {
             const { page = 1, limit = 10 } = req.query;
             const offset = (page - 1) * limit;
             const userId = req.user.userId;
 
+            // Query notifikasi dengan urutan terbaru
             const query = `
                 SELECT 
                     n.*
@@ -52,6 +54,7 @@ const notificationController = {
                 Number(offset)
             ]);
 
+            // Hitung total notifikasi untuk paginasi
             const [countResult] = await pool.execute(
                 'SELECT COUNT(*) as total FROM notifikasi WHERE user_id = ?',
                 [userId]
@@ -77,6 +80,7 @@ const notificationController = {
         }
     },
 
+    // Hitung jumlah notifikasi yang belum dibaca
     getUnreadCount: async (req, res) => {
         try {
             const userId = req.user.userId;
@@ -99,6 +103,7 @@ const notificationController = {
         }
     },
 
+    // Tandai satu notifikasi sebagai sudah dibaca
     markAsRead: async (req, res) => {
         const conn = await pool.getConnection();
         try {
@@ -106,6 +111,7 @@ const notificationController = {
             const { id } = req.params;
             const userId = req.user.userId;
 
+            // Update status dibaca
             const [result] = await conn.execute(
                 'UPDATE notifikasi SET dibaca = 1 WHERE id_notifikasi = ? AND user_id = ?',
                 [id, userId]
@@ -133,12 +139,14 @@ const notificationController = {
         }
     },
 
+    // Tandai semua notifikasi sebagai sudah dibaca
     markAllAsRead: async (req, res) => {
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
             const userId = req.user.userId;
 
+            // Update semua notifikasi user
             await conn.execute(
                 'UPDATE notifikasi SET dibaca = 1 WHERE user_id = ?',
                 [userId]

@@ -1,8 +1,8 @@
-// backend/controllers/assessmentController.js
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const notificationController = require('./notificationController');
 
+// Fungsi untuk membuat notifikasi ke seluruh user saat ada perubahan nilai
 const createInternNotification = async (conn, {userId, internName, action}) => {
     try {
         const [userData] = await conn.execute(
@@ -11,6 +11,7 @@ const createInternNotification = async (conn, {userId, internName, action}) => {
         );
         const nama = userData[0]?.nama || 'Unknown User';
        
+        // Ambil semua user untuk notifikasi
         const [allUsers] = await conn.execute('SELECT id_users FROM users');
        
         const query = `
@@ -24,6 +25,7 @@ const createInternNotification = async (conn, {userId, internName, action}) => {
             ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
        
+        // Kirim notifikasi ke setiap user
         for (const user of allUsers) {
             const values = [
                 uuidv4(),
@@ -43,9 +45,11 @@ const createInternNotification = async (conn, {userId, internName, action}) => {
 };
 
 const assessmentController = {
+    // Tambah nilai baru untuk peserta magang
     addScore: async (req, res) => {
         const conn = await pool.getConnection();
         try {
+            // Cek autentikasi user
             if (!req.user || !req.user.userId) {
                 return res.status(401).json({
                     status: 'error',
@@ -70,6 +74,7 @@ const assessmentController = {
                 jumlah_hadir     
             } = req.body;
             
+            // Validasi kelengkapan nilai
             const isEmpty = (val) => val === undefined || val === null || val === '';
             if (
                 !id_magang ||
@@ -82,6 +87,7 @@ const assessmentController = {
                 return res.status(400).json({ message: 'Semua nilai harus diisi.' });
             }
 
+            // Validasi user
             if (!req.user || !req.user.userId) {
                 return res.status(403).json({ message: 'User tidak valid.' });
             }
@@ -93,6 +99,7 @@ const assessmentController = {
                 });
             }
 
+            // Cek keberadaan peserta
             const [pesertaExists] = await conn.execute(
                 'SELECT nama FROM peserta_magang WHERE id_magang = ?',
                 [id_magang]
@@ -105,6 +112,7 @@ const assessmentController = {
                 });
             }
 
+            // Cek duplikasi penilaian
             const [existingScore] = await conn.execute(
                 'SELECT id_penilaian FROM penilaian WHERE id_magang = ?',
                 [id_magang]
@@ -128,6 +136,8 @@ const assessmentController = {
                     message: 'Penilaian sudah ada untuk peserta magang ini.' 
                 });
             }
+
+            // Insert data penilaian baru
             await conn.execute(`
                 INSERT INTO penilaian (
                 id_penilaian,
@@ -148,23 +158,24 @@ const assessmentController = {
                 created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             `, [
-        id_penilaian,
-        id_magang,
-        req.user.userId,
-        nilai_teamwork || 0,
-        nilai_komunikasi || 0,
-        nilai_pengambilan_keputusan || 0,
-        nilai_kualitas_kerja || 0,
-        nilai_teknologi || 0,
-        nilai_disiplin || 0,
-        nilai_tanggungjawab || 0,
-        nilai_kerjasama || 0,
-        nilai_kejujuran || 0,
-        nilai_kebersihan || 0,
-        req.body.jumlah_hadir || 0,  
-        req.user.userId
-    ]);
+                id_penilaian,
+                id_magang,
+                req.user.userId,
+                nilai_teamwork || 0,
+                nilai_komunikasi || 0,
+                nilai_pengambilan_keputusan || 0,
+                nilai_kualitas_kerja || 0,
+                nilai_teknologi || 0,
+                nilai_disiplin || 0,
+                nilai_tanggungjawab || 0,
+                nilai_kerjasama || 0,
+                nilai_kejujuran || 0,
+                nilai_kebersihan || 0,
+                req.body.jumlah_hadir || 0,  
+                req.user.userId
+            ]);
 
+            // Update status peserta jadi selesai
             await conn.execute(`
                 UPDATE peserta_magang
                 SET status = 'selesai',
@@ -178,6 +189,7 @@ const assessmentController = {
                 [req.user.userId]
             );
         
+            // Buat notifikasi penilaian baru
             await createInternNotification(conn, {
                 userId: req.user.userId,
                 internName: pesertaExists[0].nama,
@@ -210,6 +222,7 @@ const assessmentController = {
         }
     },
 
+    // Ambil rekap nilai dengan filter dan paginasi
     getRekapNilai: async (req, res) => {
         try {
             const {
@@ -228,6 +241,7 @@ const assessmentController = {
             const offset = (page - 1) * limit;
             const params = [];
             
+            // Query dasar untuk rekap nilai
             let query = `
                 SELECT 
                     pm.nama,
@@ -242,16 +256,19 @@ const assessmentController = {
                 WHERE 1=1
             `;
     
+            // Filter untuk admin
             if (req.user.role === 'admin') {
                 query += ` AND pm.mentor_id = ?`;
                 params.push(req.user.userId);
             }
               
+            // Filter berdasarkan bidang
             if (bidang && bidang !== '') {
                 query += ` AND pm.id_bidang = ?`;
                 params.push(bidang);
             }
     
+            // Filter pencarian
             if (search && search !== '') {
                 query += ` AND (pm.nama LIKE ? OR pm.nama_institusi LIKE ?)`;
                 params.push(`%${search}%`, `%${search}%`);
@@ -269,6 +286,7 @@ const assessmentController = {
             const [debugResult] = await pool.execute(debugQuery, debugParams);
             console.log('Debug Query Result:', debugResult);
     
+            // Tambah paginasi ke query
             query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
             params.push(parseInt(limit), parseInt(offset));
     
@@ -295,6 +313,7 @@ const assessmentController = {
                 });
             }
     
+            // Hitung total data untuk paginasi
             const countQuery = `
                 SELECT COUNT(*) as total 
                 FROM penilaian p
@@ -338,9 +357,11 @@ const assessmentController = {
         }
     },
 
+    // Update nilai peserta magang
     updateScore: async (req, res) => {
         const conn = await pool.getConnection();
         try {
+            // Validasi user
             if (!req.user || !req.user.userId) {
                 return res.status(401).json({
                     status: 'error',
@@ -351,6 +372,7 @@ const assessmentController = {
             await conn.beginTransaction();
             const { id } = req.params;
     
+            // Cek data penilaian
             const [internData] = await conn.execute(`
                 SELECT pm.nama 
                 FROM penilaian p 
@@ -379,6 +401,7 @@ const assessmentController = {
                 jumlah_hadir
             } = req.body;
     
+            // Update nilai
             let updateQuery = `
                 UPDATE penilaian 
                 SET 
@@ -416,6 +439,7 @@ const assessmentController = {
     
             await conn.execute(updateQuery, values);
     
+            // Kirim notifikasi update nilai
             await createInternNotification(conn, {
                 userId: req.user.userId,
                 internName: internData[0].nama,
@@ -439,12 +463,14 @@ const assessmentController = {
         } finally {
             if (conn) conn.release();
         }
-        },
+    },
 
+    // Ambil detail nilai berdasarkan ID magang
     getByInternId: async (req, res) => {
         try {
             const { id_magang } = req.params;
 
+            // Query untuk ambil detail nilai dan data peserta
             const [assessment] = await pool.execute(`
                 SELECT p.*, pm.nama, pm.jenis_peserta,
                        i.nama_institusi, b.nama_bidang,
@@ -476,9 +502,12 @@ const assessmentController = {
         }
     },
 
+    // Generate sertifikat magang
     generateCertificate: async (req, res) => {
         try {
             const { id_magang } = req.params;
+            
+            // Ambil data lengkap peserta
             const [assessment] = await pool.execute(`
                 SELECT p.*, pm.nama, pm.jenis_peserta,
                        i.nama_institusi, b.nama_bidang,
@@ -504,6 +533,7 @@ const assessmentController = {
                 });
             }
 
+            // Ambil template sertifikat aktif
             const [template] = await pool.execute(`
                 SELECT file_path
                 FROM dokumen_template
@@ -518,7 +548,7 @@ const assessmentController = {
                 });
             }
 
-
+            // Generate PDF sertifikat
             const templatePath = path.join(__dirname, '..', template[0].file_path);
             const templateBytes = await fs.readFile(templatePath);
             const pdfDoc = await PDFDocument.load(templateBytes);
@@ -547,7 +577,7 @@ const assessmentController = {
     },
 };
 
-
+// Hapus notifikasi lama setiap hari jam 00:00
 const cron = require('node-cron');
 const Notification = require('../models/Notification');
 

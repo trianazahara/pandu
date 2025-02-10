@@ -1,32 +1,30 @@
-// backend/controllers/adminController.js
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt');
-
 
 const adminController = {
     addAdmin: async (req, res) => {
         try {
             const { username, password, email, nama, nip, id_bidang, role } = req.body;
    
-            // Validasi input
+            // Cek kelengkapan data wajib
             if (!username || !password || !email || !nama || !id_bidang || !role) {
                 return res.status(400).json({ message: 'Semua data (username, password, email, nama, role) harus diisi.' });
             }
    
-            // Validasi email format
+            // Cek format email
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
                 return res.status(400).json({ message: 'Format email tidak valid.' });
             }
    
-            // Validasi role
+            // Cek role admin/superadmin
             const validRoles = ['admin', 'superadmin'];
             if (!validRoles.includes(role)) {
                 return res.status(400).json({ message: `Role tidak valid. Pilihan yang valid adalah: ${validRoles.join(', ')}` });
             }
    
-            // Cek username atau email sudah ada
+            // Cek duplikasi username/email
             const [existingUsers] = await pool.execute(
                 'SELECT * FROM users WHERE username = ? OR email = ?',
                 [username, email]
@@ -35,7 +33,7 @@ const adminController = {
                 return res.status(400).json({ message: 'Username atau email sudah digunakan.' });
             }
 
-            // Validasi bidang
+            // Cek keberadaan bidang
             const [bidangExists] = await pool.execute(
                 'SELECT id_bidang FROM bidang WHERE id_bidang = ?',
                 [id_bidang]
@@ -44,10 +42,10 @@ const adminController = {
                 return res.status(400).json({ message: 'Bidang tidak ditemukan.' });
             }
    
-            const hashedPassword = await bcrypt.hash(password, 10); // Enkripsi password
-            const id_users = uuidv4(); // Generate ID baru
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const id_users = uuidv4();
    
-            // Query untuk insert admin baru
+            // Simpan data admin baru
             await pool.execute(
                 `INSERT INTO users (id_users, username, password, email, nama, nip, id_bidang, role, is_active, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, NOW())`,
@@ -68,25 +66,30 @@ const adminController = {
         try {
             const { id } = req.params;
 
+            // Mulai transaksi untuk hapus data terkait
             const connection = await pool.getConnection();
             await connection.beginTransaction();
            
             try {
+                // Reset mentor_id peserta
                 await connection.execute(
                     'UPDATE peserta_magang SET mentor_id = NULL WHERE mentor_id = ?',
                     [id]
                 );
 
+                // Hapus notifikasi user
                 await connection.execute(
                     'DELETE FROM notifikasi WHERE user_id = ?',
                     [id]
                 );
                
+                // Reset created_by peserta
                 await connection.execute(
                     'UPDATE peserta_magang SET created_by = NULL WHERE created_by = ?',
                     [id]
                 );
                
+                // Hapus user admin
                 const [result] = await connection.execute(
                     'DELETE FROM users WHERE id_users = ? AND role = "admin"',
                     [id]
@@ -124,6 +127,7 @@ const adminController = {
 
     getAdmin: async (req, res) => {
         try {
+            // Ambil data admin dengan info bidang
             const [admins] = await pool.execute(`
                 SELECT u.id_users, u.username, u.email, u.nama, u.nip,
                    u.id_bidang, b.nama_bidang, u.role, u.last_login,
@@ -141,12 +145,12 @@ const adminController = {
         }
     },
 
-
     editAdmin: async (req, res) => {
         try {
             const { id } = req.params;
             const { nama, username, email, password, nip, id_bidang} = req.body;
            
+            // Cek minimal satu field diisi
             if (!username && !email && !nama && !password && !nip && !id_bidang) {
                 return res.status(400).json({ message: 'Setidaknya satu kolom harus diisi untuk diperbarui.' });
             }
@@ -154,6 +158,7 @@ const adminController = {
             const updates = [];
             const params = [];
    
+            // Siapkan query update sesuai field yang diisi
             if (username) {
                 updates.push('username = ?');
                 params.push(username);
@@ -185,9 +190,9 @@ const adminController = {
                 params.push(hashedPassword);
             }
 
-
             params.push(id);
 
+            // Eksekusi update admin
             const [result] = await pool.execute(
                 `UPDATE users SET ${updates.join(', ')} WHERE id_users = ? AND role = "admin"`,
                 params
@@ -205,6 +210,5 @@ const adminController = {
         }
     },
 };
-
 
 module.exports = adminController;

@@ -141,34 +141,26 @@ setMissingStatus: async (req, res) => {
 },
 
 getMentors: async (req, res) => {
-    const conn = await pool.getConnection();
     try {
-        const [mentors] = await conn.execute(`
-            SELECT 
-                id_users, 
-                username, 
-                nama, 
-                nip, 
-                email
-            FROM users 
-            WHERE role = 'admin'
-            ORDER BY nama
-        `);
-
-        res.json({
-            status: 'success',
-            data: mentors
-        });
+      let query;
+      const params = [];
+  
+      if (req.user.role === 'superadmin') {
+        // Superadmin bisa lihat semua mentor
+        query = `SELECT id_users, nama FROM users WHERE role = 'admin' AND is_active = 1`;
+      } else {
+        // Admin hanya bisa lihat dirinya sendiri
+        query = `SELECT id_users, nama FROM users WHERE id_users = ? AND is_active = 1`;
+        params.push(req.user.userId);
+      }
+  
+      const [mentors] = await pool.execute(query, params);
+      res.json(mentors);
     } catch (error) {
-        console.error('Error mengambil data mentor:', error);
-        res.status(500).json({
-            status: 'error',
-            message: 'Terjadi kesalahan server saat mengambil data mentor'
-        });
-    } finally {
-        conn.release();
+      console.error('Error getting mentors:', error);
+      res.status(500).json({ message: 'Internal server error' });
     }
-},
+  },
 
 
 getDetailedStats: async (req, res) => {

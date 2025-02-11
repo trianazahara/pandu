@@ -192,7 +192,7 @@ export const Sidebar = () => {
             </nav>
             {/* Copyright section */}
             <div className="p-4 mt-auto border-t border-slate-200/50">
-                <div className="text-xs text-gray-600 text-center">
+                <div className="text-xs scale-90 text-gray-600 text-center">
                     <p className="font-medium mb-1">Developed by:</p>
                     <p>Dhiya Gustita Aqila, Triana Zahara Nurhaliza, Laura Iffa Razitta</p>
                     <p className="mt-1 font-medium">Sistem Informasi 22 UNAND</p>

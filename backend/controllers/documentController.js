@@ -306,6 +306,8 @@ const documentController = {
                 SELECT
                     pm.*,
                     p.*,
+                    u.nama as nama_mentor,
+                    u.nip as nip_mentor,
                     CASE
                         WHEN pm.jenis_peserta = 'mahasiswa' THEN dm.nim
                         WHEN pm.jenis_peserta = 'siswa' THEN ds.nisn
@@ -318,6 +320,7 @@ const documentController = {
                 LEFT JOIN penilaian p ON pm.id_magang = p.id_magang
                 LEFT JOIN data_mahasiswa dm ON pm.id_magang = dm.id_magang
                 LEFT JOIN data_siswa ds ON pm.id_magang = ds.id_magang
+                LEFT JOIN users u ON pm.mentor_id = u.id_users
                 WHERE pm.id_magang = ?
             `, [id_magang]);
    
@@ -383,7 +386,12 @@ const documentController = {
                 jumlah_teks: angkaKeTeks(parseFloat(calculateTotalScore(peserta[0]))),
                 rata_rata: calculateAverageScore(peserta[0]),
                 rata_rata_teks: angkaKeTeks(parseFloat(calculateAverageScore(peserta[0]))),
-                akreditasi: getAkreditasi(calculateAverageScore(peserta[0]))
+                akreditasi: getAkreditasi(calculateAverageScore(peserta[0])),
+                // Opsional (Jika sewaktu2 diperlukan)
+                email: peserta[0].email,
+                nomor_telpon: peserta[0].no_hp,
+                nama_mentor: peserta[0].nama_mentor,
+                nip_mentor: peserta[0].nip_mentor
             });
    
             // Generate file docx

@@ -9,6 +9,7 @@ import {
     LibraryBooks,
     KeyboardArrowDown,
     KeyboardArrowRight,
+    Folder,
 } from '@mui/icons-material';
 
 export const Sidebar = () => {
@@ -60,6 +61,11 @@ export const Sidebar = () => {
                         label: 'Rekap Nilai'
                     }
                 ]
+            },
+            {
+                path: '/',
+                icon: <Folder />,
+                label: 'Arsip Surat'
             },
             {
                 path: '/settings',

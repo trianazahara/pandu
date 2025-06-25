@@ -13,6 +13,7 @@ const profileRoutes = require('./routes/profile');
 const notificationRoutes = require('./routes/notification');
 const NotificationCron = require('./cron/notificationCron');
 const bidangRoutes = require('./routes/bidang');
+const institutionRoutes = require('./routes/institutionRoutes');
 
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/bidang', bidangRoutes);
+app.use('/api/institutions', institutionRoutes);
 
 
 app.use((err, req, res, next) => {

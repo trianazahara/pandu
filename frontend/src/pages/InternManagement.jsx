@@ -2237,14 +2237,27 @@ document.head.appendChild(style);
       </div>
 
       <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <LoadingButton
-          variant="contained"
-          color='#26BBAC'
-          disabled={selectedInterns.length === 0}
-          onClick={generateReceipt}
-        >
-          Generate Tanda Terima
-        </LoadingButton>
+        {/* Tombol Generate Tanda Terima - Hanya untuk superadmin dan dinonaktifkan jika tidak ada yang dipilih */}
+        {userRole === 'superadmin' && (
+          <LoadingButton
+            variant="contained"
+            color='primary' // Changed to primary for consistent theme, you can use a custom color
+            disabled={selectedInterns.length === 0}
+            onClick={generateReceipt}
+            sx={{
+              bgcolor: '#26BBAC', // Custom color for the button
+              '&:hover': {
+                bgcolor: '#20A4F3', // Darker on hover
+              },
+              '&.Mui-disabled': { // Style for disabled state
+                bgcolor: '#A5D6A7', // Lighter green for disabled
+                color: '#FFFFFF'
+              }
+            }}
+          >
+            Generate Tanda Terima
+          </LoadingButton>
+        )}
       </Box>
 
       {/* Dialogs */}
@@ -2354,4 +2367,3 @@ document.head.appendChild(style);
 
 
 export default InternManagement;
-

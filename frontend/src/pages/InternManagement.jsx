@@ -2266,20 +2266,20 @@ document.head.appendChild(style);
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setDeleteDialog({ open: false, internId: null, loading: false, nama: '' })}
-            disabled={deleteDialog.loading}
-          >
-            Batal
-          </Button>
           <LoadingButton
             onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
             loading={deleteDialog.loading}
           >
             Hapus
           </LoadingButton>
+          <Button
+            onClick={() => setDeleteDialog({ open: false, internId: null, loading: false, nama: '' })}
+            color="error"
+            variant="contained"
+            disabled={deleteDialog.loading}
+          >
+            Batal
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -1,5 +1,3 @@
-
-//rekap nilai
 import React, { useState, useEffect } from 'react';
 import { LoadingButton } from '@mui/lab';
 import { Close as CloseIcon } from '@mui/icons-material';
@@ -33,13 +31,15 @@ import {
   Radio,
   RadioGroup,
   CircularProgress,
-  Stack
+  Stack,
+  FormHelperText
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
-import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon, Upload as UploadIcon } from '@mui/icons-material';import { BookIcon } from 'lucide-react';
+import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon, Upload as UploadIcon } from '@mui/icons-material';
+import { BookIcon } from 'lucide-react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
@@ -107,6 +107,15 @@ const RekapNilai = () => {
       startDate: null,
       endDate: null
     }
+  });
+
+  // State untuk upload dialog
+  const [uploadDialog, setUploadDialog] = useState({
+    open: false,
+    loading: false,
+    selectedFile: null,
+    idMagang: null,
+    nama: ''
   });
 
 
@@ -219,9 +228,51 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   }
 };
 
+  // Handler untuk upload
+  const handleUploadClick = (score) => {
+    setUploadDialog({
+      open: true,
+      loading: false,
+      selectedFile: null,
+      idMagang: score.id_magang,
+      nama: score.nama
+    });
+  };
 
-  
+  const handleFileUpload = async () => {
+    if (!uploadDialog.selectedFile) {
+      showSnackbar('Pilih file terlebih dahulu', 'error');
+      return;
+    }
 
+    setUploadDialog(prev => ({ ...prev, loading: true }));
+
+    try {
+      const formData = new FormData();
+      formData.append('arsip_sertifikat', uploadDialog.selectedFile);
+
+      const response = await fetch(`http://localhost:5000/api/upload/arsip-sertifikat/${uploadDialog.idMagang}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        showSnackbar('Arsip sertifikat berhasil diupload', 'success');
+        setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' });
+        fetchData(); // Refresh data
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      showSnackbar(error.message || 'Gagal upload arsip sertifikat', 'error');
+      setUploadDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
@@ -768,13 +819,6 @@ document.head.appendChild(style);
         </Grid>
       </Grid>
 
-
-
-
-
-
-
-
       {/* Table */}
       {/* Table Section */}
       <div className="bg-white rounded-lg shadow overflow-x-auto" style={{ maxWidth: '950px' }}>
@@ -880,8 +924,8 @@ document.head.appendChild(style);
             <Tooltip title="Unggah Berkas">
               <IconButton
                 size="small"
-                onClick={() => { /* handleUploadClick(score) */ }}
-                sx={{ color: 'info.main' }}
+                onClick={() => handleUploadClick(score)}
+                sx={{ color: 'success.main' }}
               >
                 <UploadIcon fontSize="small" />
               </IconButton>
@@ -896,10 +940,6 @@ document.head.appendChild(style);
       </table>
     </div>
  
-
-
-
-
       {/* Pagination */}
       {/* Updated Pagination Section */}
       <div className="flex items-center justify-between bg-white px-4 py-3 rounded-b-lg">
@@ -953,8 +993,62 @@ document.head.appendChild(style);
         </div>
       </div>
 
-
-
+      {/* Upload Dialog */}
+      <Dialog
+        open={uploadDialog.open}
+        onClose={() => setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Upload Arsip Sertifikat - {uploadDialog.nama}</Typography>
+            <IconButton
+              onClick={() => setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' })}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => setUploadDialog(prev => ({ 
+                ...prev, 
+                selectedFile: e.target.files[0] 
+              }))}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              File yang diizinkan: PDF, DOC, DOCX (Maksimal 10MB)
+            </Typography>
+            {uploadDialog.selectedFile && (
+              <Typography variant="body2" sx={{ mt: 1, color: 'success.main' }}>
+                File dipilih: {uploadDialog.selectedFile.name}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' })}
+            disabled={uploadDialog.loading}
+          >
+            Batal
+          </Button>
+          <LoadingButton
+            onClick={handleFileUpload}
+            loading={uploadDialog.loading}
+            variant="contained"
+            disabled={!uploadDialog.selectedFile}
+          >
+            Upload
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
   open={detailDialog.open}
@@ -1003,9 +1097,6 @@ document.head.appendChild(style);
           </Paper>
         </Grid>
 
-
-
-
         <Grid item xs={12} md={6}>
           <Typography variant="subtitle2" color="text.secondary">Informasi Akademik</Typography>
           <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -1031,9 +1122,6 @@ document.head.appendChild(style);
             </Stack>
           </Paper>
         </Grid>
-
-
-
 
         <Grid item xs={12} md={6}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>Informasi Pembimbing</Typography>
@@ -1066,7 +1154,6 @@ document.head.appendChild(style);
       </Paper>
     </Grid>
   )}
-
 
         <Grid item xs={12}>
           <Typography variant="subtitle2" color="text.secondary">Informasi Magang</Typography>
@@ -1252,7 +1339,6 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 {/* Informasi Pribadi */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 2 }}>
@@ -1270,7 +1356,6 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 <Grid item xs={12} md={6}>
                   <Field
                     name="email"
@@ -1282,7 +1367,6 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 <Grid item xs={12} md={6}>
                   <Field
                     name="no_hp"
@@ -1293,14 +1377,12 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 {/* Informasi Institusi */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Informasi Institusi
                   </Typography>
                 </Grid>
-
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -1311,7 +1393,6 @@ document.head.appendChild(style);
                     size="small"
                   />
                 </Grid>
-
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -1334,14 +1415,12 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 {/* Detail Peserta */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Detail Peserta
                   </Typography>
                 </Grid>
-
 
                 {editDataDialog.data.jenis_peserta === 'mahasiswa' ? (
                   <>
@@ -1415,14 +1494,12 @@ document.head.appendChild(style);
                   </>
                 )}
 
-
                 {/* Periode Magang */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
                     Periode Magang
                   </Typography>
                 </Grid>
-
 
                 <Grid item xs={12} md={6}>
                   <Field
@@ -1436,7 +1513,6 @@ document.head.appendChild(style);
                   />
                 </Grid>
 
-
                 <Grid item xs={12} md={6}>
                   <Field
                     name="tanggal_keluar"
@@ -1448,7 +1524,6 @@ document.head.appendChild(style);
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-
 
                 {/* Informasi Pembimbing */}
                 <Grid item xs={12}>
@@ -1466,7 +1541,6 @@ document.head.appendChild(style);
                     size="small"
                   />
                 </Grid>
-
 
                 <Grid item xs={12} md={6}>
   <Field
@@ -1503,7 +1577,6 @@ document.head.appendChild(style);
 </Grid>
 </Grid>
 
-
               <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 <Button
                   onClick={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
@@ -1518,7 +1591,6 @@ document.head.appendChild(style);
                   }}
                   variant="outlined"
                 >
-
                   Batal
                 </Button>
                 <LoadingButton
@@ -1553,7 +1625,6 @@ document.head.appendChild(style);
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Nilai - {editDialog.data?.nama}</Typography>
 
-
           <IconButton
             onClick={() => setEditDialog({ open: false, loading: false, data: null, error: null })}
             size="small"
@@ -1567,9 +1638,6 @@ document.head.appendChild(style);
           {editDialog.error && (
             <Alert severity="error" sx={{ mb: 2 }}>{editDialog.error}</Alert>
           )}
-
-
-
 
           <Grid container spacing={2}>
             {/* Attendance Section */}
@@ -1640,9 +1708,6 @@ document.head.appendChild(style);
           </Box>
             </Grid>
 
-
-
-
             {/* Scores Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
@@ -1703,13 +1768,6 @@ document.head.appendChild(style);
       </form>
     </Dialog>
 
-
-
-
-
-
-
-
       {/* Export Dialog */}
       <Dialog
         open={exportDialog.open}
@@ -1748,9 +1806,6 @@ document.head.appendChild(style);
                 label="Export Berdasarkan Filter Tanggal"
               />
             </RadioGroup>
-
-
-
 
             {exportDialog.exportType === 'filtered' && (
               <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
@@ -1800,9 +1855,6 @@ document.head.appendChild(style);
         </DialogActions>
       </Dialog>
 
-
-
-
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -1822,7 +1874,4 @@ document.head.appendChild(style);
   );
 };
 
-
-
-export default RekapNilai;
-
+export default RekapNilai;//rekap nilai

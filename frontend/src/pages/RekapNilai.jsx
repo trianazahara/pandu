@@ -13,6 +13,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   IconButton,
   Dialog,
   DialogTitle,
@@ -38,8 +39,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
-import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
-import { BookIcon } from 'lucide-react';
+import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon, Upload as UploadIcon } from '@mui/icons-material';import { BookIcon } from 'lucide-react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
@@ -805,76 +805,94 @@ document.head.appendChild(style);
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-        {data.map((score) => {
-  const totalNilai = (
-    Number(score.nilai_teamwork || 0) +
-    Number(score.nilai_komunikasi || 0) +
-    Number(score.nilai_pengambilan_keputusan || 0) +
-    Number(score.nilai_kualitas_kerja || 0) +
-    Number(score.nilai_teknologi || 0) +
-    Number(score.nilai_disiplin || 0) +
-    Number(score.nilai_tanggungjawab || 0) +
-    Number(score.nilai_kerjasama || 0) +
-    Number(score.nilai_kejujuran || 0) +
-    Number(score.nilai_kebersihan || 0)
-  );
- 
-  const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
-  const average = totalNilai / 10;
- 
+  {data.map((score) => {
+    const totalNilai = (
+      Number(score.nilai_teamwork || 0) +
+      Number(score.nilai_komunikasi || 0) +
+      Number(score.nilai_pengambilan_keputusan || 0) +
+      Number(score.nilai_kualitas_kerja || 0) +
+      Number(score.nilai_teknologi || 0) +
+      Number(score.nilai_disiplin || 0) +
+      Number(score.nilai_tanggungjawab || 0) +
+      Number(score.nilai_kerjasama || 0) +
+      Number(score.nilai_kejujuran || 0) +
+      Number(score.nilai_kebersihan || 0)
+    );
 
-          const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
-            return (
-              <tr key={score.id_penilaian} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {score.nama}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {score.nama_institusi}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {score.nama_bidang}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                  {totalNilai}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                {score.jumlah_hadir || 0}/{workingDays}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
-                {average.toFixed(2)}
-              </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                <IconButton
-  onClick={() => handleDetailClick(score.id_magang)}
-  sx={{ color: 'info.main' }}
-  size="small"
->
-  <VisibilityIcon fontSize="small" />
-</IconButton>
+    const workingDays = calculateWorkingDays(score.tanggal_masuk, score.tanggal_keluar);
+    const average = totalNilai / 10;
+    const attendanceScore = (score.jumlah_hadir || 0) / workingDays * 100;
 
+    return (
+      <tr key={score.id_penilaian} className="hover:bg-gray-50">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {score.nama}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {score.nama_institusi}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {score.nama_bidang}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+          {totalNilai}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+          {score.jumlah_hadir || 0}/{workingDays}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+          {average.toFixed(2)}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+          {/* MODIFIKASI DIMULAI DI SINI */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+            <Tooltip title="Lihat Detail">
+              <IconButton
+                onClick={() => handleDetailClick(score.id_magang)}
+                sx={{ color: 'info.main' }}
+                size="small"
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
 
+            <Tooltip title="Edit Nilai">
+              <IconButton
+                onClick={() => handleEditScore(score)}
+                sx={{ color: 'info.main' }}
+                size="small"
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Unduh Sertifikat">
+              <IconButton
+                size="small"
+                onClick={() => handleGenerateClick(score.id_magang)}
+                sx={{ color: 'info.main' }}
+              >
+                <FileDownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
 
-
-                  <IconButton
-                    onClick={() => handleEditScore(score)}
-                    sx={{ color: 'info.main' }}
-                    size="small"
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleGenerateClick(score.id_magang)}
-                    sx={{ color: 'info.main' }}
-                    >
-                    <FileDownloadIcon fontSize="small" />
-                    </IconButton>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
+            {/* === TOMBOL UPLOAD BARU DITAMBAHKAN DI SINI === */}
+            <Tooltip title="Unggah Berkas">
+              <IconButton
+                size="small"
+                onClick={() => { /* handleUploadClick(score) */ }}
+                sx={{ color: 'info.main' }}
+              >
+                <UploadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          {/* MODIFIKASI SELESAI */}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
       </table>
     </div>
  

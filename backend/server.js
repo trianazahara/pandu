@@ -14,6 +14,8 @@ const notificationRoutes = require('./routes/notification');
 const NotificationCron = require('./cron/notificationCron');
 const bidangRoutes = require('./routes/bidang');
 const institutionRoutes = require('./routes/institutionRoutes');
+const archiveRoutes = require('./routes/archiveRoutes')
+const uploadRoutes = require('./routes/upload');
 
 
 const app = express();
@@ -44,7 +46,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/bidang', bidangRoutes);
 app.use('/api/institutions', institutionRoutes);
-
+app.use('/api/archives', archiveRoutes)
+app.use('/api/upload', uploadRoutes);
 
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);

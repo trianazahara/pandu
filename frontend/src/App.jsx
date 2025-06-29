@@ -13,6 +13,7 @@ import {
     InternManagement,
     AvailabilityCheck,
     Assessment,
+    // ArsipSurat,
 } from './pages';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -25,6 +26,7 @@ import RiwayatData from './pages/RiwayatData';
 import RekapNilai from './pages/RekapNilai';
 import Settings from './pages/Settings';
 import NotificationPage from './pages/intern/NotificationPage';
+import ArsipSurat from './pages/ArsipSurat';
 
 const theme = createTheme({
     palette: {
@@ -153,6 +155,14 @@ const App = () => {
                             <ProtectedRoute>
                                 <DashboardLayout>
                                     <Settings />
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/arsip-surat" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <ArsipSurat />
                                 </DashboardLayout>
                             </ProtectedRoute>
                         } />

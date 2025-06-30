@@ -1,5 +1,7 @@
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const PizZip = require('pizzip');
+const Docxtemplater = require('docxtemplater');
 const notificationController = require('./notificationController');
 
 // Fungsi untuk membuat notifikasi ke seluruh user saat ada perubahan nilai
@@ -507,17 +509,14 @@ const assessmentController = {
         try {
             const { id_magang } = req.params;
             
-            // Ambil data lengkap peserta
-            const [assessment] = await pool.execute(`
-                SELECT p.*, pm.nama, pm.jenis_peserta,
-                       i.nama_institusi, b.nama_bidang,
-                       CASE 
-                           WHEN pm.jenis_peserta = 'mahasiswa' THEN m.nim
-                           ELSE s.nisn
-                       END as nomor_induk,
-                       m.fakultas, m.jurusan as jurusan_mahasiswa,
-                       s.jurusan as jurusan_siswa, s.kelas,
-                       pm.tanggal_masuk, pm.tanggal_keluar
+            // 1. Ambil data lengkap peserta (Query SQL Anda sudah benar)
+            const [rows] = await pool.execute(`
+                SELECT p.*, pm.nama, pm.jenis_peserta, i.nama_institusi, b.nama_bidang,
+                CASE 
+                    WHEN pm.jenis_peserta = 'mahasiswa' THEN m.nim
+                    ELSE s.nisn
+                END as nomor_induk,
+                pm.tanggal_masuk, pm.tanggal_keluar
                 FROM penilaian p
                 JOIN peserta_magang pm ON p.id_magang = pm.id_magang
                 LEFT JOIN institusi i ON pm.id_institusi = i.id_institusi
@@ -527,52 +526,53 @@ const assessmentController = {
                 WHERE p.id_magang = ?
             `, [id_magang]);
 
-            if (!assessment.length) {
-                return res.status(404).json({
-                    message: 'Data tidak ditemukan'
-                });
+            if (!rows.length) {
+                return res.status(404).json({ message: 'Data penilaian untuk peserta tidak ditemukan' });
             }
+            const data = rows[0];
 
-            // Ambil template sertifikat aktif
-            const [template] = await pool.execute(`
-                SELECT file_path
-                FROM dokumen_template
-                WHERE jenis = 'sertifikat'
-                AND active = true
-                LIMIT 1
+            // 2. Ambil template sertifikat .docx yang aktif dari database
+            const [templateRows] = await pool.execute(`
+                SELECT file_path FROM dokumen_template WHERE jenis = 'sertifikat' AND active = 1 LIMIT 1
             `);
 
-            if (!template.length) {
-                return res.status(404).json({
-                    message: 'Template sertifikat tidak ditemukan'
-                });
+            if (!templateRows.length) {
+                return res.status(404).json({ message: 'Template sertifikat aktif tidak ditemukan' });
             }
 
-            // Generate PDF sertifikat
-            const templatePath = path.join(__dirname, '..', template[0].file_path);
-            const templateBytes = await fs.readFile(templatePath);
-            const pdfDoc = await PDFDocument.load(templateBytes);
-            const pages = pdfDoc.getPages();
-            const firstPage = pages[0];
-            const data = assessment[0];
-            const { width, height } = firstPage.getSize();
+            // 3. Baca file template .docx
+            // Pastikan path ini benar sesuai struktur folder Anda
+            const templatePath = path.join(__dirname, '..', 'public', templateRows[0].file_path);
+            const templateContent = fs.readFileSync(templatePath, 'binary');
 
-            firstPage.drawText(data.nama, {
-                x: width / 2,
-                y: height - 200,
-                size: 24,
-                font: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
-                color: rgb(0, 0, 0)
+            const zip = new PizZip(templateContent);
+            const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+            // 4. Siapkan data untuk diisikan ke dalam placeholder di template
+            // Placeholder di file .docx Anda harus ditulis seperti {NAMA_LENGKAP}, {NOMOR_INDUK}, dll.
+            doc.setData({
+                NAMA_LENGKAP: data.nama,
+                NOMOR_INDUK: data.nomor_induk,
+                ASAL_INSTITUSI: data.nama_institusi,
+                BIDANG: data.nama_bidang,
+                TANGGAL_MULAI: new Date(data.tanggal_masuk).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}),
+                TANGGAL_SELESAI: new Date(data.tanggal_keluar).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}),
+                // Tambahkan placeholder lain sesuai kebutuhan
             });
 
-            const pdfBytes = await pdfDoc.save();
-            
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename=sertifikat.pdf');
-            res.send(Buffer.from(pdfBytes));
+            doc.render(); // Proses penggantian placeholder
+
+            const generatedBuffer = doc.getZip().generate({ type: 'nodebuffer' });
+
+            // 5. Kirim file .docx yang sudah jadi sebagai respons
+            const fileName = `sertifikat_${data.nama.replace(/\s+/g, '_')}.docx`;
+            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            res.send(generatedBuffer);
+
         } catch (error) {
-            console.error('Error generating certificate:', error);
-            res.status(500).json({ message: 'Terjadi kesalahan server' });
+            console.error('Error generating DOCX certificate:', error);
+            res.status(500).json({ message: 'Terjadi kesalahan server saat membuat sertifikat' });
         }
     },
 };

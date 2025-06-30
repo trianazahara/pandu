@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/authContext";
 import {
     Home,
     History,
@@ -63,9 +63,9 @@ export const Sidebar = () => {
                 ]
             },
             {
-                path: '/',
+                path: '/arsip-surat',
                 icon: <Folder />,
-                label: 'Arsip Surat'
+                label: 'Arsip Sertifikat'
             },
             {
                 path: '/settings',
@@ -116,14 +116,14 @@ export const Sidebar = () => {
             <nav className="mt-6 perspective flex-1 overflow-y-auto scrollbar-hide">
                 <div className="px-2 pb-6">
                     {menuItems.map((item) => (
-                        <div key={item.path} className="mb-4 px-2">
+                        <div key={item.path} className="mb-1 px-2">
                             {item.subItems ? (
                                 <div className="group">
                                     <button
                                         onClick={() => toggleMenu(item.path)}
                                         onMouseEnter={() => setHoveredItem(item.path)}
                                         onMouseLeave={() => setHoveredItem(null)}
-                                        className={`w-full flex items-center justify-between p-3 rounded-xl
+                                        className={`w-full flex items-center justify-between p-2 rounded-xl
                                             transform transition-all duration-500 focus:outline-none
                                             hover:shadow-lg hover:shadow-green-500/10 relative
                                             ${hoveredItem === item.path ? 'animate-tilt-3d' : ''}

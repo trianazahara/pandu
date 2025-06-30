@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/authContext';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Loader2 } from 'lucide-react';
-import axios from 'axios';
+// import axios from 'axios';
+import * as api from '../services/apiService';
 
 
 // Floating Element Component
@@ -125,29 +126,30 @@ const Login = () => {
         }
         
         setIsLoading(true);
+        setError(''); // Reset error setiap kali mencoba
         try {
-           
-            const checkResponse = await axios.post('http://localhost:5000/api/auth/check-username', { 
-                username 
-            });
+            // Panggil service untuk cek username
+            const checkResponse = await api.checkUsername(username);
 
             if (checkResponse.data.exists) {
-                const forgotResponse = await axios.post('http://localhost:5000/api/auth/forgot-password', { 
-                    username 
-                });
+                // Jika username ada, panggil service untuk kirim OTP
+                await api.requestPasswordReset(username);
 
+                // Arahkan ke halaman forgot-password dengan data yang dibutuhkan
                 navigate('/forgot-password', { 
                     state: { 
                         username,
                         maskedEmail: checkResponse.data.maskedEmail
                     } 
                 });
-            } else {
-                setError('Username tidak ditemukan');
+            } 
+            // Backend seharusnya mengembalikan error jika tidak ada, tapi kita handle juga di sini
+            else {
+                 setError('Username tidak ditemukan');
             }
         } catch (err) {
-            console.error('Error:', err);
-            setError(err.response?.data?.message || 'Username tidak ditemukan');
+            console.error('Error Forgot Password:', err);
+            setError(err.response?.data?.message || 'Username tidak ditemukan atau terjadi kesalahan');
         } finally {
             setIsLoading(false);
         }

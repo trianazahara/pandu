@@ -1,5 +1,6 @@
 // frontend/src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as api from '../services/apiService';
 
 const AuthContext = createContext(null);
 
@@ -17,50 +18,33 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const checkAuth = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (token) {
-                    const response = await fetch('/api/auth/me', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                    if (response.ok) {
-                        const userData = await response.json();
-                        console.log('User data from auth check:', userData); 
-                        setUser(userData);
-                    } else {
-                        localStorage.removeItem('token');
-                    }
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    // 2. Gunakan resep getMe dari apiService
+                    const response = await api.getMe();
+                    setUser(response.data);
+                } catch (error) {
+                    // Jika token tidak valid, server akan return error (misal 401)
+                    console.error('Token tidak valid, menghapus token:', error);
+                    localStorage.removeItem('token');
+                    setUser(null);
                 }
-            } catch (error) {
-                console.error('Auth check failed:', error);
-            } finally {
-                setLoading(false);
             }
+            setLoading(false);
         };
-
         checkAuth();
     }, []);
 
     const login = async (username, password) => {
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Login response:', data); // Debugging
-                localStorage.setItem('token', data.token);
-                setUser(data.user);
-                return true;
-            }
-            return false;
+            // 3. Gunakan resep loginUser dari apiService
+            const response = await api.loginUser(username, password);
+            const { token, user: userData } = response.data;
+            
+            localStorage.setItem('token', token);
+            setUser(userData);
+            return true;
         } catch (error) {
             console.error('Login failed:', error);
             return false;

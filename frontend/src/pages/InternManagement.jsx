@@ -1,137 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import AvailabilityConfirmDialog from '../components/intern/AvailabilityConfirmDialog';
-import InstitutionAutocomplete from '../components/InstitutionAutocomplete'; // Sesuaikan path
-
+import InstitutionAutocomplete from '../components/InstitutionAutocomplete'; 
 import {
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  IconButton,
-  FormControl,
-  InputLabel,
-  InputAdornment,
-  Typography,
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Select,
-  MenuItem,
-  TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Alert,
-  Snackbar,
-  Fab,
-  Grid,
-  Stack,
-  FormHelperText,
-  CircularProgress,
-  Tooltip
+    // ... semua import dari @mui/material tetap sama ...
+    Card, CardContent, TextField, Button, IconButton, FormControl, InputLabel, InputAdornment,
+    Typography, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Chip, Select, MenuItem, TablePagination, Dialog, DialogTitle, DialogContent, DialogContentText,
+    DialogActions, Alert, Snackbar, Grid, Stack, FormHelperText, CircularProgress, Tooltip
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  FilterList as FilterIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Visibility as VisibilityIcon,
-  Close as CloseIcon,
-  Info as InfoIcon,
-  PersonOff as PersonOffIcon
+    // ... semua import dari @mui/icons-material tetap sama ...
+    Search as SearchIcon, Add as AddIcon, FilterList as FilterIcon, Edit as EditIcon,
+    Delete as DeleteIcon, Visibility as VisibilityIcon, Close as CloseIcon, Info as InfoIcon, PersonOff as PersonOffIcon
 } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
+// GANTI: Import service API kita
+import * as api from '../services/apiService';
 
 const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
-  <TextField
-    {...field}
-    {...props}
-    error={touched[field.name] && Boolean(errors[field.name])}
-    helperText={touched[field.name] && errors[field.name]}
-  />
+    <TextField
+        {...field}
+        {...props}
+        error={touched[field.name] && Boolean(errors[field.name])}
+        helperText={touched[field.name] && errors[field.name]}
+    />
 );
 
-
 const InternManagement = () => {
-  // States
-  const [userRole, setUserRole] = useState('');
-  const [interns, setInterns] = useState([]);
-  const [mentorList, setMentorList] = useState([]);
-  const [selectedInterns, setSelectedInterns] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [availabilityDialog, setAvailabilityDialog] = useState({
-    open: false,
-    data: null,
-    formValues: null
-  });
-  const [filters, setFilters] = useState({
-    status: '',
-    bidang: '',
-    search: ''
-  });
-  const [pagination, setPagination] = useState({
-    page: 0,
-    limit: 10,
-    total: 0
-  });
-  const [deleteDialog, setDeleteDialog] = useState({
-    open: false,
-    internId: null,
-    loading: false,
-    nama: ''
-  });
-  const [missingDialog, setMissingDialog] = useState({
-    open: false,
-    internId: null,
-    loading: false,
-    nama: ''
-  });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  const [bidangList, setBidangList] = useState([]);
-  const [bidangLoading, setBidangLoading] = useState(true);
-  const [bidangError, setBidangError] = useState(null);
+    // State tidak berubah
+    const [userRole, setUserRole] = useState('');
+    const [interns, setInterns] = useState([]);
+    const [mentorList, setMentorList] = useState([]);
+    // ... sisa state lainnya tetap sama ...
+    const [selectedInterns, setSelectedInterns] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [availabilityDialog, setAvailabilityDialog] = useState({ open: false, data: null, formValues: null });
+    const [filters, setFilters] = useState({ status: '', bidang: '', search: '' });
+    const [pagination, setPagination] = useState({ page: 0, limit: 10, total: 0 });
+    const [deleteDialog, setDeleteDialog] = useState({ open: false, internId: null, loading: false, nama: '' });
+    const [missingDialog, setMissingDialog] = useState({ open: false, internId: null, loading: false, nama: '' });
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [bidangList, setBidangList] = useState([]);
+    const [detailDialog, setDetailDialog] = useState({ open: false, loading: false, data: null, error: null });
+    const [editDialog, setEditDialog] = useState({ open: false, loading: false, data: null, error: null });
+    const [addDialog, setAddDialog] = useState({ open: false, loading: false, error: null });
 
-  // State for detail and edit dialogs
-  const [detailDialog, setDetailDialog] = useState({
-    open: false,
-    loading: false,
-    data: null,
-    error: null
-  });
 
-  const [editDialog, setEditDialog] = useState({
-    open: false,
-    loading: false,
-    data: null,
-    error: null
-  });
 
-  // New state for add dialog
-  const [addDialog, setAddDialog] = useState({
-    open: false,
-    loading: false,
-    error: null
-  });
-
-  // Helper functions
-  const formatDate = (dateString) => {
+    // Helper functions tidak berubah
+    const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('id-ID', {
@@ -140,6 +61,15 @@ const InternManagement = () => {
       day: '2-digit'
     });
   };
+
+  const adjustDateForTimezone = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        // Mengatasi masalah timezone agar tanggal tidak mundur satu hari
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+            .toISOString()
+            .split('T')[0];
+    };
 
   const getStatusLabel = (status) => {
     const labels = {
@@ -160,6 +90,13 @@ const InternManagement = () => {
     'missing': 'missing'  
   };
 
+  const handleFilter = (key, value) => {
+    setFilters(prevFilters => ({
+        ...prevFilters,
+        [key]: value
+    }));
+    setPagination(prev => ({ ...prev, page: 0 })); // Reset ke halaman 1 saat filter berubah
+};
   const getStatusValue = (status) => {
     if (!status) return '';
     const normalizedStatus = status.toLowerCase();
@@ -228,466 +165,142 @@ const InternManagement = () => {
   
     return styles[normalizedStatus] || defaultStyle;
   };
+    const showSnackbar = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
 
-  // Generate PDF function
-  const generateReceipt = async () => {
-    try {
-      const response = await fetch('/api/intern/generate-receipt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ internIds: selectedInterns })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate receipt');
-      }
-
-      // Get the PDF blob from the response
-      const blob = await response.blob();
-      
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create a temporary anchor element and trigger download
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'tanda-terima-magang.pdf';
-      document.body.appendChild(a);
-      a.click();
-      
-      // Cleanup
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      // Reset selection
-      setSelectedInterns([]);
-      
-      setSnackbar({
-        open: true,
-        message: 'Tanda terima berhasil di-generate',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      setSnackbar({
-        open: true,
-        message: 'Gagal men-generate tanda terima',
-        severity: 'error'
-      });
-    }
-  };
- 
-
-//   const [mentors, setMentors] = useState([]);
-// const [mentorsLoading, setMentorsLoading] = useState(true);
-// const [mentorsError, setMentorsError] = useState(null);
-
-
-
-useEffect(() => {
-  const fetchUserRole = async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    // GANTI: Semua fungsi yang mengandung fetch diganti dengan panggilan ke service
+    const generateReceipt = async () => {
+        try {
+            const response = await api.generateInternReceipt(selectedInterns);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tanda-terima-magang.pdf';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            setSelectedInterns([]);
+            showSnackbar('Tanda terima berhasil di-generate', 'success');
+        } catch (error) {
+            console.error('Error generating receipt:', error);
+            showSnackbar('Gagal men-generate tanda terima', 'error');
         }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUserRole(data.role);
-      }
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-    }
-  };
+    };
 
-  fetchUserRole();
-}, []);
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                const [userRes, bidangRes] = await Promise.all([api.getMe(), api.getBidangList()]);
+                setUserRole(userRes.data.role);
+                setBidangList(bidangRes.data.data);
 
-// Modify mentor fetching to only run for superadmin
-useEffect(() => {
-  const fetchMentors = async () => {
-    if (userRole !== 'superadmin') return; // Only fetch if superadmin
-    
-    try {
-      const response = await fetch('/api/admin/mentors', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setMentorList(data);
-      }
-    } catch (error) {
-      console.error('Error fetching mentors:', error);
-    }
-  };
-
-  fetchMentors();
-}, [userRole]);
-
-  const fetchBidangList = async () => {
-    try {
-      setBidangLoading(true);
-      setBidangError(null);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('/api/bidang', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch bidang data');
-      }
-
-
-      const result = await response.json();
-      if (result.status === 'success') {
-        setBidangList(result.data);
-      } else {
-        throw new Error(result.message || 'Failed to fetch bidang data');
-      }
-    } catch (error) {
-      console.error('Error fetching bidang:', error);
-      setBidangError('Gagal mengambil data bidang');
-    } finally {
-      setBidangLoading(false);
-    }
-  };
-
-  const fetchInterns = async () => {
-    setLoading(true);
-    setError(null);
-  
-    try {
-      const queryParams = new URLSearchParams();
-      queryParams.append('excludeStatus', ['missing', 'selesai'].join(','));
-  
-      if (filters.status) {
-        if (!['missing', 'selesai'].includes(filters.status)) {
-          queryParams.append('status', filters.status);
-        }
-      }
-      if (filters.bidang) queryParams.append('bidang', filters.bidang);
-      if (filters.search) {
-        queryParams.append('search', filters.search);
-        queryParams.append('search_fields', ['nama', 'nama_institusi'].join(','));  // Added this line
-      }
-  
-      queryParams.append('page', pagination.page + 1);
-      queryParams.append('limit', pagination.limit);
-  
-      const response = await fetch(`/api/intern?${queryParams.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to load data');
-      }
-  
-      const data = await response.json();
-      const filteredData = data.data.filter(intern =>
-        !['missing', 'selesai'].includes(intern.status?.toLowerCase())
-      );
-  
-      setInterns(filteredData);
-      setPagination((prev) => ({
-        ...prev,
-        total: data.pagination.total,
-      }));
-    } catch (error) {
-      console.error('Error fetching interns:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkInternAvailability = async (date) => {
-    try {
-      const response = await fetch(`/api/intern/check-availability?date=${date}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Accept': 'application/json',
-        }
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to check availability');
-      }
-  
-      return await response.json();
-    } catch (error) {
-      console.error('Error checking availability:', error);
-      throw error;
-    }
-  };
-
-  // Event handlers
-  const handleAddSubmit = async (values, { setSubmitting, resetForm }) => {
-  try {
-    // Check availability first
-    const availabilityData = await checkInternAvailability(values.tanggal_masuk);
-    
-    console.log('Availability Data:', availabilityData); // Debugging
-    console.log('Total Available Slots:', availabilityData.availableSlots); // Debugging
-    console.log('Total Occupied:', availabilityData.totalOccupied); // Debugging
-    
-    // Dialog should ONLY show if adding this intern would exceed 50 slots
-    const noSlotsAvailable = availabilityData.availableSlots <= 0;
-    
-    if (wouldExceedLimit) {
-      setAvailabilityDialog({
-        open: true,
-        data: availabilityData,
-        formValues: values
-      });
-      return;
-    }
-    
-    // If there's still room, submit directly
-    await submitInternData(values);
-    resetForm();
-    setAddDialog({ open: false, loading: false, error: null });
-    
-  } catch (error) {
-    setAddDialog(prev => ({
-      ...prev,
-      error: error.message
-    }));
-  } finally {
-    setSubmitting(false);
-  }
-};
-
-  const submitInternData = async (values) => {
-    try {
-      setAddDialog(prev => ({ ...prev, loading: true }));
-      const token = localStorage.getItem('token');
-  
-      const response = await fetch('/api/intern/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(values)
-      });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        setSnackbar({
-          open: true,
-          message: 'Data peserta magang berhasil ditambahkan',
-          severity: 'success'
-        });
-        setAddDialog({ open: false, loading: false, error: null });
-        fetchInterns();
-      } else {
-        throw new Error(data.message || 'Terjadi kesalahan');
-      }
-    } catch (error) {
-      throw error;
-    } finally {
-      setAddDialog(prev => ({ ...prev, loading: false }));
-    }
-  };
-
-  const handleMissingClick = (internId, nama) => {
-    setMissingDialog({
-      open: true,
-      internId,
-      loading: false,
-      nama
-    });
-  };
-
-  const handleFilter = (key, value) => {
-    setFilters(prevFilters => {
-      if (key === 'status') {
-        // For status filter, use the direct value without mapping
-        return {
-          ...prevFilters,
-          [key]: value
+                if (userRes.data.role === 'superadmin') {
+                    const mentorRes = await api.getMentors();
+                    setMentorList(mentorRes.data);
+                }
+            } catch (error) {
+                console.error('Error fetching initial data:', error);
+                showSnackbar('Gagal memuat data awal', 'error');
+            }
         };
-      }
-      return {
-        ...prevFilters,
-        [key]: value
-      };
-    });
-  };
-  
-  const handleDeleteClick = (internId, nama) => {
-    setDeleteDialog({ open: true, internId, nama });
-  };
+        fetchInitialData();
+    }, []);
 
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteDialog.internId) return;
-
-
-    try {
-      setDeleteDialog(prev => ({ ...prev, loading: true }));
-
-
-      const response = await fetch(`/api/intern/${deleteDialog.internId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    const fetchInterns = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const params = {
+                ...filters,
+                page: pagination.page + 1,
+                limit: pagination.limit,
+                excludeStatus: ['missing', 'selesai'].join(','),
+                search_fields: ['nama', 'nama_institusi'].join(','),
+            };
+            const response = await api.getInterns(params);
+            setInterns(response.data.data);
+            setPagination((prev) => ({ ...prev, total: response.data.pagination.total }));
+        } catch (error) {
+            console.error('Error fetching interns:', error);
+            setError('Gagal memuat data peserta magang');
+        } finally {
+            setLoading(false);
         }
-      });
-
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Gagal menghapus data');
-      }
-
-
-      setSnackbar({
-        open: true,
-        message: 'Data berhasil dihapus',
-        severity: 'success'
-      });
-     
-      fetchInterns();
-    } catch (error) {
-      console.error('Error deleting intern:', error);
-      setSnackbar({
-        open: true,
-        message: error.message,
-        severity: 'error'
-      });
-    } finally {
-      setDeleteDialog({ open: false, internId: null, loading: false, nama: '' });
-    }
-  };
-
-
-  const handleDetailClick = async (id) => {
-    setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
-    try {
-      const response = await fetch(`/api/intern/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    };
+    
+    const submitInternData = async (values) => {
+        try {
+            setAddDialog(prev => ({ ...prev, loading: true }));
+            await api.addIntern(values);
+            showSnackbar('Data peserta magang berhasil ditambahkan', 'success');
+            setAddDialog({ open: false, loading: false, error: null });
+            fetchInterns();
+            return true;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Terjadi kesalahan');
+        } finally {
+            setAddDialog(prev => ({ ...prev, loading: false }));
         }
-      });
+    };
 
-
-      if (!response.ok) {
-        throw new Error('Gagal memuat data');
-      }
-
-
-      const result = await response.json();
-      setDetailDialog(prev => ({ ...prev, data: result.data, loading: false }));
-    } catch (error) {
-      setDetailDialog(prev => ({
-        ...prev,
-        error: error.message,
-        loading: false
-      }));
-    }
-  };
-
-const adjustDateForTimezone = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-    .toISOString()
-    .split('T')[0];
-};
-
-
-  const handleEditClick = async (id) => {
-    setEditDialog(prev => ({ ...prev, open: true, loading: true }));
-    try {
-      const response = await fetch(`/api/intern/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    const handleDeleteConfirm = async () => {
+        if (!deleteDialog.internId) return;
+        setDeleteDialog(prev => ({ ...prev, loading: true }));
+        try {
+            await api.deleteIntern(deleteDialog.internId);
+            showSnackbar('Data berhasil dihapus', 'success');
+            fetchInterns();
+        } catch (error) {
+            showSnackbar(error.response?.data?.message || 'Gagal menghapus data', 'error');
+        } finally {
+            setDeleteDialog({ open: false, internId: null, loading: false, nama: '' });
         }
-      });
+    };
 
+    const handleDetailClick = async (id) => {
+        setDetailDialog({ open: true, loading: true, data: null, error: null });
+        try {
+            const response = await api.getInternById(id);
+            setDetailDialog({ open: true, loading: false, data: response.data.data, error: null });
+        } catch (error) {
+            setDetailDialog({ open: true, loading: false, data: null, error: 'Gagal memuat detail data' });
+        }
+    };
+    
+    const handleEditClick = async (id) => {
+        setEditDialog({ open: true, loading: true, data: null, error: null });
+        try {
+            const response = await api.getInternById(id);
+            setEditDialog({ open: true, loading: false, data: response.data.data, error: null });
+        } catch (error) {
+            setEditDialog({ open: true, loading: false, data: null, error: 'Gagal memuat data untuk diedit' });
+        }
+    };
 
-      if (!response.ok) {
-        throw new Error('Gagal memuat data');
-      }
+    const handleEditSubmit = async (values) => {
+        setEditDialog(prev => ({ ...prev, loading: true }));
+        try {
+            await api.updateIntern(editDialog.data.id_magang, values);
+            showSnackbar('Data berhasil diperbarui', 'success');
+            setEditDialog({ open: false, loading: false, data: null, error: null });
+            fetchInterns();
+        } catch (error) {
+            const message = error.response?.data?.message || 'Gagal memperbarui data';
+            setEditDialog(prev => ({ ...prev, loading: false, error: message }));
+            showSnackbar(message, 'error');
+        }
+    };
 
-
-      const result = await response.json();
-      setEditDialog(prev => ({ ...prev, data: result.data, loading: false }));
-    } catch (error) {
-      setEditDialog(prev => ({
-        ...prev,
-        error: error.message,
-        loading: false
-      }));
-    }
-  };
-
-
-  const handleEditSubmit = async (values) => {
-    try {
-      setEditDialog(prev => ({ ...prev, loading: true }));
-  
-      const response = await fetch(`/api/intern/${editDialog.data.id_magang}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(values)
-      });
-  
-      const responseData = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Gagal memperbarui data');
-      }
-  
-      setSnackbar({
-        open: true,
-        message: 'Data berhasil diperbarui',
-        severity: 'success'
-      });
-  
-      setEditDialog({
-        open: false,
-        loading: false,
-        data: null,
-        error: null
-      });
-  
-      await fetchInterns();
-  
-    } catch (error) {
-      console.error('Error updating intern:', error);
-      setEditDialog(prev => ({
-        ...prev,
-        error: error.message || 'Terjadi kesalahan saat memperbarui data',
-        loading: false
-      }));
-  
-      // Tampilkan error notification
-      setSnackbar({
-        open: true,
-        message: error.message || 'Terjadi kesalahan saat memperbarui data',
-        severity: 'error'
-      });
-    }
-  };
+    const handleSetMissing = async (internId, nama) => {
+        try {
+            await api.setInternAsMissing(internId);
+            showSnackbar(`Status ${nama} berhasil diubah menjadi missing`, 'success');
+            fetchInterns();
+        } catch (error) {
+            showSnackbar(error.response?.data?.message || 'Gagal mengubah status', 'error');
+        }
+    };
 
   const handlePageChange = (event, newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -709,10 +322,10 @@ const adjustDateForTimezone = (dateString) => {
   }, [pagination.page, pagination.limit, filters]);
 
 
-  useEffect(() => {
-    fetchBidangList();
-    // fetchMentors();
-  }, []);
+  // useEffect(() => {
+  //   fetchBidangList();
+  //   // fetchMentors();
+  // }, []);
 
 
   // Add Dialog Component
@@ -835,7 +448,8 @@ const AddDialog = () => (
             };
 
             // Cek availability terlebih dahulu
-            const availabilityData = await checkInternAvailability(submitValues.tanggal_masuk);
+            const response = await api.checkInternAvailability(submitValues.tanggal_masuk);
+            const availabilityData = response.data;
             
             // Jika tidak tersedia atau ada yang akan selesai, tampilkan dialog konfirmasi
             if (!availabilityData.available || availabilityData.leavingCount > 0) {
@@ -1860,35 +1474,35 @@ const AddDialog = () => (
   </Dialog>
 );
 
-const handleSetMissing = async (internId, nama) => {
-  try {
-    const response = await fetch(`/api/intern/missing/${internId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
-    });
+// const handleSetMissing = async (internId, nama) => {
+//   try {
+//     const response = await fetch(`/api/intern/missing/${internId}`, {
+//       method: 'PATCH',
+//       headers: {
+//         'Authorization': `Bearer ${localStorage.getItem('token')}`,
+//         'Content-Type': 'application/json'
+//       }
+//     });
 
-    if (!response.ok) {
-      throw new Error('Gagal mengubah status');
-    }
+//     if (!response.ok) {
+//       throw new Error('Gagal mengubah status');
+//     }
 
-    setSnackbar({
-      open: true,
-      message: `Status ${nama} berhasil diubah menjadi missing`,
-      severity: 'success'
-    });
+//     setSnackbar({
+//       open: true,
+//       message: `Status ${nama} berhasil diubah menjadi missing`,
+//       severity: 'success'
+//     });
 
-    fetchInterns();
-  } catch (error) {
-    setSnackbar({
-      open: true,
-      message: error.message,
-      severity: 'error'
-    });
-  }
-};
+//     fetchInterns();
+//   } catch (error) {
+//     setSnackbar({
+//       open: true,
+//       message: error.message,
+//       severity: 'error'
+//     });
+//   }
+// };
 
 const handleSelectIntern = (internId) => {
   setSelectedInterns(prev => {

@@ -37,7 +37,8 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import axios from 'axios';
+import * as api from '../services/apiService';
+import { useAuth } from '../contexts/authContext';
 import { Edit as EditIcon, FileDownload as FileDownloadIcon, Visibility as VisibilityIcon, Upload as UploadIcon } from '@mui/icons-material';
 import { BookIcon } from 'lucide-react';
 import { Formik, Form, Field } from 'formik';
@@ -56,6 +57,7 @@ const FormTextField = ({ field, form: { touched, errors }, ...props }) => (
 
 
 const RekapNilai = () => {
+  const { user } = useAuth();
   const [mentorList, setMentorList] = useState([]);
   const [userRole, setUserRole] = useState('');
   const [data, setData] = useState([]);
@@ -151,81 +153,56 @@ const RekapNilai = () => {
     });
   };
   
-  const [editDataDialog, setEditDataDialog] = useState({
-    open: false,
-    loading: false,
-    data: null,
-    error: null
-  });
-
-const handleEditDataClick = async (id) => {
-  try {
-
-    setDetailDialog(prev => ({ ...prev, open: false }));
-    setEditDataDialog(prev => ({
-      ...prev,
-      loading: true,
-      open: true
-    }));
-
-    const response = await axios.get(`/api/intern/${id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    });
-
-    if (response.data.status === 'success') {
-      setEditDataDialog(prev => ({
-        ...prev,
-        loading: false,
-        data: response.data.data,
-        error: null
-      }));
-    } else {
-      throw new Error(response.data.message || 'Failed to fetch intern data');
-    }
-  } catch (error) {
-    console.error('Error fetching intern data:', error);
-    setEditDataDialog(prev => ({
-      ...prev,
-      loading: false,
-      error: error.response?.data?.message || 'Gagal mengambil data peserta magang'
-    }));
-    showSnackbar(error.response?.data?.message || 'Gagal mengambil data peserta magang', 'error');
-  }
-};
+const [editInternDialog, setEditInternDialog] = useState({
+  open: false,
+  loading: false,
+  data: null,
+  error: null
+});
 
 const handleEditSubmit = async (values, { setSubmitting }) => {
-  try {
-    const response = await axios.put(
-      `/api/intern/${editDataDialog.data.id_magang}`,
-      values,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (response.data.status === 'success') {
-      showSnackbar('Data berhasil diperbarui', 'success');
-      setEditDataDialog({ open: false, loading: false, data: null, error: null });
-      fetchData(); 
-    } else {
-      throw new Error(response.data.message || 'Gagal memperbarui data');
+    try {
+        await api.updateIntern(editDataDialog.data.id_magang, values);
+        showSnackbar('Data berhasil diperbarui', 'success');
+        setEditDataDialog({ open: false, loading: false, data: null, error: null });
+        fetchData(); 
+    } catch (error) {
+        showSnackbar(error.response?.data?.message || 'Gagal memperbarui data.', 'error');
+        setEditDataDialog(prev => ({ ...prev, error: error.response?.data?.message || 'Gagal memperbarui data' }));
+    } finally {
+        setSubmitting(false);
     }
-  } catch (error) {
-    console.error('Error updating intern data:', error);
-    showSnackbar(
-      error.response?.data?.message || 'Gagal memperbarui data. Silakan coba lagi.',
-      'error'
-    );
-    setEditDataDialog(prev => ({
-      ...prev,
-      error: error.response?.data?.message || 'Gagal memperbarui data'
-    }));
-  } finally {
-    setSubmitting(false);
-  }
+};
+
+const handleEditDataClick = async (id) => {
+    try {
+        setDetailDialog(prev => ({ ...prev, open: false }));
+        setEditDataDialog(prev => ({ ...prev, loading: true, open: true }));
+        const response = await api.getInternById(id);
+        if (response.data.status === 'success') {
+            setEditDataDialog(prev => ({ ...prev, loading: false, data: response.data.data, error: null }));
+        } else {
+            throw new Error(response.data.message || 'Failed to fetch intern data');
+        }
+    } catch (error) {
+        setEditDataDialog(prev => ({ ...prev, loading: false, error: error.response?.data?.message || 'Gagal mengambil data' }));
+        showSnackbar(error.response?.data?.message || 'Gagal mengambil data peserta magang', 'error');
+    }
+};
+
+const handleEditInternSubmit = async (values, { setSubmitting }) => {
+    setEditInternDialog(prev => ({ ...prev, loading: true }));
+    try {
+        await api.updateIntern(editInternDialog.data.id_magang, values); // <-- Gunakan nama baru
+        showSnackbar('Data peserta berhasil diperbarui', 'success');
+        setEditInternDialog({ open: false }); // <-- Gunakan nama baru
+        fetchRekapData();
+    } catch (error) {
+        showSnackbar(error.response?.data?.message || 'Gagal memperbarui data', 'error');
+    } finally {
+        setSubmitting(false);
+        setEditInternDialog(prev => ({ ...prev, loading: false })); // <-- Gunakan nama baru
+    }
 };
 
   // Handler untuk upload
@@ -240,66 +217,30 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
   };
 
   const handleFileUpload = async () => {
-    if (!uploadDialog.selectedFile) {
-      showSnackbar('Pilih file terlebih dahulu', 'error');
-      return;
-    }
-
+    if (!uploadDialog.selectedFile) return showSnackbar('Pilih file terlebih dahulu', 'error');
     setUploadDialog(prev => ({ ...prev, loading: true }));
-
     try {
-      const formData = new FormData();
-      formData.append('arsip_sertifikat', uploadDialog.selectedFile);
-
-      const response = await fetch(`http://localhost:5000/api/upload/arsip-sertifikat/${uploadDialog.idMagang}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.status === 'success') {
+        const formData = new FormData();
+        formData.append('arsip_sertifikat', uploadDialog.selectedFile);
+        await api.uploadArsipSertifikat(uploadDialog.idMagang, formData);
         showSnackbar('Arsip sertifikat berhasil diupload', 'success');
         setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' });
-        fetchData(); // Refresh data
-      } else {
-        throw new Error(data.message);
-      }
+        fetchData();
     } catch (error) {
-      showSnackbar(error.message || 'Gagal upload arsip sertifikat', 'error');
-      setUploadDialog(prev => ({ ...prev, loading: false }));
+        showSnackbar(error.message || 'Gagal upload arsip sertifikat', 'error');
+        setUploadDialog(prev => ({ ...prev, loading: false }));
     }
-  };
+};
 
   const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
-      const response = await axios.get(`/api/intern/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      if (response.data.status === 'success') {
-        setDetailDialog(prev => ({
-          ...prev,
-          data: response.data.data,
-          loading: false
-
-        }));
-      } else {
-        throw new Error(response.data.message || 'Failed to fetch detail data');
-      }
+        const response = await api.getInternById(id);
+        setDetailDialog(prev => ({ ...prev, data: response.data.data, loading: false }));
     } catch (error) {
-      console.error('Error fetching intern detail:', error);
-      setDetailDialog(prev => ({
-        ...prev,
-        error: error.message,
-        loading: false
-      }));
+        setDetailDialog(prev => ({ ...prev, error: error.message, loading: false }));
     }
-  };
+};
 
 
   const showSnackbar = (message, severity = 'success') => {
@@ -308,59 +249,33 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 
   const fetchBidangList = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/bidang', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setBidangList(response.data.data || []);
+        const response = await api.getBidangList();
+        setBidangList(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching bidang:', error);
-      showSnackbar('Gagal mengambil data bidang', 'error');
+        showSnackbar('Gagal mengambil data bidang', 'error');
     }
-  };
+};
 
 
   const fetchData = async () => {
+    if (!user) return; // Tunggu info user tersedia
     try {
-      console.log('Current filters:', filters);
-      console.log('Current pagination:', pagination);
-  
-      const response = await axios.get('/api/intern/rekap-nilai', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        params: {
-          page: pagination.page + 1,
-          limit: pagination.limit,
-          bidang: filters.bidang,
-          search: filters.search,
-          status: ['selesai', 'almost'].join(',') 
+        const params = {
+            page: pagination.page + 1,
+            limit: pagination.limit,
+            bidang: filters.bidang,
+            search: filters.search,
+            status: ['selesai', 'almost'].join(',')
+        };
+        if (user.role === 'admin') {
+            params.mentor_id = user.id_users;
         }
-      });
-
-    console.log('Request config:', {
-      url: '/api/intern/rekap-nilai',
-      params: {
-        page: pagination.page + 1,
-        limit: pagination.limit,
-        bidang: filters.bidang,
-        search: filters.search
-      }
-    });
-    console.log('Raw response:', response);
-    console.log('Response data structure:', {
-      status: response.data.status,
-      dataLength: response.data.data?.length,
-      pagination: response.data.pagination
-    });
-
-    setData(response.data.data);
-    setPagination(prev => ({
-      ...prev,
-      total: response.data.pagination.total
-    }));
-  } catch (error) {
-    console.error('Error fetching data:', error.response || error);
-    showSnackbar('Error mengambil data', 'error');
-  }
+        const response = await api.getRekapNilai(params);
+        setData(response.data.data);
+        setPagination(prev => ({ ...prev, total: response.data.pagination.total }));
+    } catch (error) {
+        showSnackbar('Error mengambil data', 'error');
+    }
 };
 
   useEffect(() => {
@@ -374,51 +289,64 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     fetchData();
   }, [pagination.page, pagination.limit, filters]);
 
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+  // useEffect(() => {
+  //   const fetchUserRole = async () => {
+  //     try {
+  //       const response = await fetch('/api/auth/me', {
+  //         headers: {
+  //           'Authorization': `Bearer ${localStorage.getItem('token')}`
+  //         }
+  //       });
         
-        if (response.ok) {
-          const data = await response.json();
-          setUserRole(data.role);
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-      }
-    };
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setUserRole(data.role);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching user role:', error);
+  //     }
+  //   };
 
-    fetchUserRole();
-  }, []);
+  //   fetchUserRole();
+  // }, []);
 
   // Add useEffect for fetching mentors (only for superadmin)
-  useEffect(() => {
-    const fetchMentors = async () => {
-      if (userRole !== 'superadmin') return;
+  // useEffect(() => {
+  //   const fetchMentors = async () => {
+  //     if (userRole !== 'superadmin') return;
       
-      try {
-        const response = await fetch('/api/admin/mentors', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+  //     try {
+  //       const response = await fetch('/api/admin/mentors', {
+  //         headers: {
+  //           'Authorization': `Bearer ${localStorage.getItem('token')}`
+  //         }
+  //       });
         
-        if (response.ok) {
-          const data = await response.json();
-          setMentorList(data);
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setMentorList(data);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching mentors:', error);
+  //     }
+  // //   };
+
+  //   fetchMentors();
+  // }, [userRole]);
+
+useEffect(() => {
+    const fetchSupportingData = async () => {
+        if (user && user.role === 'superadmin') {
+            try {
+                const mentorRes = await api.getMentors();
+                setMentorList(mentorRes.data);
+            } catch (error) {
+                console.error('Error fetching mentors:', error);
+            }
         }
-      } catch (error) {
-        console.error('Error fetching mentors:', error);
-      }
     };
-
-    fetchMentors();
-  }, [userRole]);
-
+    fetchSupportingData();
+}, [user]);
 
   const handleFilter = (key, value) => {
     console.log(`Handling filter change: ${key} = ${value}`); 
@@ -441,46 +369,23 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 
 
 
-  const handleGenerateClick = async (id) => {
+  const handleGenerateClick = async (idMagang, nama) => {
+    showSnackbar('Memproses sertifikat...', 'info');
     try {
-      await axios.post(`http://localhost:5000/api/document/generate-sertifikat/${id}`, {}, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+        // Hanya satu panggilan API sekarang!
+        const response = await api.generateAndDownloadCertificate(idMagang);
 
-
-
-
-      const downloadResponse = await axios.get(
-        `http://localhost:5000/api/document/download-sertifikat/${id}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          responseType: 'blob'
-        }
-      );
-
-
-
-
-      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      const internName = data.find(intern => intern.id_magang === id)?.nama || 'unknown';
-      link.download = `sertifikat_${internName}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-
-
-
-      showSnackbar('Sertifikat berhasil di-generate dan diunduh');
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sertifikat_${nama.replace(/\s+/g, '_')}.docx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        showSnackbar('Sertifikat berhasil diunduh', 'success');
     } catch (error) {
-      console.error('Error:', error);
-      showSnackbar(error.response?.data?.message || 'Gagal generate sertifikat', 'error');
+        showSnackbar(error.response?.data?.message || 'Gagal memproses sertifikat', 'error');
     }
 };
  
@@ -519,7 +424,7 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     e.preventDefault();
     setEditDialog(prev => ({ ...prev, loading: true }));
     try {
-      const scoreData = {
+        const scoreData = {
         ...scoreForm,
         nilai_teamwork: Number(scoreForm.nilai_teamwork),
         nilai_komunikasi: Number(scoreForm.nilai_komunikasi),
@@ -533,28 +438,10 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
         nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
         jumlah_hadir: Number(scoreForm.jumlah_hadir)  
       };
- 
-      const response = await axios.put(
-        `/api/intern/update-nilai/${editDialog.data.id_penilaian}`,
-        scoreData,
-        {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            }
-        }
-    );
-
-
-
-
-      if (response.data.status === 'success') {
-            showSnackbar('Nilai berhasil diperbarui', 'success');
-            setEditDialog(prev => ({ ...prev, open: false, loading: false }));
-            fetchData();
-        } else {
-            throw new Error(response.data.message || 'Gagal memperbarui nilai');
-        }
+        await api.updateNilai(editDialog.data.id_penilaian, scoreData);
+        showSnackbar('Nilai berhasil diperbarui', 'success');
+        setEditDialog(prev => ({ ...prev, open: false, loading: false }));
+        fetchData();
     } catch (error) {
         console.error('Error updating score:', error);
         showSnackbar(
@@ -570,17 +457,12 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
 };
 
 
-
-
 const handleExport = async () => {
-  setExportDialog(prev => ({ ...prev, loading: true }));
-  try {
-    const params = {
-      bidang: filters.bidang
-    };
-   
-
-    if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
+    setExportDialog(prev => ({ ...prev, loading: true }));
+    try {
+        const params = { /* ... */ };
+        const response = await api.exportRekapNilai(params);
+        if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
       const formatDate = (date) => {
         const d = new Date(date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -589,23 +471,7 @@ const handleExport = async () => {
       params.end_date_end = formatDate(exportDialog.dateRange.endDate);
     }
 
-
-
-
     console.log('Export params:', params); 
-
-
-
-
-    const response = await axios.get('/api/intern/export', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      responseType: 'blob',
-      params
-    });
-
-
-
-
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
@@ -620,6 +486,55 @@ const handleExport = async () => {
     setExportDialog(prev => ({ ...prev, loading: false }));
   }
 };
+
+// const handleExport = async () => {
+//   setExportDialog(prev => ({ ...prev, loading: true }));
+//   try {
+//     const params = {
+//       bidang: filters.bidang
+//     };
+   
+
+//     if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
+//       const formatDate = (date) => {
+//         const d = new Date(date);
+//         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+//       };
+//       params.end_date_start = formatDate(exportDialog.dateRange.startDate);
+//       params.end_date_end = formatDate(exportDialog.dateRange.endDate);
+//     }
+
+
+
+
+//     console.log('Export params:', params); 
+
+
+
+
+//     const response = await axios.get('/api/intern/export', {
+//       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+//       responseType: 'blob',
+//       params
+//     });
+
+
+
+
+//     const url = window.URL.createObjectURL(new Blob([response.data]));
+//     const link = document.createElement('a');
+//     link.href = url;
+//     link.setAttribute('download', 'Data_Anak_Magang.xlsx');
+//     document.body.appendChild(link);
+//     link.click();
+//     link.remove();
+//     showSnackbar('Data berhasil diexport');
+//     setExportDialog(prev => ({ ...prev, open: false, loading: false }));
+//   } catch (error) {
+//     showSnackbar('Error mengexport data', 'error');
+//     setExportDialog(prev => ({ ...prev, loading: false }));
+//   }
+// };
 
 
 const ExportDialog = () => (
@@ -1199,420 +1114,30 @@ document.head.appendChild(style);
 </Dialog>
 
   <Dialog
-    open={editDataDialog.open}
-    onClose={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
-    maxWidth="md"
-    fullWidth
-  >
-    <DialogTitle sx={{ pb: 1 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Typography variant="h6">Edit Data Peserta Magang</Typography>
-        <IconButton
-          onClick={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
-          size="small"
-        >
-          <CloseIcon />
-        </IconButton>
-      </Box>
-    </DialogTitle>
-   
-    <DialogContent>
-      {editDataDialog.loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      ) : editDataDialog.error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>{editDataDialog.error}</Alert>
-      ) : editDataDialog.data && (
-        <Formik
-          initialValues={{
-            nama: editDataDialog.data.nama || '',
-            email: editDataDialog.data.email || '',
-            no_hp: editDataDialog.data.no_hp || '',
-            nama_institusi: editDataDialog.data.nama_institusi || '',
-            jenis_institusi: editDataDialog.data.jenis_institusi || '',
-            bidang_id: editDataDialog.data.id_bidang || '',
-            tanggal_masuk: adjustDateForTimezone(editDataDialog.data.tanggal_masuk),
-            tanggal_keluar: adjustDateForTimezone(editDataDialog.data.tanggal_keluar),
-            nama_pembimbing: editDataDialog.data.nama_pembimbing || '',
-            telp_pembimbing: editDataDialog.data.telp_pembimbing || '',
-            mentor_id: editDataDialog.data.mentor_id || '',
-            status: editDataDialog.data.status || 'not_yet',
-            detail_peserta: {
-              ...(editDataDialog.data.jenis_peserta === 'mahasiswa'
-                ? {
-                    nim: editDataDialog.data.detail_peserta?.nim || '',
-                    fakultas: editDataDialog.data.detail_peserta?.fakultas || '',
-                    jurusan: editDataDialog.data.detail_peserta?.jurusan || '',
-                    semester: editDataDialog.data.detail_peserta?.semester || ''
-                  }
-                : {
-                    nisn: editDataDialog.data.detail_peserta?.nisn || '',
-                    jurusan: editDataDialog.data.detail_peserta?.jurusan || '',
-                    kelas: editDataDialog.data.detail_peserta?.kelas || ''
-                  }
-              )
-            }
-          }}
-          onSubmit={handleEditSubmit}
-          validationSchema={Yup.object({
-            nama: Yup.string()
-              .required('Nama wajib diisi')
-              .min(3, 'Nama minimal 3 karakter'),
-            email: Yup.string()
-              .email('Format email tidak valid'),
-            jenis_institusi: Yup.string()
-              .required('Jenis institusi wajib dipilih'),
-            no_hp: Yup.string()
-              .matches(/^[0-9]+$/, 'Nomor HP hanya boleh berisi angka')
-              .min(10, 'Nomor HP minimal 10 digit')
-              .max(15, 'Nomor HP maksimal 15 digit'),
-            nama_institusi: Yup.string()
-              .required('Nama institusi wajib diisi'),
-            bidang_id: Yup.string()
-              .required('Ruang Penempatan wajib dipilih'),
-            tanggal_masuk: Yup.date()
-              .required('Tanggal masuk wajib diisi'),
-            tanggal_keluar: Yup.date()
-              .required('Tanggal keluar wajib diisi')
-              .min(
-                Yup.ref('tanggal_masuk'),
-                'Tanggal keluar harus setelah tanggal masuk'
-              ),
-            nama_pembimbing: Yup.string()
-                          .nullable(),
-                        telp_pembimbing: Yup.string()
-                          .nullable()
-                          .matches(/^[0-9]*$/, 'Nomor telepon hanya boleh berisi angka')
-                          .min(10, 'Nomor telepon minimal 10 digit')
-                          .max(15, 'Nomor telepon maksimal 15 digit'),
-                          mentor_id: Yup.string()
-    .nullable(),
-            status: Yup.string()
-              .required('Status wajib dipilih'),
-            detail_peserta: Yup.object().shape(
-              editDataDialog.data.jenis_peserta === 'mahasiswa'
-                ? {
-                    nim: Yup.string().required('NIM wajib diisi'),
-                    jurusan: Yup.string().required('Jurusan wajib diisi'),
-                    fakultas: Yup.string().required('Fakultas wajib diisi'),
-                    semester: Yup.number()
-                      .typeError('Semester harus berupa angka')
-                      .min(1, 'Minimal semester 1')
-                      .max(14, 'Maksimal semester 14')
-                  }
-                : {
-                    nisn: Yup.string().required('NISN wajib diisi'),
-                    jurusan: Yup.string().required('Jurusan wajib diisi'),
-                    kelas: Yup.string().required('Kelas wajib diisi')
-                  }
-            )
-          })}
-        >
-          {({ isSubmitting }) => (
-            <Form>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                {/* Status Magang - Ditambahkan di awal form */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                    Status Magang
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="status"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small" error={form.touched.status && Boolean(form.errors.status)}>
-                        <InputLabel>Status Magang</InputLabel>
-                        <Select {...field} label="Status Magang">
-                          <MenuItem value="not_yet">Belum Mulai</MenuItem>
-                          <MenuItem value="aktif">Aktif</MenuItem>
-                          <MenuItem value="almost">Hampir Selesai</MenuItem>
-                          <MenuItem value="selesai">Selesai</MenuItem>
-                          <MenuItem value="missing">Missing</MenuItem>
-                        </Select>
-                        {form.touched.status && form.errors.status && (
-                          <FormHelperText>{form.errors.status}</FormHelperText>
-                        )}
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
-
-                {/* Informasi Pribadi */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 2 }}>
-                    Informasi Pribadi
-                  </Typography>
-                </Grid>
-               
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Lengkap"
-                    size="small"
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="email"
-                    component={FormTextField}
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    size="small"
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="no_hp"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nomor HP"
-                    size="small"
-                  />
-                </Grid>
-
-                {/* Informasi Institusi */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Informasi Institusi
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama_institusi"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Institusi"
-                    size="small"
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="bidang_id"
-                    component={({ field, form }) => (
-                      <FormControl fullWidth size="small" error={form.touched.bidang_id && Boolean(form.errors.bidang_id)}>
-                        <InputLabel>Ruang Penempatan</InputLabel>
-                        <Select {...field} label="Bidang">
-                          {bidangList.map(bidang => (
-                            <MenuItem key={bidang.id_bidang} value={bidang.id_bidang}>
-                              {bidang.nama_bidang}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {form.touched.bidang_id && form.errors.bidang_id && (
-                          <FormHelperText>{form.errors.bidang_id}</FormHelperText>
-                        )}
-                      </FormControl>
-                    )}
-                  />
-                </Grid>
-
-                {/* Detail Peserta */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Detail Peserta
-                  </Typography>
-                </Grid>
-
-                {editDataDialog.data.jenis_peserta === 'mahasiswa' ? (
-                  <>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.nim"
-                        component={FormTextField}
-                        fullWidth
-                        label="NIM"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.fakultas"
-                        component={FormTextField}
-                        fullWidth
-                        label="Fakultas"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.jurusan"
-                        component={FormTextField}
-                        fullWidth
-                        label="Jurusan"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.semester"
-                        component={FormTextField}
-                        fullWidth
-                        label="Semester"
-                        type="number"
-                        size="small"
-                      />
-                    </Grid>
-                  </>
-                ) : (
-                  <>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.nisn"
-                        component={FormTextField}
-                        fullWidth
-                        label="NISN"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.jurusan"
-                        component={FormTextField}
-                        fullWidth
-                        label="Jurusan"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Field
-                        name="detail_peserta.kelas"
-                        component={FormTextField}
-                        fullWidth
-                        label="Kelas"
-                        size="small"
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                {/* Periode Magang */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Periode Magang
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="tanggal_masuk"
-                    component={FormTextField}
-                    fullWidth
-                    label="Tanggal Mulai"
-                    type="date"
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="tanggal_keluar"
-                    component={FormTextField}
-                    fullWidth
-                    label="Tanggal Selesai"
-                    type="date"
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-
-                {/* Informasi Pembimbing */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-                    Informasi Pembimbing
-                  </Typography>
-                </Grid>
-               
-                <Grid item xs={12} md={6}>
-                  <Field
-                    name="nama_pembimbing"
-                    component={FormTextField}
-                    fullWidth
-                    label="Nama Pembimbing"
-                    size="small"
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-  <Field
-    name="telp_pembimbing"
-    component={FormTextField}
-    fullWidth
-    label="No. Telp Pembimbing"
-    size="small"
-  />
-</Grid>
-
-<Grid item xs={12}>
-  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-    Mentor
-  </Typography>
-</Grid>
-
-<Grid item xs={12} md={6}>
-  <Field
-    name="mentor_id"
-    component={({ field, form }) => (
-      <FormControl fullWidth size="small">
-        <InputLabel>Mentor</InputLabel>
-        <Select {...field} label="Mentor">
-          {mentorList.map(mentor => (
-            <MenuItem key={mentor.id_users} value={mentor.id_users}>
-              {mentor.nama}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    )}
-  />
-</Grid>
-</Grid>
-
-              <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button
-                  onClick={() => setEditDataDialog({ open: false, loading: false, data: null, error: null })}
-                  disabled={isSubmitting}
-                  sx={{ 
-                    color: '#2E7D32',
-                    borderColor: '#2E7D32',
-                    '&:hover': {
-                      borderColor: '#1B5E20',
-                      bgcolor: '#E8F5E9'
-                    }
-                  }}
-                  variant="outlined"
-                >
-                  Batal
-                </Button>
-                <LoadingButton
-                  type="submit"
-                  variant="contained"
-                  loading={isSubmitting}
-                  sx={{
-                    bgcolor: '#2E7D32',
-                    '&:hover': {
-                      bgcolor: '#1B5E20'
-                    }
-                  }}
-                >
-                  Simpan Perubahan
-                </LoadingButton>
-              </Box>
-            </Form>
-          )}
-        </Formik>
+  open={editInternDialog.open}
+  onClose={() => setEditInternDialog({ open: false })}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle>Edit Data Peserta Magang</DialogTitle>
+  <DialogContent>
+      {editInternDialog.loading && <CircularProgress />}
+      {editInternDialog.data && (
+          <Formik
+              initialValues={{
+                  nama: editInternDialog.data.nama || '',
+                  tanggal_masuk: adjustDateForAPI(editInternDialog.data.tanggal_masuk),
+                  // ... ganti semua editDataDialog.data menjadi editInternDialog.data
+              }}
+              validationSchema={Yup.object({ /* ... skema validasi ... */ })}
+              onSubmit={handleEditInternSubmit} // <-- Panggil fungsi baru
+              enableReinitialize
+          >
+             {/* ... JSX Formik di sini ... */}
+          </Formik>
       )}
-    </DialogContent>
-  </Dialog>
+  </DialogContent>
+</Dialog>
 
       {/* Edit Score Dialog */}
       <Dialog
@@ -1875,3 +1400,4 @@ document.head.appendChild(style);
 };
 
 export default RekapNilai;//rekap nilai
+

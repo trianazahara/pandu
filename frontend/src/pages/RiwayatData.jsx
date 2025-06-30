@@ -21,7 +21,8 @@ import {
   Tooltip
 } from '@mui/material';
 import { Assessment as AssessmentIcon, Info as InfoIcon, Check as CheckIcon } from '@mui/icons-material';
-import axios from 'axios';
+import * as api from '../services/apiService';
+import { useAuth } from '../contexts/authContext'; // <-- Kita butuh ini untuk info user
 
 
 const calculateWorkingDays = (startDate, endDate) => {
@@ -146,6 +147,7 @@ const RiwayatData = () => {
     limit: 10,
     total: 0
   });
+  const { user } = useAuth(); 
   const [search, setSearch] = useState('');
   const [bidang, setBidang] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -173,53 +175,45 @@ const RiwayatData = () => {
   });
 
   // Fetch functions
-  const fetchBidangList = async () => {
+const fetchBidangList = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/bidang', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setBidangList(response.data.data || []);
+        const response = await api.getBidangList();
+        setBidangList(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching bidang:', error);
-      showSnackbar('Gagal mengambil data bidang', 'error');
+        console.error('Error fetching bidang:', error);
+        showSnackbar('Gagal mengambil data bidang', 'error');
     }
-  };
+};
 
-  const fetchData = async () => {
+  // Panggil ini di dalam komponen: const RiwayatData = () => { ...
+
+const fetchData = async () => {
+    if (!user) return; // Jangan fetch data jika info user belum siap
     try {
-      const token = localStorage.getItem('token');
-      const decodedToken = JSON.parse(atob(token.split('.')[1]));
-      const userRole = decodedToken.role;
-  
-      const params = {
-        page: pagination.page + 1,
-        limit: pagination.limit,
-        bidang,
-        search,
-        search_type: 'nama_institusi',
-        status: statusFilter ? statusFilter : ['selesai', 'missing', 'almost'].join(',') 
-      };
-  
-      if (userRole === 'admin') {
-        params.mentor_id = decodedToken.userId;
-      }
-  
-      const response = await axios.get('/api/intern/riwayat-data', {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
-      console.log('Response data:', response.data);
-      setData(response.data.data);
-      setPagination(prev => ({
-        ...prev,
-        total: response.data.pagination.total
-      }));
+        const params = {
+            page: pagination.page + 1,
+            limit: pagination.limit,
+            bidang,
+            search,
+            search_type: 'nama_institusi',
+            status: statusFilter ? statusFilter : ['selesai', 'missing', 'almost'].join(','),
+        };
+
+        if (user.role === 'admin') {
+            params.mentor_id = user.id_users; // Ambil dari context, bukan decode manual
+        }
+
+        const response = await api.getRiwayatData(params); // Panggil service
+        setData(response.data.data);
+        setPagination(prev => ({
+            ...prev,
+            total: response.data.pagination.total
+        }));
     } catch (error) {
-      console.error('Error fetching data:', error);
-      showSnackbar('Error mengambil data', 'error');
+        console.error('Error fetching data:', error);
+        showSnackbar('Error mengambil data', 'error');
     }
-  };
+};
 
   // Effects
   useEffect(() => {
@@ -290,61 +284,21 @@ const RiwayatData = () => {
   const handleSubmitScore = async (e) => {
     e.preventDefault();
     try {
-      const scoreData = {
-        id_magang: selectedIntern?.id_magang,
-        ...scoreForm,
-        nilai_teamwork: Number(scoreForm.nilai_teamwork),
-        nilai_komunikasi: Number(scoreForm.nilai_komunikasi),
-        nilai_pengambilan_keputusan: Number(scoreForm.nilai_pengambilan_keputusan),
-        nilai_kualitas_kerja: Number(scoreForm.nilai_kualitas_kerja),
-        nilai_teknologi: Number(scoreForm.nilai_teknologi),
-        nilai_disiplin: Number(scoreForm.nilai_disiplin),
-        nilai_tanggungjawab: Number(scoreForm.nilai_tanggungjawab),
-        nilai_kerjasama: Number(scoreForm.nilai_kerjasama),
-        nilai_kejujuran: Number(scoreForm.nilai_kejujuran),
-        nilai_kebersihan: Number(scoreForm.nilai_kebersihan),
-        jumlah_hadir: Number(scoreForm.jumlah_hadir)
-      };
-
-      console.log('Final score data being sent:', scoreData);
-      console.log('jumlah_hadir value:', scoreData.jumlah_hadir);
-
-      const response = await axios.post(
-        `/api/intern/add-score/${selectedIntern.id_magang}`,
-        scoreData,
-        {
-          headers: { 
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Response dari server:', response.data);
-      
-      if (response.status === 201) {
+        const scoreData = {
+            id_magang: selectedIntern?.id_magang,
+            ...scoreForm,
+            // ... Konversi ke Number
+        };
+        await api.addOrUpdateScore(selectedIntern.id_magang, scoreData); // Panggil service
+        
         showSnackbar('Nilai berhasil disimpan');
         setOpenDialog(false);
         fetchData();
-      }
-
-      if (response.status === 201) {
-        showSnackbar('Nilai berhasil disimpan');
-        setOpenDialog(false);
-
-        setData(prevData => 
-          prevData.map(item => 
-            item.id_magang === selectedIntern.id_magang 
-              ? { ...item, has_score: true }
-              : item
-          )
-        );
-      }
     } catch (error) {
-      console.error('Submit error:', error);
-      showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
+        console.error('Submit error:', error);
+        showSnackbar(error.response?.data?.message || 'Error menyimpan nilai', 'error');
     }
-  };
+};
 
   const getRowStyle = (intern) => {
     if (intern.has_scores) {

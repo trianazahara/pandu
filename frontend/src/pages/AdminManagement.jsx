@@ -21,150 +21,99 @@ import {
   Alert,
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import axios from 'axios';
+// import axios from 'axios';
+import * as api from '../services/apiService';
 
 const AdminManagement = () => {
-    const [admins, setAdmins] = useState([]);
-    const [openDialog, setOpenDialog] = useState(false);
-    const [selectedAdmin, setSelectedAdmin] = useState(null);
-    const [bidangList, setBidangList] = useState([]);
-    const [bidangLoading, setBidangLoading] = useState(false);
-    const [bidangError, setBidangError] = useState(null);
-    const [formData, setFormData] = useState({
-      username: '',
-      password: '',
-      email: '',
-      nama: '',
-      nip: '',
-      id_bidang: '',
-      role: 'admin'
-    });
-    const [snackbar, setSnackbar] = useState({
-      open: false,
-      message: '',
-      severity: 'success'
-    });
- 
-    const fetchBidangList = async () => {
-      try {
-        setBidangLoading(true);
-        setBidangError(null);
-        const token = localStorage.getItem('token');
-       
-        const response = await fetch('/api/bidang', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-       
-        if (!response.ok) {
-          throw new Error('Gagal mengambil data bidang');
-        }
- 
-        const result = await response.json();
-        if (result.status === 'success') {
-          setBidangList(result.data);
-        } else {
-          throw new Error(result.message || 'Gagal mengambil data bidang');
-        }
-      } catch (error) {
-        console.error('Error fetching bidang:', error);
-        setBidangError('Gagal mengambil data bidang');
-      } finally {
-        setBidangLoading(false);
-      }
-    };
+  const [admins, setAdmins] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [bidangList, setBidangList] = useState([]);
+  // Kita tidak perlu state loading dan error untuk bidang lagi karena penanganannya lebih sederhana
+  const [formData, setFormData] = useState({
+    username: '', password: '', email: '', nama: '',
+    nip: '', id_bidang: '', role: 'admin'
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false, message: '', severity: 'success'
+  });
 
-    const fetchAdmins = async () => {
-      try {
-        const response = await axios.get('/api/admin', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        setAdmins(response.data);
-      } catch (error) {
-        showSnackbar('Gagal mengambil data admin', 'error');
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  // 2. Fungsi fetch data jadi jauh lebih simpel
+  const fetchAllData = async () => {
+    try {
+      // Mengambil data admin dan bidang secara bersamaan
+      const [adminsResponse, bidangResponse] = await Promise.all([
+        api.getAdmins(),
+        api.getBidangList()
+      ]);
+      
+      setAdmins(adminsResponse.data);
+
+      if (bidangResponse.data.status === 'success') {
+        setBidangList(bidangResponse.data.data);
       }
-    };
- 
-    useEffect(() => {
-      fetchAdmins();
-      fetchBidangList();
-    }, []);
- 
-    const handleOpenDialog = (admin = null) => {
-      if (admin) {
-        setSelectedAdmin(admin);
-        setFormData({
-          username: admin.username,
-          email: admin.email,
-          nama: admin.nama,
-          nip: admin.nip,
-          id_bidang: admin.id_bidang,
-          password: '',
-          role: admin.role
-        });
+
+    } catch (error) {
+      console.error("Gagal mengambil data:", error);
+      showSnackbar('Gagal mengambil data dari server', 'error');
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const handleOpenDialog = (admin = null) => {
+    if (admin) {
+      setSelectedAdmin(admin);
+      setFormData({
+        username: admin.username, email: admin.email, nama: admin.nama,
+        nip: admin.nip, id_bidang: admin.id_bidang, password: '', role: admin.role
+      });
+    } else {
+      setSelectedAdmin(null);
+      setFormData({
+        username: '', password: '', email: '', nama: '',
+        nip: '', id_bidang: '', role: 'admin'
+      });
+    }
+    setOpenDialog(true);
+  };
+
+  // 3. Fungsi handleSubmit jadi lebih bersih, hanya memanggil "resep"
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (selectedAdmin) {
+        await api.updateAdmin(selectedAdmin.id_users, formData);
+        showSnackbar('Admin berhasil diperbarui');
       } else {
-        setSelectedAdmin(null);
-        setFormData({
-          username: '',
-          password: '',
-          email: '',
-          nama: '',
-          nip: '',
-          id_bidang: '',
-          role: 'admin'
-        });
+        await api.createAdmin(formData);
+        showSnackbar('Admin berhasil ditambahkan');
       }
-      setOpenDialog(true);
-    };
- 
-    const showSnackbar = (message, severity = 'success') => {
-      setSnackbar({ open: true, message, severity });
-    };
- 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
+      setOpenDialog(false);
+      fetchAllData(); // Muat ulang semua data
+    } catch (error) {
+      showSnackbar(error.response?.data?.message || 'Terjadi kesalahan', 'error');
+    }
+  };
+
+  // 4. Fungsi handleDelete juga jadi lebih bersih
+  const handleDelete = async (id_users) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus admin ini?')) {
       try {
-        if (selectedAdmin) {
-          await axios.patch(`/api/admin/${selectedAdmin.id_users}`, formData, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
-          showSnackbar('Admin berhasil diperbarui');
-        } else {
-          await axios.post('/api/admin', formData, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
-          showSnackbar('Admin berhasil ditambahkan');
-        }
-        setOpenDialog(false);
-        fetchAdmins();
+        await api.deleteAdmin(id_users);
+        showSnackbar('Admin berhasil dihapus');
+        fetchAllData(); // Muat ulang semua data
       } catch (error) {
-        showSnackbar(error.response?.data?.message || 'Terjadi kesalahan', 'error');
+        showSnackbar(error.response?.data?.message || 'Gagal menghapus admin', 'error');
       }
-    };
- 
-    const handleDelete = async (id_users) => {
-      if (window.confirm('Apakah Anda yakin ingin menghapus admin ini?')) {
-        try {
-          const response = await axios.delete(`/api/admin/${id_users}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
-   
-          if (response.status === 200) {
-            showSnackbar('Admin berhasil dihapus');
-            fetchAdmins();
-          }
-        } catch (error) {
-          console.error('Delete error:', error);
-          showSnackbar(
-            error.response?.data?.message || 'Gagal menghapus admin',
-            'error'
-          );
-        }
-      }
-    };
+    }
+  };
 
     React.useEffect(() => {
       const style = document.createElement('style');

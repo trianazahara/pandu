@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Bell, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import NotificationHandler from './NotificationHandler';
+import * as api from '../../services/apiService';
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,72 +37,45 @@ const Header = () => {
     navigate('/login');
   };
 
-  const fetchUserProfile = async () => {
+const fetchUserProfile = async () => {
     try {
-      const response = await fetch('/api/profile', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch user profile');
-      const data = await response.json();
-      setUser(data);
+        const response = await api.getProfile();
+        setUser(response.data);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+        console.error('Error fetching user profile:', error);
     }
-  };
+};
 
   const fetchNotifications = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/notifications?page=1&limit=5', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch notifications');
-      const data = await response.json();
-      setNotifications(data.data);
+        setLoading(true);
+        const params = { page: 1, limit: 5 };
+        const response = await api.getNotifications(params);
+        setNotifications(response.data.data);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+        console.error('Error fetching notifications:', error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('/api/notifications/unread-count', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch unread count');
-      const data = await response.json();
-      setUnreadCount(data.count);
+        const response = await api.getUnreadNotificationCount();
+        setUnreadCount(response.data.count);
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+        console.error('Error fetching unread count:', error);
     }
-  };
-
+};
   const markAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-all-read', {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notif => ({ ...notif, dibaca: 1 }))
-      );
-      setUnreadCount(0);
+        await api.markAllNotificationsAsRead();
+        setNotifications(prev => prev.map(notif => ({ ...notif, dibaca: 1 })));
+        setUnreadCount(0);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+        console.error('Error marking all notifications as read:', error);
     }
-  };
+};
 
   useEffect(() => {
     fetchUserProfile();

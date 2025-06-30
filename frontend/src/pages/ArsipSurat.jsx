@@ -33,44 +33,29 @@ import {
 //   User,
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
+import * as api from '../services/apiService';
 
 const ArsipSurat = () => {
+  // State management (sebagian besar tetap sama)
   const [archives, setArchives] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [perPage] = useState(10);
-  
-  // Filters
-  const [search, setSearch] = useState('');
-  const [selectedBidang, setSelectedBidang] = useState('');
-  const [selectedBulan, setSelectedBulan] = useState('');
-  const [selectedTahun, setSelectedTahun] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Filter options
-  const [bidangList, setBidangList] = useState([]);
-  
-  // Snackbar
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [perPage] = useState(10);
+    const [filters, setFilters] = useState({ search: '', bidang: '', bulan: '', tahun: '' });
+    const [showFilters, setShowFilters] = useState(false);
+    const [bidangList, setBidangList] = useState([]);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Opsi untuk filter (tetap sama)
   const bulanOptions = [
-    { value: '1', label: 'Januari' }, { value: '2', label: 'Februari' },
-    { value: '3', label: 'Maret' }, { value: '4', label: 'April' },
-    { value: '5', label: 'Mei' }, { value: '6', label: 'Juni' },
-    { value: '7', label: 'Juli' }, { value: '8', label: 'Agustus' },
-    { value: '9', label: 'September' }, { value: '10', label: 'Oktober' },
-    { value: '11', label: 'November' }, { value: '12', label: 'Desember' }
+    { value: '1', label: 'Januari' }, { value: '2', label: 'Februari' }, { value: '3', label: 'Maret' },
+    { value: '4', label: 'April' }, { value: '5', label: 'Mei' }, { value: '6', label: 'Juni' },
+    { value: '7', label: 'Juli' }, { value: '8', label: 'Agustus' }, { value: '9', label: 'September' },
+    { value: '10', label: 'Oktober' }, { value: '11', label: 'November' }, { value: '12', label: 'Desember' }
   ];
-  
-  const tahunOptions = Array.from({length: 10}, (_, i) => {
+  const tahunOptions = Array.from({ length: 10 }, (_, i) => {
     const year = new Date().getFullYear() - i;
     return { value: year.toString(), label: year.toString() };
   });
@@ -79,166 +64,129 @@ const ArsipSurat = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // Fetch archives data
+  // 2. Fungsi fetch data jadi lebih bersih dan terpusat
   const fetchArchives = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: perPage.toString(),
-        search,
-        bidang: selectedBidang,
-        bulan: selectedBulan,
-        tahun: selectedTahun
-      });
-
-      const response = await fetch(`http://localhost:5000/api/archives?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
-      
-      if (data.status === 'success') {
-        console.log('Archives data:', data.data.archives); // Debug log
-        setArchives(data.data.archives);
-        setTotalPages(data.data.pagination.total_pages);
+      const params = {
+        page: currentPage,
+        limit: perPage,
+        ...filters,
+      };
+      const response = await api.getArchives(params);
+      if (response.data.status === 'success') {
+        setArchives(response.data.data.archives);
+        setTotalPages(response.data.data.pagination.total_pages);
       } else {
-        setError(data.message);
+        showSnackbar(response.data.message || 'Gagal memuat arsip', 'error');
       }
     } catch (err) {
-      setError('Terjadi kesalahan saat memuat data');
-      console.error('Error:', err);
+      showSnackbar('Terjadi kesalahan saat memuat data', 'error');
+      console.error('Error fetching archives:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch bidang list
-  const fetchBidangList = async () => {
+  const fetchBidang = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/archives/bidang', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      if (data.status === 'success') {
-        setBidangList(data.data);
+      const response = await api.getArchiveBidangList();
+      if (response.data.status === 'success') {
+        setBidangList(response.data.data);
       }
     } catch (err) {
-      console.error('Error fetching bidang:', err);
+      console.error('Error fetching bidang list:', err);
     }
   };
 
-  // Preview certificate
-  const handlePreview = async (idMagang, nama) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/archives/download/${idMagang}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        window.URL.revokeObjectURL(url);
-      } else {
-        const data = await response.json();
-        showSnackbar(data.message || 'Gagal preview sertifikat', 'error');
-      }
-    } catch (err) {
-      console.error('Error previewing:', err);
-      showSnackbar('Terjadi kesalahan saat preview', 'error');
-    }
-  };
-  const handleDownload = async (idMagang, nama) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/archives/download/${idMagang}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sertifikat_${nama.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        showSnackbar('Sertifikat berhasil didownload');
-      } else {
-        const data = await response.json();
-        showSnackbar(data.message || 'Gagal mendownload sertifikat', 'error');
-      }
-    } catch (err) {
-      console.error('Error downloading:', err);
-      showSnackbar('Terjadi kesalahan saat mendownload', 'error');
-    }
-  };
-
-  // Delete certificate
-  const handleDelete = async (idMagang, nama) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus sertifikat ${nama}?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:5000/api/archives/${idMagang}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        showSnackbar('Sertifikat berhasil dihapus');
-        fetchArchives(); // Refresh data
-      } else {
-        showSnackbar(data.message || 'Gagal menghapus sertifikat', 'error');
-      }
-    } catch (err) {
-      console.error('Error deleting:', err);
-      showSnackbar('Terjadi kesalahan saat menghapus', 'error');
-    }
-  };
-
-  // Reset filters
-  const resetFilters = () => {
-    setSearch('');
-    setSelectedBidang('');
-    setSelectedBulan('');
-    setSelectedTahun('');
-    setCurrentPage(1);
-  };
-
-  // Effect hooks
   useEffect(() => {
-    fetchBidangList();
-  }, []);
+    fetchBidang();
+  }, []); // Ambil daftar bidang sekali saja saat komponen dimuat
 
   useEffect(() => {
     fetchArchives();
-  }, [currentPage, search, selectedBidang, selectedBulan, selectedTahun]);
+  }, [currentPage, filters]); // Fetch arsip setiap kali halaman atau filter berubah
 
-  // Handle search with debounce
+  // 3. Logika debounce untuk search, agar tidak request terus-menerus saat mengetik
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [search]);
+    const handler = setTimeout(() => {
+        if (currentPage !== 1) setCurrentPage(1);
+        else fetchArchives();
+    }, 500); // Tunggu 500ms setelah user berhenti mengetik
+    return () => clearTimeout(handler);
+  }, [filters.search]);
+
+
+  // 4. Handler untuk aksi-aksi menjadi lebih ringkas
+  const handlePreview = async (idMagang) => {
+        try {
+            const response = await api.downloadCertificate(idMagang);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Tidak perlu revoke URL segera agar tab baru sempat memuat
+        } catch (err) {
+            showSnackbar('Gagal memuat preview. File mungkin tidak ada.', 'error');
+        }
+    };
+
+    const handleDownload = async (idMagang, nama) => {
+        try {
+            const response = await api.downloadCertificate(idMagang);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sertifikat_${nama.replace(/\s+/g, '_')}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            showSnackbar('Sertifikat berhasil diunduh', 'success');
+        } catch (err) {
+            showSnackbar('Gagal mengunduh sertifikat. File mungkin tidak ada.', 'error');
+        }
+    };
+
+  const handleCertificateAction = async (idMagang, nama, isPreview = false) => {
+        showSnackbar('Memproses sertifikat...', 'info');
+        try {
+            // Kita sudah punya fungsi ini di apiService
+            const response = await api.downloadCertificate(idMagang); 
+            
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+
+            if (isPreview) {
+                // Jika preview, buka di tab baru
+                window.open(url, '_blank');
+            } else {
+                // Jika download, buat link dan klik otomatis
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `sertifikat_${nama.replace(/\s+/g, '_')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showSnackbar('Sertifikat berhasil diunduh', 'success');
+            }
+            // Hapus URL dari memori setelah dipakai
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            showSnackbar('Gagal memproses sertifikat. File mungkin tidak ada.', 'error');
+            console.error('Error downloading/previewing certificate:', err);
+        }
+    };
+
+  const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+        setCurrentPage(1);
+    };
+
+    const resetFilters = () => {
+        setFilters({ search: '', bidang: '', bulan: '', tahun: '' });
+        setCurrentPage(1);
+    };
 
   // Add animated background styles
   React.useEffect(() => {
@@ -340,7 +288,7 @@ const ArsipSurat = () => {
                   fullWidth
                   label="Cari Nama/Institusi"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleFilterChange('search', e.target.value)} 
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -357,7 +305,7 @@ const ArsipSurat = () => {
                   fullWidth
                   label="Bidang"
                   value={selectedBidang}
-                  onChange={(e) => setSelectedBidang(e.target.value)}
+                  onChange={(e) => handleFilterChange('bidang', e.target.value)}
                 >
                   <MenuItem value="">Semua Bidang</MenuItem>
                   {bidangList.map((bidang) => (

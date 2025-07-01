@@ -3,6 +3,7 @@ const Docxtemplater = require('docxtemplater');
 const fs = require('fs').promises;
 const fsSync = require('fs');  
 const path = require('path');
+console.log("Lokasi file controller ini (__dirname):", __dirname);
 const libre = require('libreoffice-convert');
 const { promisify } = require('util');
 const convertAsync = promisify(libre.convert);
@@ -436,35 +437,53 @@ const documentController = {
 
     // Download sertifikat peserta
     async downloadSertifikat(req, res) {
-        try {
-            const { id_magang } = req.params;
-           
-            // Ambil path file sertifikat
-            const [peserta] = await pool.execute(
-                'SELECT sertifikat_path FROM peserta_magang WHERE id_magang = ?',
-                [id_magang]
-            );
+    console.log("\n--- MEMULAI PROSES DOWNLOAD SERTIFIKAT ---"); 
+    try {
+        const { id_magang } = req.params;
 
-            if (!peserta[0]?.sertifikat_path) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Sertifikat tidak ditemukan'
-                });
+        // LOG 1: Lihat ID mentah yang diterima dan tipe datanya.
+        // Tanda kutip akan membantu kita melihat spasi tersembunyi.
+        console.log(`ID Magang yang diterima dari URL: '${id_magang}' (Tipe data: ${typeof id_magang})`);
+
+        // LOG 2: Jalankan query ke database
+        const [peserta] = await pool.execute(
+            'SELECT sertifikat_path FROM peserta_magang WHERE id_magang = ?',
+            [id_magang]
+        );
+
+        // LOG 3: Lihat hasil mentah dari database
+        // Jika hasilnya [[]], artinya tidak ada data yang cocok.
+        console.log('Hasil query dari database:', JSON.stringify(peserta));
+
+        if (!peserta[0]?.sertifikat_path) {
+            console.log("Kondisi '!peserta[0]?.sertifikat_path' bernilai TRUE. Mengirim 404.");
+            if (peserta.length === 0) {
+                console.log("Alasan: Query tidak menemukan satu baris pun dengan ID tersebut.");
+            } else {
+                console.log("Alasan: Baris ditemukan, tetapi kolom 'sertifikat_path' di baris itu kosong (NULL).");
             }
-
-            // Download file
-            const filePath = path.join(__dirname, '..', 'public', peserta[0].sertifikat_path.replace(/^\//, ''));
-            res.download(filePath);
-
-        } catch (error) {
-            console.error('Error downloading certificate:', error);
-            res.status(500).json({
+            
+            return res.status(404).json({
                 success: false,
-                message: 'Gagal mengunduh sertifikat',
-                error: error.message
+                message: 'Sertifikat tidak ditemukan di DB untuk ID ini.'
             });
         }
-    },
+        
+        console.log("SUKSES: Path ditemukan:", peserta[0].sertifikat_path);
+        const filePath = path.join(__dirname, '..', 'public', peserta[0].sertifikat_path.replace(/^\//, ''));
+        console.log('Mencoba mengirim file dari path absolut:', filePath);
+
+        res.download(filePath, (err) => {
+            if (err) {
+                console.error("ERROR SAAT res.download():", err);
+            }
+        });
+
+    } catch (error) {
+        console.error('FATAL ERROR di blok CATCH:', error);
+        res.status(500).json({ message: 'Terjadi kesalahan internal server' });
+    }
+},
 
     // Generate tanda terima
     async generateReceipt(req, res) {

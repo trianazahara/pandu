@@ -49,7 +49,7 @@ export const getCompletedInterns = () => apiClient.get('/intern', { params: { st
 
 // == PENILAIAN & DOKUMEN ==
 export const submitAssessment = (idMagang, assessmentData) => apiClient.post(`/assessment/${idMagang}`, assessmentData);
-export const generateCertificate = (idMagang) => apiClient.post(`/document/certificate/${idMagang}`, {}, { responseType: 'blob' });
+// export const generateCertificate = (idMagang) => apiClient.post(`/document/certificate/${idMagang}`, {}, { responseType: 'blob' });
 export const generateInternReceipt = (internIds) => apiClient.post('/intern/generate-receipt', { internIds }, { responseType: 'blob' });
 
 // == ARSIP ==
@@ -61,9 +61,6 @@ export const downloadCertificate = (idMagang) => {
     responseType: 'blob', // Penting karena kita mengharapkan file
   });
 };
-// =================================================================
-// ==              REKAP NILAI, EXPORT, & UPLOAD                  ==
-// =================================================================
 
 // Mengambil data rekap nilai dengan filter & paginasi
 export const getRekapNilai = (params) => apiClient.get('/intern/rekap-nilai', { params });
@@ -94,9 +91,6 @@ export const exportReport = (params) => apiClient.get('/report/export', {
   params
 });
 
-// =================================================================
-// ==              PENGATURAN (PROFILE & DOKUMEN)               ==
-// =================================================================
 
 // Mengambil data profile user
 export const getProfile = () => apiClient.get('/profile');
@@ -137,9 +131,6 @@ export const addOrUpdateScore = (idMagang, scoreData) => apiClient.post(`/intern
 // == FUNGSI BERSAMA (SHARED) ==
 export const getBidangList = () => apiClient.get('/bidang');
 
-// =================================================================
-// ==                     NOTIFIKASI                              ==
-// =================================================================
 
 // Mengambil daftar notifikasi dengan paginasi
 export const getNotifications = (params) => apiClient.get('/notifications', { params });
@@ -151,15 +142,15 @@ export const getUnreadNotificationCount = () => apiClient.get('/notifications/un
 export const markAllNotificationsAsRead = () => apiClient.put('/notifications/mark-all-read');
 
 
-// // Generate sertifikat (berdasarkan template)
-// export const generateSertifikat = (idMagang) => apiClient.post(`/document/generate-sertifikat/${idMagang}`);
+export const generateCertificate = (idMagang) => {
+  // TAMBAHKAN '/document' di sini
+  return apiClient.post(`/document/generate-sertifikat/${idMagang}`); 
+};
 
-// // Download sertifikat yang sudah di-generate
-// export const downloadSertifikat = (idMagang) => apiClient.get(`/document/download-sertifikat/${idMagang}`, {
-//     responseType: 'blob'
-// });
-export const generateAndDownloadCertificate = (idMagang) => {
-    return apiClient.post(`/document/generate-sertifikat/${idMagang}`, {}, {
-        responseType: 'blob' // Langsung harapkan file sebagai respons
-    });
+// FUNGSI DOWNLOAD (Path sudah diperbaiki dengan /document)
+export const downloadGeneratedCertificate = (idMagang) => {
+  // TAMBAHKAN '/document' di sini
+  return apiClient.get(`/document/download-sertifikat/${idMagang}`, {
+    responseType: 'blob', 
+  });
 };

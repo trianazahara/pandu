@@ -160,12 +160,13 @@ const [editInternDialog, setEditInternDialog] = useState({
   error: null
 });
 
+// UBAH FUNGSI INI
 const handleEditSubmit = async (values, { setSubmitting }) => {
     try {
-        await api.updateIntern(editDataDialog.data.id_magang, values);
+        await api.updateIntern(editDataDialog.data.id_magang, values); // <--- Perubahan
         showSnackbar('Data berhasil diperbarui', 'success');
         setEditDataDialog({ open: false, loading: false, data: null, error: null });
-        fetchData(); 
+        fetchData();
     } catch (error) {
         showSnackbar(error.response?.data?.message || 'Gagal memperbarui data.', 'error');
         setEditDataDialog(prev => ({ ...prev, error: error.response?.data?.message || 'Gagal memperbarui data' }));
@@ -174,11 +175,12 @@ const handleEditSubmit = async (values, { setSubmitting }) => {
     }
 };
 
+// UBAH FUNGSI INI
 const handleEditDataClick = async (id) => {
     try {
         setDetailDialog(prev => ({ ...prev, open: false }));
         setEditDataDialog(prev => ({ ...prev, loading: true, open: true }));
-        const response = await api.getInternById(id);
+        const response = await api.getInternById(id); // <--- Perubahan
         if (response.data.status === 'success') {
             setEditDataDialog(prev => ({ ...prev, loading: false, data: response.data.data, error: null }));
         } else {
@@ -216,27 +218,41 @@ const handleEditInternSubmit = async (values, { setSubmitting }) => {
     });
   };
 
-  const handleFileUpload = async () => {
-    if (!uploadDialog.selectedFile) return showSnackbar('Pilih file terlebih dahulu', 'error');
+  // UBAH FUNGSI INI
+const handleFileUpload = async () => {
+    if (!uploadDialog.selectedFile) {
+        showSnackbar('Pilih file terlebih dahulu', 'error');
+        return;
+    }
     setUploadDialog(prev => ({ ...prev, loading: true }));
     try {
         const formData = new FormData();
         formData.append('arsip_sertifikat', uploadDialog.selectedFile);
-        await api.uploadArsipSertifikat(uploadDialog.idMagang, formData);
-        showSnackbar('Arsip sertifikat berhasil diupload', 'success');
-        setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' });
-        fetchData();
+        const response = await api.uploadArsipSertifikat(uploadDialog.idMagang, formData); // <--- Perubahan
+        const data = response.data; // Axios otomatis parse JSON
+        if (data.status === 'success') {
+            showSnackbar('Arsip sertifikat berhasil diupload', 'success');
+            setUploadDialog({ open: false, loading: false, selectedFile: null, idMagang: null, nama: '' });
+            fetchData();
+        } else {
+            throw new Error(data.message);
+        }
     } catch (error) {
         showSnackbar(error.message || 'Gagal upload arsip sertifikat', 'error');
         setUploadDialog(prev => ({ ...prev, loading: false }));
     }
 };
 
-  const handleDetailClick = async (id) => {
+  // UBAH FUNGSI INI
+const handleDetailClick = async (id) => {
     setDetailDialog(prev => ({ ...prev, open: true, loading: true }));
     try {
-        const response = await api.getInternById(id);
-        setDetailDialog(prev => ({ ...prev, data: response.data.data, loading: false }));
+        const response = await api.getInternById(id); // <--- Perubahan
+        if (response.data.status === 'success') {
+            setDetailDialog(prev => ({ ...prev, data: response.data.data, loading: false }));
+        } else {
+            throw new Error(response.data.message || 'Failed to fetch detail data');
+        }
     } catch (error) {
         setDetailDialog(prev => ({ ...prev, error: error.message, loading: false }));
     }
@@ -247,18 +263,21 @@ const handleEditInternSubmit = async (values, { setSubmitting }) => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const fetchBidangList = async () => {
+  // UBAH FUNGSI INI
+const fetchBidangList = async () => {
     try {
-        const response = await api.getBidangList();
+        const response = await api.getBidangList(); // <--- Perubahan
         setBidangList(response.data.data || []);
     } catch (error) {
+        console.error('Error fetching bidang:', error);
         showSnackbar('Gagal mengambil data bidang', 'error');
     }
 };
 
 
-  const fetchData = async () => {
-    if (!user) return; // Tunggu info user tersedia
+  // UBAH FUNGSI INI
+const fetchData = async () => {
+    if (!user) return; // Menunggu data user dari context
     try {
         const params = {
             page: pagination.page + 1,
@@ -267,17 +286,17 @@ const handleEditInternSubmit = async (values, { setSubmitting }) => {
             search: filters.search,
             status: ['selesai', 'almost'].join(',')
         };
-        if (user.role === 'admin') {
+        if (user.role === 'admin') { // Menggunakan user dari context
             params.mentor_id = user.id_users;
         }
-        const response = await api.getRekapNilai(params);
+        const response = await api.getRekapNilai(params); // <--- Perubahan
         setData(response.data.data);
         setPagination(prev => ({ ...prev, total: response.data.pagination.total }));
     } catch (error) {
+        console.error('Error fetching data:', error.response || error);
         showSnackbar('Error mengambil data', 'error');
     }
 };
-
   useEffect(() => {
     fetchBidangList();
   }, []);
@@ -369,24 +388,43 @@ useEffect(() => {
 
 
 
-  const handleGenerateClick = async (idMagang, nama) => {
-    showSnackbar('Memproses sertifikat...', 'info');
-    try {
-        // Hanya satu panggilan API sekarang!
-        const response = await api.generateAndDownloadCertificate(idMagang);
+  const handleDownloadCertificate = async (idMagang, nama) => {
+  showSnackbar('Memproses sertifikat...', 'info');
+  try {
+    // LANGKAH 1: Memicu pembuatan file di backend.
+    // Kita tidak terlalu peduli dengan responsnya, yang penting berhasil.
+    await api.generateCertificate(idMagang);
+    
+    // Jika langkah 1 berhasil, lanjut ke langkah 2.
+    showSnackbar('File berhasil dibuat, sedang mengunduh...', 'info');
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `sertifikat_${nama.replace(/\s+/g, '_')}.docx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        showSnackbar('Sertifikat berhasil diunduh', 'success');
-    } catch (error) {
-        showSnackbar(error.response?.data?.message || 'Gagal memproses sertifikat', 'error');
-    }
+    // LANGKAH 2: Mengunduh file yang sudah dibuat.
+    const response = await api.downloadGeneratedCertificate(idMagang);
+
+    // Sekarang, 'response.data' adalah BLOB file, bukan JSON.
+    // Kode di bawah ini sekarang akan bekerja dengan benar.
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Pastikan nama file sesuai
+    link.setAttribute('download', `sertifikat_${nama.replace(/\s+/g, '_')}.docx`);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    showSnackbar('Sertifikat berhasil diunduh!', 'success');
+
+  } catch (error) {
+    console.error("Error generating or downloading certificate:", error);
+    showSnackbar(
+      error.response?.data?.message || 'Gagal memproses sertifikat. Cek konsol untuk detail.',
+      'error'
+    );
+  }
 };
  
   const handleEditScore = (score) => {
@@ -460,7 +498,9 @@ useEffect(() => {
 const handleExport = async () => {
     setExportDialog(prev => ({ ...prev, loading: true }));
     try {
-        const params = { /* ... */ };
+        const params = {
+      bidang: filters.bidang
+    };
         const response = await api.exportRekapNilai(params);
         if (exportDialog.exportType === 'filtered' && exportDialog.dateRange.startDate && exportDialog.dateRange.endDate) {
       const formatDate = (date) => {
@@ -828,7 +868,7 @@ document.head.appendChild(style);
             <Tooltip title="Unduh Sertifikat">
               <IconButton
                 size="small"
-                onClick={() => handleGenerateClick(score.id_magang)}
+                onClick={() => handleDownloadCertificate(score.id_magang, score.nama)}
                 sx={{ color: 'info.main' }}
               >
                 <FileDownloadIcon fontSize="small" />
